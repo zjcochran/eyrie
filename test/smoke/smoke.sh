@@ -89,14 +89,25 @@ check() {
   [ "$(docker inspect -f '{{.Config.User}}' "eyriesmoke-$svc-1")" = 65532:65532 ] || fail "$svc: runs as root"
   pass "$svc: runs as a non-root user"
 
-  local jar
+  local jar session csrf created id token
   jar=$(mktemp)
   curl -fsS "$url/api/v1/session" | grep -qF '"setup":true' || fail "$svc: a new instance does not ask for setup"
-  curl -fsS -c "$jar" -H 'Content-Type: application/json' -d "$ADMIN" "$url/api/v1/setup" |
-    grep -qF '"username":"alice"' || fail "$svc: setup did not create the admin"
+  session=$(curl -fsS -c "$jar" -H 'Content-Type: application/json' -d "$ADMIN" "$url/api/v1/setup")
+  grep -qF '"username":"alice"' <<<"$session" || fail "$svc: setup did not create the admin"
   curl -fsS -b "$jar" "$url/api/v1/account" | grep -qF '"role":"admin"' || fail "$svc: setup did not sign the admin in"
-  rm -f "$jar"
   pass "$svc: setup creates the admin and signs it in"
+
+  # A push monitor goes up when its URL is called: the engine runs and
+  # records heartbeats in this database.
+  csrf=$(grep -oE '"csrf":"[^"]+"' <<<"$session" | cut -d'"' -f4)
+  created=$(curl -fsS -b "$jar" -H 'Content-Type: application/json' -H "X-CSRF-Token: $csrf" \
+    -d '{"name":"Smoke","type":"push"}' "$url/api/v1/monitors") || fail "$svc: cannot create a monitor"
+  id=$(grep -oE '"id":[0-9]+' <<<"$created" | head -1 | cut -d: -f2)
+  token=$(grep -oE '/api/push/[A-Za-z0-9_-]+' <<<"$created" | head -1 | cut -d/ -f4)
+  curl -fsS "$url/api/push/$token?status=up&msg=smoke" | grep -qF '"ok":true' || fail "$svc: the push was refused"
+  wait_for 10 "$svc: a pushed monitor is up" sh -c \
+    "curl -fsS -b '$jar' '$url/api/v1/monitors/$id' | grep -qF '\"status\":\"up\"'"
+  rm -f "$jar"
 }
 
 # signin <service> <port>: the admin made by check can sign in.

@@ -3,11 +3,15 @@
   import { onMount } from 'svelte';
   import Avatar from './components/Avatar.svelte';
   import { go, link, nav } from './lib/nav.svelte.ts';
-  import { pageFor, settingsTabs } from './lib/route.ts';
+  import { connect, disconnect, loadMonitors } from './lib/live.svelte.ts';
+  import { routeFor, settingsTabs } from './lib/route.ts';
   import { api, app, refresh } from './lib/session.svelte.ts';
   import Account from './pages/Account.svelte';
   import Home from './pages/Home.svelte';
   import Login from './pages/Login.svelte';
+  import MonitorForm from './pages/MonitorForm.svelte';
+  import MonitorPage from './pages/MonitorPage.svelte';
+  import Retention from './pages/Retention.svelte';
   import SSO from './pages/SSO.svelte';
   import Setup from './pages/Setup.svelte';
   import Tokens from './pages/Tokens.svelte';
@@ -16,7 +20,20 @@
   onMount(refresh);
 
   const user = $derived(app.session?.user ?? null);
-  const page = $derived(pageFor(nav.path));
+  const route = $derived(routeFor(nav.path));
+  const page = $derived(route.page);
+  const signedIn = $derived(user !== null);
+  const inSettings = $derived(settingsTabs.some((t) => t.page === page));
+
+  // Monitors and their live updates, while signed in.
+  $effect(() => {
+    if (signedIn) {
+      loadMonitors();
+      connect();
+    } else {
+      disconnect();
+    }
+  });
   const tabs = $derived(settingsTabs.filter((t) => !t.admin || user?.role === 'admin'));
 
   // Signed in on the sign-in page: go to the app.
@@ -53,7 +70,8 @@
   <header>
     <a class="brand" href="/" onclick={link}>Eyrie</a>
     <nav>
-      <a href="/settings/account" onclick={link} aria-current={page !== 'home' ? 'page' : undefined}>Settings</a>
+      <a href="/" onclick={link} aria-current={!inSettings ? 'page' : undefined}>Monitors</a>
+      <a href="/settings/account" onclick={link} aria-current={inSettings ? 'page' : undefined}>Settings</a>
     </nav>
     <div class="me">
       <Avatar {user} />
@@ -64,6 +82,10 @@
   <main>
     {#if page === 'home'}
       <Home />
+    {:else if page === 'monitor'}
+      <MonitorPage id={route.id} />
+    {:else if (page === 'new-monitor' || page === 'edit-monitor') && user.role === 'admin'}
+      {#key route.id}<MonitorForm id={route.id} />{/key}
     {:else if page === 'not-found' || !tabs.some((t) => t.page === page)}
       <h1>Not found</h1>
       <p><a href="/" onclick={link}>Back to the start</a></p>
@@ -82,6 +104,8 @@
         <SSO />
       {:else if page === 'tokens'}
         <Tokens />
+      {:else if page === 'retention'}
+        <Retention />
       {/if}
     {/if}
   </main>
@@ -114,6 +138,8 @@
   }
   nav {
     flex: 1;
+    display: flex;
+    gap: 1rem;
   }
   nav a {
     color: var(--muted);

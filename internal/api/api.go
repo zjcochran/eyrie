@@ -14,6 +14,8 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/zjcochran/eyrie/internal/check"
+	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/sso"
 	"github.com/zjcochran/eyrie/internal/store"
@@ -41,11 +43,18 @@ type Server struct {
 	// HTTP fetches profile pictures from the single sign-on provider; nil:
 	// http.DefaultClient.
 	HTTP *http.Client
+	// Engine runs the monitors; Env is what their checks use, to check
+	// settings.
+	Engine *engine.Engine
+	Env    *check.Env
+	// MetricsToken turns on /metrics behind this Bearer token.
+	MetricsToken string
 
 	now     func() time.Time
 	limiter *limiter
 	codes   *pendingCodes
 	sso     *sso.Client
+	hub     *hub
 }
 
 // Handler returns the routes, wrapped in cross-origin protection and the
@@ -57,6 +66,7 @@ func (s *Server) Handler() http.Handler {
 	s.limiter = newLimiter(5, 15*time.Minute)
 	s.codes = &pendingCodes{m: map[string]*pendingCode{}}
 	s.sso = sso.New(s.Log)
+	s.hub = newHub()
 	if s.HTTP == nil {
 		s.HTTP = http.DefaultClient
 	}
@@ -100,6 +110,25 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/tokens", s.admin(s.createToken))
 	mux.Handle("DELETE /api/v1/tokens/{id}", s.admin(s.deleteToken))
 
+	mux.HandleFunc("GET /metrics", s.metrics)
+	mux.HandleFunc("GET /api/push/{token}", s.push)
+	mux.HandleFunc("POST /api/push/{token}", s.push)
+	mux.Handle("GET /api/v1/events", s.read(s.events))
+	mux.Handle("GET /api/v1/monitor-types", s.read(s.monitorTypes))
+	mux.Handle("GET /api/v1/monitors", s.read(s.listMonitors))
+	mux.Handle("GET /api/v1/monitors/{id}", s.read(s.getMonitor))
+	mux.Handle("GET /api/v1/monitors/{id}/heartbeats", s.read(s.heartbeats))
+	mux.Handle("GET /api/v1/monitors/{id}/hours", s.read(s.hours))
+	mux.Handle("POST /api/v1/monitors", s.admin(s.createMonitor))
+	mux.Handle("PUT /api/v1/monitors/{id}", s.admin(s.updateMonitor))
+	mux.Handle("DELETE /api/v1/monitors/{id}", s.admin(s.deleteMonitor))
+	mux.Handle("POST /api/v1/monitors/{id}/pause", s.admin(s.setActive(false)))
+	mux.Handle("POST /api/v1/monitors/{id}/resume", s.admin(s.setActive(true)))
+	mux.Handle("POST /api/v1/monitors/{id}/check", s.admin(s.checkMonitor))
+	mux.Handle("POST /api/v1/monitors/{id}/status", s.admin(s.setManualStatus))
+	mux.Handle("GET /api/v1/settings/retention", s.admin(s.getRetention))
+	mux.Handle("PUT /api/v1/settings/retention", s.admin(s.saveRetention))
+
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorBody{"no such API route"})
 	})
@@ -111,6 +140,9 @@ func (s *Server) Handler() http.Handler {
 		// Origin look foreign. config.Load checked the URL.
 		cop.AddTrustedOrigin(s.BaseURL) //nolint:errcheck,gosec // checked by config.Load
 	}
+	// Pushes are authenticated by their token, so a push from any origin is
+	// fine.
+	cop.AddInsecureBypassPattern("POST /api/push/{token}")
 	cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusForbidden, errorBody{"cross-origin request refused"})
 	}))

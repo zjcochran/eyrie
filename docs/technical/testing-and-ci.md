@@ -52,7 +52,7 @@ exits 1 if any is below the minimum.
 | `build-image` | test | `docker:28` + dind | Builds the image as `eyrie.tar` | |
 | `container_scanning` | scan | GitLab template | Scans `eyrie.tar`, including the Go modules in the binary | `container_scanning` |
 | `security-gate` | scan | `alpine:3` | `ci/security-gate.sh` on the four scan reports | `codequality` |
-| `smoke` | scan | `docker:28` + dind | `test/smoke/smoke.sh`, below | `junit` |
+| `smoke` | scan | `docker:28` + dind | After every test-stage job passed: `test/smoke/smoke.sh`, below | `junit` |
 | `release-label` | test | `alpine:3` | Merge requests: exactly one label `major`, `minor` or `patch` | |
 | `release` | release | `alpine:3` | After a merge: `ci/release.sh` | |
 | `github-sync` | publish | `alpine:3` | After a merge: `ci/github-sync.sh`, below | |
@@ -117,7 +117,8 @@ that does not apply, add `<identifier> <package or file> <reason>` to
 checks that `/healthz` answers `ok`, `/api/v1/info` reports the version
 built in, the CSP header is set, an app route serves the embedded app and
 its script is cached as immutable, the container runs as user 65532, and
-setup creates the admin `alice` and signs her in. Then it restarts both,
+setup creates the admin `alice` and signs her in, and a push monitor goes
+up when its URL is called. Then it restarts both,
 waits for them to answer, checks that `alice` can sign in with her
 password, and waits up to 2 minutes for Docker to report both healthy. `SMOKE_HOST`, `SMOKE_BIND`,
 `SMOKE_VERSION` and `SMOKE_JUNIT` adapt it to Docker-in-Docker.

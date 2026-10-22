@@ -82,6 +82,60 @@ export interface Token {
   last_used: string | null;
 }
 
+export type Status = 'unknown' | 'up' | 'pending' | 'down';
+
+export interface Beat {
+  monitor_id: number;
+  at: string;
+  status: Status;
+  latency_ms: number | null;
+  message: string;
+  important: boolean;
+}
+
+/** A monitor's settings, as created or changed. */
+export interface MonitorChange {
+  name: string;
+  type?: string;
+  parent_id: number | null;
+  active: boolean;
+  interval: number;
+  retry_interval: number;
+  retries: number;
+  resend_every: number;
+  timeout: number;
+  upside_down: boolean;
+  description: string;
+  settings: Record<string, unknown>;
+  reset_push_token?: boolean;
+}
+
+export interface Monitor extends Omit<MonitorChange, 'type'> {
+  id: number;
+  type: string;
+  push_url?: string;
+  created_at: string;
+  updated_at: string;
+  status: {
+    status: Status;
+    since: string | null;
+    message: string;
+    last_check: string | null;
+    latency_ms: number | null;
+    cert_expires: string | null;
+    checking: boolean;
+  };
+  uptime: { '24h': number | null; '30d': number | null; '1y': number | null; avg_latency_24h_ms: number | null };
+  beats?: Beat[];
+}
+
+export interface HourStats {
+  start: string;
+  up: number;
+  down: number;
+  avg_latency_ms: number | null;
+}
+
 /** An error the server answered, with its message for people. */
 export class ApiError extends Error {
   status: number;
@@ -186,6 +240,24 @@ export class Client {
   saveSSOSettings = (s: SSOSettingsChange) => this.request<SSOSettings>('PUT', '/api/v1/settings/sso', s);
   testSSO = (issuer: string) =>
     this.request<{ ok: boolean; message: string }>('POST', '/api/v1/settings/sso/test', { issuer });
+
+  monitorTypes = () => this.request<{ name: string; label: string }[]>('GET', '/api/v1/monitor-types');
+  monitors = (beats = 0) => this.request<Monitor[]>('GET', `/api/v1/monitors${beats ? `?beats=${beats}` : ''}`);
+  monitor = (id: number) => this.request<Monitor>('GET', `/api/v1/monitors/${id}`);
+  heartbeats = (id: number, since: Date) =>
+    this.request<Beat[]>('GET', `/api/v1/monitors/${id}/heartbeats?since=${encodeURIComponent(since.toISOString())}`);
+  hours = (id: number, days: number) => this.request<HourStats[]>('GET', `/api/v1/monitors/${id}/hours?days=${days}`);
+  createMonitor = (m: MonitorChange) => this.request<Monitor>('POST', '/api/v1/monitors', m);
+  updateMonitor = (id: number, m: MonitorChange) => this.request<Monitor>('PUT', `/api/v1/monitors/${id}`, m);
+  deleteMonitor = (id: number) => this.request<void>('DELETE', `/api/v1/monitors/${id}`);
+  pauseMonitor = (id: number) => this.request<Monitor>('POST', `/api/v1/monitors/${id}/pause`);
+  resumeMonitor = (id: number) => this.request<Monitor>('POST', `/api/v1/monitors/${id}/resume`);
+  checkMonitor = (id: number) => this.request<void>('POST', `/api/v1/monitors/${id}/check`);
+  setManualStatus = (id: number, status: 'up' | 'down', message: string) =>
+    this.request<Monitor>('POST', `/api/v1/monitors/${id}/status`, { status, message });
+  retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
+  saveRetention = (days: number) =>
+    this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });
 
   tokens = () => this.request<Token[]>('GET', '/api/v1/tokens');
   createToken = (name: string) => this.request<Token & { token: string }>('POST', '/api/v1/tokens', { name });

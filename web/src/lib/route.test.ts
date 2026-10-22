@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { pageFor, queryValue, safeNext } from './route.ts';
+import { pageFor, queryValue, routeFor, safeNext } from './route.ts';
 
 describe('pageFor', () => {
   it('maps paths to pages', () => {
@@ -12,7 +12,15 @@ describe('pageFor', () => {
     assert.equal(pageFor('/settings/users'), 'users');
     assert.equal(pageFor('/settings/sso'), 'sso');
     assert.equal(pageFor('/settings/api-tokens'), 'tokens');
+    assert.equal(pageFor('/settings/history'), 'retention');
     assert.equal(pageFor('/nothing'), 'not-found');
+  });
+  it('reads monitor pages and their IDs', () => {
+    assert.deepEqual(routeFor('/monitors/new'), { page: 'new-monitor', id: 0 });
+    assert.deepEqual(routeFor('/monitors/12'), { page: 'monitor', id: 12 });
+    assert.deepEqual(routeFor('/monitors/12/edit'), { page: 'edit-monitor', id: 12 });
+    assert.equal(pageFor('/monitors/0'), 'not-found');
+    assert.equal(pageFor('/monitors/x'), 'not-found');
   });
 });
 

@@ -2,7 +2,7 @@
 // Run with Node.js's test runner (npm test), which strips the types.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ApiError, Client, message, type Session } from './api.ts';
+import { ApiError, Client, message, type MonitorChange, type Session } from './api.ts';
 
 interface Call {
   path: string;
@@ -97,8 +97,22 @@ describe('Client', () => {
   });
 
   it('has a call for every route', async () => {
+    const change: MonitorChange = {
+      name: 'DB',
+      type: 'port',
+      parent_id: null,
+      active: true,
+      interval: 60,
+      retry_interval: 60,
+      retries: 0,
+      resend_every: 0,
+      timeout: 48,
+      upside_down: false,
+      description: '',
+      settings: { host: 'db.example.com', port: 5432 },
+    };
     const routes: [() => Promise<unknown>, string, string][] = [];
-    const { calls, client } = fake(...Array.from({ length: 22 }, () => json({})));
+    const { calls, client } = fake(...Array.from({ length: 40 }, () => json({})));
     routes.push(
       [() => client.account(), 'GET', '/api/v1/account'],
       [() => client.changePassword('a', 'b'), 'PUT', '/api/v1/account/password'],
@@ -134,6 +148,25 @@ describe('Client', () => {
       [() => client.testSSO('https://id.example.com'), 'POST', '/api/v1/settings/sso/test'],
       [() => client.createToken('ci'), 'POST', '/api/v1/tokens'],
       [() => client.deleteToken(3), 'DELETE', '/api/v1/tokens/3'],
+      [() => client.monitorTypes(), 'GET', '/api/v1/monitor-types'],
+      [() => client.monitors(), 'GET', '/api/v1/monitors'],
+      [() => client.monitors(50), 'GET', '/api/v1/monitors?beats=50'],
+      [() => client.monitor(4), 'GET', '/api/v1/monitors/4'],
+      [
+        () => client.heartbeats(4, new Date('2027-01-15T08:00:00Z')),
+        'GET',
+        '/api/v1/monitors/4/heartbeats?since=2027-01-15T08%3A00%3A00.000Z',
+      ],
+      [() => client.hours(4, 7), 'GET', '/api/v1/monitors/4/hours?days=7'],
+      [() => client.createMonitor(change), 'POST', '/api/v1/monitors'],
+      [() => client.updateMonitor(4, change), 'PUT', '/api/v1/monitors/4'],
+      [() => client.deleteMonitor(4), 'DELETE', '/api/v1/monitors/4'],
+      [() => client.pauseMonitor(4), 'POST', '/api/v1/monitors/4/pause'],
+      [() => client.resumeMonitor(4), 'POST', '/api/v1/monitors/4/resume'],
+      [() => client.checkMonitor(4), 'POST', '/api/v1/monitors/4/check'],
+      [() => client.setManualStatus(4, 'down', 'outage'), 'POST', '/api/v1/monitors/4/status'],
+      [() => client.retention(), 'GET', '/api/v1/settings/retention'],
+      [() => client.saveRetention(30), 'PUT', '/api/v1/settings/retention'],
     );
     for (const [call, method, path] of routes) {
       await call();

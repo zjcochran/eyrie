@@ -6,17 +6,23 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/zjcochran/eyrie/internal/check"
+	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/store"
 )
@@ -34,6 +40,7 @@ type env struct {
 
 	mu  sync.Mutex
 	now time.Time
+	up  atomic.Bool // whether port checks connect
 }
 
 type syncBuffer struct {
@@ -65,9 +72,26 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	e := &env{t: t, st: st, log: &syncBuffer{}, now: time.Now().UTC().Truncate(time.Millisecond)}
+	e.up.Store(true)
+	checkEnv := &check.Env{
+		Dial: func(context.Context, string, string) (net.Conn, error) {
+			if !e.up.Load() {
+				return nil, errors.New("connection refused")
+			}
+			a, b := net.Pipe()
+			b.Close()
+			return a, nil
+		},
+		Transport: func(bool) http.RoundTripper { return http.DefaultTransport },
+		Resolve:   func(context.Context, string) ([]netip.Addr, error) { return nil, errors.New("none") },
+		Ping:      func(context.Context, netip.Addr, int, int) (time.Duration, error) { return 0, errors.New("none") },
+	}
+	log := slog.New(slog.NewTextHandler(e.log, nil))
+	eng := engine.New(st, checkEnv, log)
 	e.s = &Server{
+		Engine: eng, Env: checkEnv, MetricsToken: "m3trics",
 		Store: st, Secrets: box, Version: "v1.2.3", SourceURL: "https://git.example.com/eyrie",
-		Log: slog.New(slog.NewTextHandler(e.log, nil)),
+		Log: log,
 		UI: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Write([]byte("the app"))
 		}),
@@ -75,6 +99,11 @@ func newEnv(t *testing.T) *env {
 	}
 	e.srv = httptest.NewServer(e.s.Handler())
 	t.Cleanup(e.srv.Close)
+	eng.Publish = e.s.Publish
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- eng.Run(ctx) }()
+	t.Cleanup(func() { cancel(); <-done }) // before the store closes
 	return e
 }
 

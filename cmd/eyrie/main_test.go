@@ -188,7 +188,7 @@ func TestPruneSessions(t *testing.T) {
 	var log bytes.Buffer
 	st.Close() // the prune fails and is logged
 	done := make(chan struct{})
-	go func() { pruneSessions(ctx, st, slog.New(slog.NewTextHandler(&log, nil))); close(done) }()
+	go func() { prune(ctx, st, slog.New(slog.NewTextHandler(&log, nil))); close(done) }()
 	time.Sleep(50 * time.Millisecond)
 	cancel()
 	<-done

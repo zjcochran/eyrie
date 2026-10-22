@@ -5,9 +5,11 @@ websites, servers, databases and services, tells you when one goes down,
 and publishes status pages. It is a single Go binary with its web app built
 in, and keeps its data in SQLite or, for large installations, PostgreSQL.
 
-**Status: early development.** This version has accounts and sign-in:
-passwords, two-factor sign-in, single sign-on and API tokens. Monitors,
-notifications, tags, maintenance windows and status pages follow; see
+**Status: early development.** This version monitors websites (HTTP(S),
+keywords, JSON), TCP ports, ping and DNS, takes pushes from jobs, and has
+manual monitors and groups, a live dashboard, uptime history and Prometheus
+metrics, with accounts, two-factor sign-in and single sign-on.
+Notifications, tags, maintenance windows and status pages follow; see
 [the plan](#roadmap).
 
 ## Quick start
@@ -27,15 +29,15 @@ See [Installation](docs/user/installation.md), including PostgreSQL.
 
 ## Documentation
 
-Everything is in [docs/](docs/README.md): installation, using the web app,
+Everything is in [docs/](docs/README.md): installation, monitors, using the web app,
 single sign-on, configuration, the HTTP interface, security, the data
 model, testing and CI, development.
 
 ## Roadmap
 
 1. Scaffold and CI
-2. Users and sign-in: passwords, two-factor sign-in, single sign-on, API tokens (this version)
-3. The monitor engine, the first monitor types, Prometheus metrics
+2. Users and sign-in: passwords, two-factor sign-in, single sign-on, API tokens
+3. The monitor engine, the first monitor types, Prometheus metrics (this version)
 4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks
 5. Alert analysis with Claude: connect an API key or OAuth token, and alerts carry Claude's analysis in their notifications
 6. Tags and maintenance windows
