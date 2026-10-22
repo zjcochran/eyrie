@@ -111,6 +111,8 @@ func (s *Store) CreateSSOUser(ctx context.Context, want, role, issuer, subject, 
 		if n > 1 {
 			try = fmt.Sprintf("%s-%d", name, n)
 		}
+		// Parameterized: every value is a bound argument, not SQL text.
+		// nosemgrep
 		err := tx.QueryRowContext(ctx, s.q(`
 			INSERT INTO users (username, username_key, role, created_at) VALUES (?, ?, ?, ?)
 			ON CONFLICT (username_key) DO NOTHING RETURNING id`),

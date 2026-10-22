@@ -30,6 +30,8 @@ func (s *Store) CreateAPIToken(ctx context.Context, name, by string, now time.Ti
 	}
 	token := APITokenPrefix + randomToken()
 	t := APIToken{Name: name, CreatedAt: fromMillis(now.UnixMilli()), CreatedBy: by}
+	// Parameterized: every value is a bound argument, not SQL text.
+	// nosemgrep
 	err := s.db.QueryRowContext(ctx, s.q(`
 		INSERT INTO api_tokens (name, hash, created_at, created_by) VALUES (?, ?, ?, ?) RETURNING id`),
 		name, hashToken(token), now.UnixMilli(), by).Scan(&t.ID)
