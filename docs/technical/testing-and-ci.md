@@ -36,7 +36,7 @@ exits 1 if any is below the minimum.
 
 ## GitLab CI
 
-`.gitlab-ci.yml`, stages `test`, `scan`, `release`:
+`.gitlab-ci.yml`, stages `test`, `scan`, `release`, `publish`:
 
 | Job | Stage | Image | What it does | Reports |
 | --- | --- | --- | --- | --- |
@@ -55,10 +55,11 @@ exits 1 if any is below the minimum.
 | `smoke` | scan | `docker:28` + dind | `test/smoke/smoke.sh`, below | `junit` |
 | `release-label` | test | `alpine:3` | Merge requests: exactly one label `major`, `minor` or `patch` | |
 | `release` | release | `alpine:3` | After a merge: `ci/release.sh` | |
+| `github-sync` | publish | `alpine:3` | After a merge: `ci/github-sync.sh`, below | |
 | `deps`, `deps-fix` | test | `golang:1.26` | Scheduled pipelines only: the weekly dependency check | `.deps/` (artifact) |
 
-A merge request pipeline runs every job but `release`, `deps` and
-`deps-fix`; a branch with an open merge request gets no branch pipeline.
+A merge request pipeline runs every job but `release`, `github-sync`,
+`deps` and `deps-fix`; a branch with an open merge request gets no branch pipeline.
 
 ### The web job
 
@@ -113,9 +114,10 @@ that does not apply, add `<identifier> <package or file> <reason>` to
 (`test/smoke/compose.yaml`): on SQLite, and on PostgreSQL 17. For each it
 checks that `/healthz` answers `ok`, `/api/v1/info` reports the version
 built in, the CSP header is set, an app route serves the embedded app and
-its script is cached as immutable, and the container runs as user 65532.
-Then it restarts both, waits for them to answer, and waits up to 2 minutes
-for Docker to report both healthy. `SMOKE_HOST`, `SMOKE_BIND`,
+its script is cached as immutable, the container runs as user 65532, and
+setup creates the admin `alice` and signs her in. Then it restarts both,
+waits for them to answer, checks that `alice` can sign in with her
+password, and waits up to 2 minutes for Docker to report both healthy. `SMOKE_HOST`, `SMOKE_BIND`,
 `SMOKE_VERSION` and `SMOKE_JUNIT` adapt it to Docker-in-Docker.
 
 ## Releases
@@ -127,6 +129,25 @@ is v0.1.0), and creates the tag and a GitLab release with the merge
 request's description and commits. It needs the CI/CD variable
 `RELEASE_TOKEN`, a project access token with the `api` scope. No image is
 published yet.
+
+Then `github-sync` (`ci/github-sync.sh`) copies the default branch, the
+`vX.Y.Z` tags and the releases to GitHub; nothing runs on GitHub. It pushes
+a rewritten copy of the history, made with git-filter-repo in a scratch
+repository:
+
+- the GitLab project's URL, host and path become the GitHub repository's,
+  in every file version, commit message and release note;
+- every author and committer becomes `GHCR_USER` with GitHub's no-reply
+  address, and `Claude-Session:` trailers are removed;
+- `.gitlab-ci.yml`, `ci/` and `CLAUDE.md` are left out of every commit.
+
+The rewrite is deterministic, so every sync is a fast-forward; it never
+force-pushes, and a GitHub repository that has diverged fails the job.
+Before the push, `ci/leak-check.sh history` checks every commit of the copy,
+and each release note is checked before it is created. Releases GitHub
+does not have yet are created oldest first. It needs the CI/CD variables
+`GHCR_REPO` (`owner/name`), `GHCR_USER` and `GHCR_TOKEN` (a classic token
+with the `repo` scope), and `RELEASE_TOKEN` to read the GitLab releases.
 
 ## Weekly dependency check
 
