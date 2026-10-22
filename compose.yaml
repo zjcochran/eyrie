@@ -1,0 +1,15 @@
+# Eyrie with SQLite, its database and secret key in the eyrie-data volume.
+# Build the image first: docker build -t eyrie .
+services:
+  eyrie:
+    image: eyrie
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Etc/UTC
+    volumes:
+      - eyrie-data:/data
+
+volumes:
+  eyrie-data:
