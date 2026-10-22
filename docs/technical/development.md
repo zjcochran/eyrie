@@ -16,6 +16,14 @@ installed locally). To run Eyrie with it, build the image:
 docker build -t eyrie .
 ```
 
+or, without Docker, take the built app from the CI `web` job's artifact
+(`internal/ui/dist/`, kept 7 days) and build the binary with it:
+
+```sh
+glab ci artifact <branch> web   # unpacks internal/ui/dist
+go build -tags ui ./cmd/eyrie
+```
+
 ## Layout
 
 ```
