@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package config
 
 import (
@@ -34,6 +36,7 @@ func TestSet(t *testing.T) {
 		"EYRIE_BASE_URL":        "https://eyrie.example.com/",
 		"EYRIE_TRUSTED_PROXIES": "192.0.2.10, 198.51.100.0/24\n2001:db8::/32 ::ffff:203.0.113.5",
 		"EYRIE_LOCAL_LOGIN":     "Force",
+		"EYRIE_SOURCE_URL":      "https://git.example.com/eyrie",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +44,7 @@ func TestSet(t *testing.T) {
 	if c.Listen != "127.0.0.1:9000" || c.SecretKey != "k" || c.LogLevel != slog.LevelDebug || !c.Postgres() {
 		t.Errorf("config = %+v", c)
 	}
-	if c.BaseURL != "https://eyrie.example.com" || !c.ForceLocal {
+	if c.BaseURL != "https://eyrie.example.com" || !c.ForceLocal || c.SourceURL != "https://git.example.com/eyrie" {
 		t.Errorf("base URL %q, force %v", c.BaseURL, c.ForceLocal)
 	}
 	var proxies []string
@@ -65,6 +68,7 @@ func TestInvalid(t *testing.T) {
 		{"EYRIE_BASE_URL", "https://eyrie.example.com/?x=1"},
 		{"EYRIE_TRUSTED_PROXIES", "192.0.2.1, proxy.example.com"},
 		{"EYRIE_LOCAL_LOGIN", "yes"},
+		{"EYRIE_SOURCE_URL", "git.example.com/eyrie"},
 	} {
 		if _, err := Load(env(map[string]string{c.name: c.value})); err == nil || !strings.Contains(err.Error(), c.name) {
 			t.Errorf("%s=%s: error %v", c.name, c.value, err)

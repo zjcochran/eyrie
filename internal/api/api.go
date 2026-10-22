@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package api is Eyrie's HTTP interface: the JSON API under /api/, single
 // sign-on under /auth/, the health check, and the web app for every other
 // path.
@@ -22,8 +24,11 @@ type Server struct {
 	Store   *store.Store
 	Secrets *secrets.Box // seals the two-factor secrets and the single sign-on client secret
 	Version string
-	Log     *slog.Logger
-	UI      http.Handler // the web app, served for every path not handled here
+	// SourceURL is where this version's source code is (AGPL section 13);
+	// the app links to it from every page.
+	SourceURL string
+	Log       *slog.Logger
+	UI        http.Handler // the web app, served for every path not handled here
 	// BaseURL is how browsers reach Eyrie (EYRIE_BASE_URL); empty: the
 	// address of each request.
 	BaseURL string
@@ -142,14 +147,19 @@ func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok\n"))
 }
 
+// License is Eyrie's license, as an SPDX identifier.
+const License = "AGPL-3.0-or-later"
+
 // Info is the answer of GET /api/v1/info.
 type Info struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
+	License string `json:"license"`
+	Source  string `json:"source"` // "" when the build does not say
 }
 
 func (s *Server) info(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, Info{Name: "Eyrie", Version: s.Version})
+	writeJSON(w, http.StatusOK, Info{Name: "Eyrie", Version: s.Version, License: License, Source: s.SourceURL})
 }
 
 type errorBody struct {

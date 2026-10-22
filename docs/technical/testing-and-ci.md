@@ -156,8 +156,9 @@ the GitLab releases.
 `github-image` builds the image for `linux/amd64` and `linux/arm64` with
 buildx (arm64 through QEMU, `tonistiigi/binfmt`) and pushes it to
 `ghcr.io/<GHCR_REPO>` as `X.Y.Z`, `X.Y` and `latest`, with
-`VERSION=vX.Y.Z` built in. The index carries the
-`org.opencontainers.image.source` annotation pointing at the GitHub
+`VERSION=vX.Y.Z` and `SOURCE_URL=https://github.com/<GHCR_REPO>` built in. The
+index carries the `org.opencontainers.image.licenses` (`AGPL-3.0-or-later`) and
+`org.opencontainers.image.source` annotations, the latter pointing at the GitHub
 repository, which links the package to it; provenance and SBOM
 attestations are left out, because GitHub lists each as an extra
 `unknown/unknown` platform. `ci/leak-check.sh tree` runs first, since the

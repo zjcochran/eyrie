@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Fails unless every package with code reaches the minimum statement coverage
 # from its own tests. Reads a Go cover profile:
 #

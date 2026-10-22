@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package config reads Eyrie's settings from environment variables.
 package config
 
@@ -27,6 +29,10 @@ type Config struct {
 	// ForceLocal is EYRIE_LOCAL_LOGIN=force: password sign-in works even
 	// when single sign-on is set to be the only way in.
 	ForceLocal bool
+	// SourceURL is EYRIE_SOURCE_URL: where this version's source code is,
+	// linked from every page (AGPL section 13); empty for the one set at
+	// build time.
+	SourceURL string
 }
 
 // Defaults.
@@ -59,6 +65,12 @@ func Load(getenv func(string) string) (Config, error) {
 		u, err := url.Parse(c.BaseURL)
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
 			return c, fmt.Errorf("EYRIE_BASE_URL %q: want a URL such as https://eyrie.example.com", c.BaseURL)
+		}
+	}
+	if c.SourceURL = get("EYRIE_SOURCE_URL", ""); c.SourceURL != "" {
+		u, err := url.Parse(c.SourceURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return c, fmt.Errorf("EYRIE_SOURCE_URL %q: want a URL such as https://git.example.com/eyrie", c.SourceURL)
 		}
 	}
 	proxies, err := ParseProxies(SplitList(getenv("EYRIE_TRUSTED_PROXIES")))

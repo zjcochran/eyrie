@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package ssotest is a fake OpenID Connect provider for tests: discovery,
 // keys, an authorize endpoint that approves at once, a token endpoint that
 // checks the client and PKCE, userinfo, and a picture.

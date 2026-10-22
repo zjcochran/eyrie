@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Command eyrie is a self-hosted uptime and infrastructure monitor.
 //
 //	eyrie                       run the server (the default)
@@ -10,6 +12,7 @@ package main
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -39,8 +42,13 @@ const usage = `usage:
   eyrie reset-2fa <user>      turn off a user's two-factor sign-in
   eyrie version               print the version`
 
-// Set at build time: -ldflags "-X main.version=v1.2.3".
-var version = "dev"
+// Set at build time: -ldflags "-X main.version=v1.2.3 -X main.sourceURL=https://…".
+// sourceURL is where this build's source code is; Eyrie is under the AGPL,
+// so every page links to it. EYRIE_SOURCE_URL overrides it.
+var (
+	version   = "dev"
+	sourceURL = ""
+)
 
 func main() {
 	os.Exit(cli(os.Args[1:], os.Getenv, os.Stdin, os.Stdout, os.Stderr))
@@ -103,6 +111,7 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 		Handler: (&api.Server{
 			Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),
 			BaseURL: cfg.BaseURL, TrustedProxies: cfg.TrustedProxies, ForceLocal: cfg.ForceLocal,
+			SourceURL: cmp.Or(cfg.SourceURL, sourceURL),
 		}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),

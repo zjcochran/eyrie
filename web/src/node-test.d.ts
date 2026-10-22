@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Types for the parts of Node.js's built-in test runner the tests use, so
 // the project needs no @types/node.
 declare module 'node:test' {

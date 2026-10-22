@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { message } from '../lib/api.ts';
   import { api, app } from '../lib/session.svelte.ts';

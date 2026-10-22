@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Calls to Eyrie's JSON API (/api/v1), documented in
 // docs/technical/http-interface.md.
 
@@ -5,6 +6,8 @@
 export interface Info {
   name: string;
   version: string;
+  license: string;
+  source: string;
 }
 
 export interface User {
@@ -35,6 +38,8 @@ export interface Session {
   sso: SSOButton;
   password_sign_in: boolean;
   version: string;
+  /** Where this version's source code is (AGPL section 13); "" when unknown. */
+  source: string;
 }
 
 export interface Account {

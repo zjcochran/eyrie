@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -62,6 +64,7 @@ type sessionView struct {
 	SSO            ssoButton `json:"sso"`
 	PasswordSignIn bool      `json:"password_sign_in"`
 	Version        string    `json:"version"`
+	Source         string    `json:"source"` // where this version's source code is; "" when unknown
 }
 
 func (s *Server) ssoSettings(r *http.Request) (sso.Settings, error) {
@@ -80,7 +83,8 @@ func (s *Server) sessionView(r *http.Request, sess *store.Session) (sessionView,
 	if err != nil {
 		return sessionView{}, err
 	}
-	v := sessionView{SSO: ssoButton{o.Enabled, o.Name()}, PasswordSignIn: s.localAllowed(o), Version: s.Version}
+	v := sessionView{SSO: ssoButton{o.Enabled, o.Name()}, PasswordSignIn: s.localAllowed(o), Version: s.Version,
+		Source: s.SourceURL}
 	if sess != nil {
 		u := viewUser(sess.User, o)
 		v.User, v.CSRF = &u, sess.CSRF

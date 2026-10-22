@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package ui serves the web app built from web/ (Svelte). Built with the
 // tag "ui" (as the image is), the files are embedded in the binary; without
 // it, a page says the app was not built in, so the Go code builds and tests

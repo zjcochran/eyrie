@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -64,7 +66,7 @@ func newEnv(t *testing.T) *env {
 	}
 	e := &env{t: t, st: st, log: &syncBuffer{}, now: time.Now().UTC().Truncate(time.Millisecond)}
 	e.s = &Server{
-		Store: st, Secrets: box, Version: "v1.2.3",
+		Store: st, Secrets: box, Version: "v1.2.3", SourceURL: "https://git.example.com/eyrie",
 		Log: slog.New(slog.NewTextHandler(e.log, nil)),
 		UI: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Write([]byte("the app"))
@@ -216,7 +218,7 @@ func TestInfo(t *testing.T) {
 	resp, body := e.client().do("GET", "/api/v1/info", nil)
 	var info Info
 	if err := json.Unmarshal(body, &info); err != nil || resp.StatusCode != http.StatusOK ||
-		info != (Info{Name: "Eyrie", Version: "v1.2.3"}) || resp.Header.Get("Content-Type") != "application/json" {
+		info != (Info{Name: "Eyrie", Version: "v1.2.3", License: "AGPL-3.0-or-later", Source: "https://git.example.com/eyrie"}) || resp.Header.Get("Content-Type") != "application/json" {
 		t.Errorf("info: %d %q %v", resp.StatusCode, body, err)
 	}
 }
