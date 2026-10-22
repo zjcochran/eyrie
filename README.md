@@ -37,11 +37,12 @@ model, testing and CI, development.
 2. Users and sign-in: passwords, two-factor sign-in, single sign-on, API tokens (this version)
 3. The monitor engine, the first monitor types, Prometheus metrics
 4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks
-5. Tags and maintenance windows
-6. Status pages, incidents and status badges
-7. and 8. The remaining monitor types (every type Uptime Kuma and Peekaping have)
-9. Backup and restore
-10. Documentation pass and compatibility promises
+5. Alert analysis with Claude: connect an API key or OAuth token, and alerts carry Claude's analysis in their notifications
+6. Tags and maintenance windows
+7. Status pages, incidents and status badges
+8. and 9. The remaining monitor types (every type Uptime Kuma and Peekaping have)
+10. Backup and restore
+11. Documentation pass and compatibility promises
 
 Eyrie is written from scratch; it is not a fork of Uptime Kuma, Peekaping
 or any other monitor.
