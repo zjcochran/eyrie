@@ -87,7 +87,25 @@ check() {
 
   [ "$(docker inspect -f '{{.Config.User}}' "eyriesmoke-$svc-1")" = 65532:65532 ] || fail "$svc: runs as root"
   pass "$svc: runs as a non-root user"
+
+  local jar
+  jar=$(mktemp)
+  curl -fsS "$url/api/v1/session" | grep -qF '"setup":true' || fail "$svc: a new instance does not ask for setup"
+  curl -fsS -c "$jar" -H 'Content-Type: application/json' -d "$ADMIN" "$url/api/v1/setup" |
+    grep -qF '"username":"alice"' || fail "$svc: setup did not create the admin"
+  curl -fsS -b "$jar" "$url/api/v1/account" | grep -qF '"role":"admin"' || fail "$svc: setup did not sign the admin in"
+  rm -f "$jar"
+  pass "$svc: setup creates the admin and signs it in"
 }
+
+# signin <service> <port>: the admin made by check can sign in.
+signin() {
+  curl -fsS -H 'Content-Type: application/json' -d "$ADMIN" "http://$HOST:$2/api/v1/login" |
+    grep -qF '"username":"alice"' || fail "$1: the admin cannot sign in"
+  pass "$1: the admin signs in after a restart"
+}
+
+ADMIN='{"username":"alice","password":"correct horse battery"}'
 
 echo "Building and starting containers…"
 docker compose up -d --build --quiet-pull
@@ -98,6 +116,8 @@ check postgres 18081
 docker compose restart sqlite postgres >/dev/null
 wait_for 60 "both answer again after a restart" sh -c \
   "curl -fsS http://$HOST:18080/healthz && curl -fsS http://$HOST:18081/healthz"
+signin sqlite 18080
+signin postgres 18081
 
 # Docker's own health check runs /eyrie healthcheck every 30 s.
 wait_for 120 "Docker reports both healthy" both_healthy

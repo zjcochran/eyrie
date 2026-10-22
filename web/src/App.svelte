@@ -1,35 +1,153 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getInfo, type Info } from './lib/api.ts';
+  import Avatar from './components/Avatar.svelte';
+  import { go, link, nav } from './lib/nav.svelte.ts';
+  import { pageFor, settingsTabs } from './lib/route.ts';
+  import { api, app, refresh } from './lib/session.svelte.ts';
+  import Account from './pages/Account.svelte';
+  import Home from './pages/Home.svelte';
+  import Login from './pages/Login.svelte';
+  import SSO from './pages/SSO.svelte';
+  import Setup from './pages/Setup.svelte';
+  import Tokens from './pages/Tokens.svelte';
+  import Users from './pages/Users.svelte';
 
-  let info = $state<Info | null>(null);
-  let error = $state('');
+  onMount(refresh);
 
-  onMount(() => {
-    getInfo()
-      .then((i) => (info = i))
-      .catch((e: unknown) => (error = e instanceof Error ? e.message : String(e)));
+  const user = $derived(app.session?.user ?? null);
+  const page = $derived(pageFor(nav.path));
+  const tabs = $derived(settingsTabs.filter((t) => !t.admin || user?.role === 'admin'));
+
+  // Signed in on the sign-in page: go to the app.
+  $effect(() => {
+    if (user && nav.path === '/login') {
+      go('/', true);
+    }
   });
+
+  async function signOut() {
+    try {
+      await api.logout();
+    } finally {
+      await refresh();
+      go('/login', true);
+    }
+  }
 </script>
 
-<main>
-  <h1>Eyrie</h1>
-  {#if info}
-    <p>Version {info.version}</p>
-  {:else if error}
-    <p class="error">The server could not be reached: {error}</p>
-  {:else}
-    <p>Loading…</p>
-  {/if}
-</main>
+{#if !app.session}
+  <main class="narrow">
+    {#if app.error}
+      <p class="notice error">Eyrie could not be reached: {app.error}</p>
+      <button onclick={refresh}>Try again</button>
+    {:else}
+      <p class="muted">Loading…</p>
+    {/if}
+  </main>
+{:else if app.session.setup}
+  <Setup />
+{:else if !user}
+  <Login />
+{:else}
+  <header>
+    <a class="brand" href="/" onclick={link}>Eyrie</a>
+    <nav>
+      <a href="/settings/account" onclick={link} aria-current={page !== 'home' ? 'page' : undefined}>Settings</a>
+    </nav>
+    <div class="me">
+      <Avatar {user} />
+      <span>{user.username}</span>
+      <button onclick={signOut}>Sign out</button>
+    </div>
+  </header>
+  <main>
+    {#if page === 'home'}
+      <Home />
+    {:else if page === 'not-found' || !tabs.some((t) => t.page === page)}
+      <h1>Not found</h1>
+      <p><a href="/" onclick={link}>Back to the start</a></p>
+    {:else}
+      <h1>Settings</h1>
+      <div class="tabs" role="tablist">
+        {#each tabs as t (t.page)}
+          <a href={t.path} onclick={link} role="tab" aria-selected={t.page === page}>{t.label}</a>
+        {/each}
+      </div>
+      {#if page === 'account'}
+        <Account />
+      {:else if page === 'users'}
+        <Users />
+      {:else if page === 'sso'}
+        <SSO />
+      {:else if page === 'tokens'}
+        <Tokens />
+      {/if}
+    {/if}
+  </main>
+  <footer class="muted">Eyrie {app.session.version}</footer>
+{/if}
 
 <style>
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--fg);
+    text-decoration: none;
+  }
+  nav {
+    flex: 1;
+  }
+  nav a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+  nav a[aria-current='page'] {
+    color: var(--fg);
+    font-weight: 600;
+  }
+  .me {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
   main {
-    max-width: 40rem;
-    margin: 4rem auto;
+    max-width: 60rem;
+    margin: 1.5rem auto;
     padding: 0 1rem;
   }
-  .error {
-    color: var(--error);
+  main.narrow {
+    max-width: 28rem;
+    margin-top: 4rem;
+  }
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .tabs a {
+    padding: 0.4rem 0.8rem;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+  }
+  .tabs a[aria-selected='true'] {
+    color: var(--fg);
+    border-bottom-color: var(--accent);
+  }
+  footer {
+    text-align: center;
+    padding: 2rem 1rem;
+    font-size: 0.85rem;
   }
 </style>

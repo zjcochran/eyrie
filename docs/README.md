@@ -9,14 +9,17 @@ are updated in the same change as the behaviour they describe.
 | Guide | What it covers |
 | --- | --- |
 | [Installation](user/installation.md) | Building the image, Docker Compose with SQLite or PostgreSQL, the data folder, upgrading |
+| [Using the web app](user/web-ui.md) | Setup, signing in, your account, two-factor sign-in, users, API tokens |
+| [Single sign-on](user/single-sign-on.md) | Signing in with an OpenID Connect provider: setup, groups, linking, SSO only |
 
 ## Technical documentation
 
 | Document | What it covers |
 | --- | --- |
 | [Architecture](technical/architecture.md) | Packages, how the web app is built and embedded, startup and shutdown |
-| [Configuration reference](technical/configuration-reference.md) | Every environment variable, with defaults and limits |
+| [Configuration reference](technical/configuration-reference.md) | Every environment variable, with defaults and limits; the command line |
 | [HTTP interface](technical/http-interface.md) | Every route, response headers, caching |
+| [Security](technical/security.md) | Passwords, two-factor sign-in, sessions, CSRF, roles, API tokens, proxies, single sign-on, stored secrets |
 | [Data model](technical/data-model.md) | Both databases, migrations, every table and column |
 | [Testing and CI](technical/testing-and-ci.md) | Test rules, the GitLab pipeline, its reports and gates, releases, the weekly dependency check |
 | [Development](technical/development.md) | Building, checks, code conventions, adding migrations and npm packages |

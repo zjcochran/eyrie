@@ -1,12 +1,15 @@
 // Command eyrie is a self-hosted uptime and infrastructure monitor.
 //
-//	eyrie              run the server (the default)
-//	eyrie serve        the same
-//	eyrie healthcheck  exit 0 if the running server answers, for Docker
-//	eyrie version      print the version
+//	eyrie                       run the server (the default)
+//	eyrie serve                 the same
+//	eyrie healthcheck           exit 0 if the running server answers, for Docker
+//	eyrie reset-password <user> set a user's password from standard input
+//	eyrie reset-2fa <user>      turn off a user's two-factor sign-in
+//	eyrie version               print the version
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	_ "time/tzdata" // distroless has no zoneinfo; TZ still works
@@ -28,29 +32,34 @@ import (
 )
 
 const usage = `usage:
-  eyrie              run the server
-  eyrie serve        the same
-  eyrie healthcheck  exit 0 if the running server answers
-  eyrie version      print the version`
+  eyrie                       run the server
+  eyrie serve                 the same
+  eyrie healthcheck           exit 0 if the running server answers
+  eyrie reset-password <user> set a user's password, read from standard input
+  eyrie reset-2fa <user>      turn off a user's two-factor sign-in
+  eyrie version               print the version`
 
 // Set at build time: -ldflags "-X main.version=v1.2.3".
 var version = "dev"
 
 func main() {
-	os.Exit(cli(os.Args[1:], os.Getenv, os.Stdout, os.Stderr))
+	os.Exit(cli(os.Args[1:], os.Getenv, os.Stdin, os.Stdout, os.Stderr))
 }
 
+// arguments is how many arguments each command takes.
+var arguments = map[string]int{"serve": 0, "healthcheck": 0, "version": 0, "reset-password": 1, "reset-2fa": 1}
+
 // cli runs one invocation and returns the process exit code.
-func cli(args []string, getenv func(string) string, stdout, stderr io.Writer) int {
-	cmd := "serve"
-	if len(args) > 0 {
-		cmd = args[0]
+func cli(args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		args = []string{"serve"}
 	}
-	if len(args) > 1 {
-		cmd = "" // no command takes arguments yet
+	if n, ok := arguments[args[0]]; !ok || len(args)-1 != n {
+		fmt.Fprintln(stderr, usage)
+		return 2
 	}
 	var err error
-	switch cmd {
+	switch args[0] {
 	case "version":
 		fmt.Fprintln(stdout, version)
 		return 0
@@ -60,9 +69,10 @@ func cli(args []string, getenv func(string) string, stdout, stderr io.Writer) in
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		err = serve(ctx, getenv, stderr, nil)
-	default:
-		fmt.Fprintln(stderr, usage)
-		return 2
+	case "reset-password":
+		err = resetPassword(getenv, args[1], stdin, stdout, stderr)
+	case "reset-2fa":
+		err = resetTwoFactor(getenv, args[1], stdout)
 	}
 	if err != nil {
 		fmt.Fprintln(stderr, "eyrie:", err)
@@ -79,25 +89,20 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 		return err
 	}
 	log := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: cfg.LogLevel}))
-	if !cfg.Postgres() {
-		if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
-			return err
-		}
-	}
-	// The key for stored secrets is made now, so it exists from the first
-	// start and is backed up with the data folder.
-	if _, err := secrets.Load(cfg.SecretKey, cfg.SecretKeyFile()); err != nil {
-		return err
-	}
-	st, err := store.Open(ctx, cfg.Database())
+	st, box, err := open(ctx, cfg)
 	if err != nil {
 		return err
 	}
 	defer st.Close()
+	if cfg.ForceLocal {
+		log.Warn("EYRIE_LOCAL_LOGIN=force: password sign-in works even if single sign-on is the only way in; remove it once you can sign in")
+	}
+	go pruneSessions(ctx, st, log)
 
 	srv := &http.Server{
 		Handler: (&api.Server{
-			Store: st, Version: version, Log: log, UI: ui.Handler(ui.Files()),
+			Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),
+			BaseURL: cfg.BaseURL, TrustedProxies: cfg.TrustedProxies, ForceLocal: cfg.ForceLocal,
 		}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
@@ -127,6 +132,97 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	}
 	log.Info("eyrie stopped")
 	return nil
+}
+
+// open makes the data folder (for SQLite), loads the key for stored secrets
+// and opens the database.
+func open(ctx context.Context, cfg config.Config) (*store.Store, *secrets.Box, error) {
+	if !cfg.Postgres() {
+		if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
+			return nil, nil, err
+		}
+	}
+	// The key is made at the first start, so it is backed up with the data
+	// folder from then on.
+	box, err := secrets.Load(cfg.SecretKey, cfg.SecretKeyFile())
+	if err != nil {
+		return nil, nil, err
+	}
+	st, err := store.Open(ctx, cfg.Database())
+	return st, box, err
+}
+
+// pruneSessions deletes expired sessions at start and then daily, until ctx
+// ends.
+func pruneSessions(ctx context.Context, st *store.Store, log *slog.Logger) {
+	t := time.NewTicker(24 * time.Hour)
+	defer t.Stop()
+	for {
+		if err := st.PruneSessions(ctx, time.Now()); err != nil && ctx.Err() == nil {
+			log.Warn("cannot delete expired sessions", "err", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// userCommand opens the store for a command that changes a user.
+func userCommand(getenv func(string) string, name string, run func(context.Context, *store.Store, store.User) error) error {
+	cfg, err := config.Load(getenv)
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	st, _, err := open(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	u, err := st.UserByName(ctx, name)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("no user %q", name)
+	}
+	if err != nil {
+		return err
+	}
+	return run(ctx, st, u)
+}
+
+// resetPassword sets a user's password from the first line of stdin, for
+// someone locked out. It also gives a single sign-on account a password.
+func resetPassword(getenv func(string) string, name string, stdin io.Reader, stdout, stderr io.Writer) error {
+	return userCommand(getenv, name, func(ctx context.Context, st *store.Store, u store.User) error {
+		fmt.Fprintf(stderr, "new password for %s (at least %d characters), then Enter:\n", u.Username, store.MinPasswordLength)
+		line, err := bufio.NewReader(stdin).ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return err
+		}
+		if err := st.SetPassword(ctx, u.ID, strings.TrimRight(line, "\r\n")); err != nil {
+			return err
+		}
+		fmt.Fprintf(stdout, "password for %s changed; their sessions were signed out\n", u.Username)
+		return nil
+	})
+}
+
+// resetTwoFactor turns off a user's two-factor sign-in, for a lost phone
+// and lost recovery codes.
+func resetTwoFactor(getenv func(string) string, name string, stdout io.Writer) error {
+	return userCommand(getenv, name, func(ctx context.Context, st *store.Store, u store.User) error {
+		on, err := st.DisableTwoFactor(ctx, u.ID)
+		if err != nil {
+			return err
+		}
+		if !on {
+			fmt.Fprintf(stdout, "%s does not use two-factor sign-in\n", u.Username)
+			return nil
+		}
+		fmt.Fprintf(stdout, "two-factor sign-in for %s is off; their recovery codes were deleted\n", u.Username)
+		return nil
+	})
 }
 
 // healthcheck asks the running server for /healthz, for Docker's HEALTHCHECK.
