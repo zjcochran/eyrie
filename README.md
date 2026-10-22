@@ -36,7 +36,7 @@ HTTP interface, the data model, testing and CI, development.
 3. The monitor engine, the first monitor types, Prometheus metrics
 4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks
 5. Tags and maintenance windows
-6. Status pages and incidents
+6. Status pages, incidents and status badges
 7. and 8. The remaining monitor types (every type Uptime Kuma and Peekaping have)
 9. Backup and restore
 10. Documentation pass and compatibility promises
