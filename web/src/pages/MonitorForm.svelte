@@ -114,7 +114,7 @@
     {:else if f.kind === 'textarea'}
       <label>{f.label} <textarea bind:value={values[f.key]} placeholder={f.placeholder} rows="3"></textarea></label>
     {:else if f.kind === 'number'}
-      <label>{f.label} <input type="number" bind:value={values[f.key]} min={f.min} max={f.max} /></label>
+      <label>{f.label} <input type="number" bind:value={values[f.key]} min={f.min} max={f.max} placeholder={f.placeholder} /></label>
     {:else if f.kind === 'url'}
       <label>{f.label} <input type="url" bind:value={values[f.key]} placeholder={f.placeholder} /></label>
     {:else}

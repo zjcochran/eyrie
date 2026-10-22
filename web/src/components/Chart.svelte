@@ -29,13 +29,16 @@
   });
   const downs = $derived(points.filter((p) => p.down));
   const ticks = $derived([0, 0.5, 1].map((f) => ({ v: top * f, label: millis(top * f) })));
+  // Two days or more: dates. Less: date and time, as both ends of 24 hours
+  // have the same time of day.
   const fmt = (t: number) =>
-    to - from > 2 * 86400000
+    to - from >= 2 * 86400000
       ? new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-      : new Date(t).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      : new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const any = $derived(points.some((p) => p.v !== null));
 </script>
 
-<svg viewBox="0 0 {w} {h}" role="img" aria-label="Response time">
+{#if any}<svg viewBox="0 0 {w} {h}" role="img" aria-label="Response time">
   {#each ticks as tk (tk.v)}
     <line class="grid" x1={pad.l} x2={w - pad.r} y1={y(tk.v)} y2={y(tk.v)} />
     <text class="axis" x={pad.l - 6} y={y(tk.v) + 4} text-anchor="end">{tk.label}</text>
@@ -49,7 +52,7 @@
   <text class="axis" x={pad.l} y={h - 6}>{fmt(from)}</text>
   <text class="axis" x={w - pad.r} y={h - 6} text-anchor="end">{fmt(to)}</text>
 </svg>
-{#if points.length === 0}<p class="muted">No checks in this period.</p>{/if}
+{:else}<p class="muted">No response times in this period.</p>{/if}
 
 <style>
   svg {

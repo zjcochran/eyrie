@@ -4,7 +4,7 @@
 
 export type Field =
   | { key: string; label: string; kind: 'text' | 'url' | 'textarea'; placeholder?: string; help?: string }
-  | { key: string; label: string; kind: 'number'; min: number; max: number; help?: string }
+  | { key: string; label: string; kind: 'number'; min: number; max: number; placeholder?: string; help?: string }
   | { key: string; label: string; kind: 'check'; help?: string }
   | { key: string; label: string; kind: 'select'; options: string[]; help?: string };
 
@@ -20,7 +20,7 @@ const http: Field[] = [
     placeholder: '200-299',
     help: 'Codes or ranges, separated by commas',
   },
-  { key: 'max_redirects', label: 'Maximum redirects', kind: 'number', min: 0, max: 20 },
+  { key: 'max_redirects', label: 'Maximum redirects', kind: 'number', min: 0, max: 20, placeholder: '10' },
   { key: 'ignore_tls', label: 'Ignore TLS certificate errors', kind: 'check' },
 ];
 
@@ -44,8 +44,8 @@ export const fields: Record<string, Field[]> = {
   ],
   ping: [
     { key: 'host', label: 'Host', kind: 'text', placeholder: 'router.example.com' },
-    { key: 'count', label: 'Pings per check', kind: 'number', min: 1, max: 10 },
-    { key: 'packet_size', label: 'Packet size (bytes)', kind: 'number', min: 8, max: 1400 },
+    { key: 'count', label: 'Pings per check', kind: 'number', min: 1, max: 10, placeholder: '1' },
+    { key: 'packet_size', label: 'Packet size (bytes)', kind: 'number', min: 8, max: 1400, placeholder: '56' },
   ],
   dns: [
     { key: 'host', label: 'Name to look up', kind: 'text', placeholder: 'example.com' },
@@ -56,7 +56,7 @@ export const fields: Record<string, Field[]> = {
       options: ['A', 'AAAA', 'CAA', 'CNAME', 'MX', 'NS', 'PTR', 'SOA', 'SRV', 'TXT'],
     },
     { key: 'resolver', label: 'DNS server', kind: 'text', placeholder: '1.1.1.1' },
-    { key: 'resolver_port', label: 'DNS server port', kind: 'number', min: 1, max: 65535 },
+    { key: 'resolver_port', label: 'DNS server port', kind: 'number', min: 1, max: 65535, placeholder: '53' },
     { key: 'expected', label: 'A record must contain', kind: 'text', help: 'Optional' },
   ],
 };
