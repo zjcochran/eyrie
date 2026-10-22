@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Run with Node.js's test runner (npm test), which strips the types.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -37,12 +38,14 @@ const session: Session = {
   sso: { enabled: false, name: 'SSO' },
   password_sign_in: true,
   version: 'v0.2.0',
+  source: 'https://git.example.com/eyrie',
 };
 
 describe('Client', () => {
   it('reads the server info', async () => {
-    const { calls, client } = fake(json({ name: 'Eyrie', version: 'v0.1.0' }));
-    assert.deepEqual(await client.info(), { name: 'Eyrie', version: 'v0.1.0' });
+    const info = { name: 'Eyrie', version: 'v0.1.0', license: 'AGPL-3.0-or-later', source: '' };
+    const { calls, client } = fake(json(info));
+    assert.deepEqual(await client.info(), info);
     assert.equal(calls[0].path, '/api/v1/info');
     assert.equal(calls[0].method, 'GET');
   });

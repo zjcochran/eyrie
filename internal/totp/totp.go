@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package totp implements time-based one-time passwords (RFC 6238) as
 // authenticator apps use them: HMAC-SHA1, 6 digits, 30 second steps.
 package totp

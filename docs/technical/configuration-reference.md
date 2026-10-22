@@ -14,6 +14,7 @@ variable.
 | `EYRIE_BASE_URL` | empty | How browsers reach Eyrie, such as `https://eyrie.example.com` (a trailing `/` is removed; no query). Used for the single sign-on callback URL, marks the session cookie `Secure` when it is `https://`, and is a trusted origin for cross-origin protection. When empty, each request's own address is used (`X-Forwarded-Proto` and `X-Forwarded-Host` count only from trusted proxies). |
 | `EYRIE_TRUSTED_PROXIES` | empty | Reverse proxies whose `X-Forwarded-For`, `X-Real-IP`, `X-Forwarded-Proto` and `X-Forwarded-Host` headers are believed: IP addresses and CIDR ranges, separated by commas or spaces, such as `192.0.2.10, 198.51.100.0/24`. See [Security](security.md#trusted-proxies). |
 | `EYRIE_LOCAL_LOGIN` | empty | `force` (any case): password sign-in works even when single sign-on is set to be the only way in, for when the provider cannot be reached. Eyrie logs a warning at start while it is set. Any other value is refused. |
+| `EYRIE_SOURCE_URL` | the URL set at build time (published images: `https://github.com/zjcochran/eyrie`) | Where the source code of the running version is: an `http(s)` URL, linked from the footer of every page and given in `/api/v1/info` (AGPL section 13). Set it when you run a modified version. Without either, the footer links only to the licence. |
 | `EYRIE_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`, in any case. The log is plain text (`key=value`) on standard error. |
 | `TZ` | `UTC` | Time zone for the log, as an IANA name such as `Etc/UTC`. The zone database is built into the binary. |
 
@@ -34,3 +35,14 @@ exits 2. In the container:
 echo 'a new long password' | docker compose exec -T eyrie /eyrie reset-password alice
 docker compose exec eyrie /eyrie reset-2fa alice
 ```
+
+## Build settings
+
+The Dockerfile takes two build arguments, passed to the Go linker:
+
+| Build argument | Linker flag | Default | Meaning |
+| --- | --- | --- | --- |
+| `VERSION` | `main.version` | `dev` | The version Eyrie reports |
+| `SOURCE_URL` | `main.sourceURL` | empty | Default for `EYRIE_SOURCE_URL`; also the image's `org.opencontainers.image.source` label |
+
+The image is labelled `org.opencontainers.image.licenses=AGPL-3.0-or-later`.

@@ -46,3 +46,11 @@ model, testing and CI, development.
 
 Eyrie is written from scratch; it is not a fork of Uptime Kuma, Peekaping
 or any other monitor.
+
+## License
+
+Copyright the Eyrie contributors. Licensed under the
+[GNU Affero General Public License v3.0 or later](LICENSE)
+(`AGPL-3.0-or-later`). Every page links to the source of the running
+version, as the AGPL requires; set `EYRIE_SOURCE_URL` if you run a modified
+version.

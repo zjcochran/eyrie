@@ -15,10 +15,12 @@ To build it yourself instead (Go modules, npm packages and base images are
 downloaded during the build):
 
 ```sh
-docker build -t eyrie --build-arg VERSION=v0.2.0 .
+docker build -t eyrie --build-arg VERSION=v0.2.0 --build-arg SOURCE_URL=https://github.com/zjcochran/eyrie .
 ```
 
 and use `image: eyrie` below. Without `VERSION`, Eyrie reports `dev`.
+`SOURCE_URL` is the source code link in the footer, which the AGPL asks
+for; point it at your own copy if you change the code.
 
 ## With SQLite (the default)
 

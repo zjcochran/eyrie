@@ -29,7 +29,7 @@ See [Security](security.md) for sessions, CSRF, rate limits and tokens.
 | Method and path | Access | Answer |
 | --- | --- | --- |
 | `GET /healthz` | public | `200` `ok` while the database answers a ping within 2 seconds; otherwise `503` `database unavailable` and a warning in the log. `text/plain`, `Cache-Control: no-store`. |
-| `GET /api/v1/info` | public | `200` `{"name":"Eyrie","version":"<version>"}` |
+| `GET /api/v1/info` | public | `200` `{"name":"Eyrie","version":"<version>","license":"AGPL-3.0-or-later","source":"<URL of the source code, or empty>"}` |
 
 ### Setup and sign-in
 
@@ -52,13 +52,17 @@ See [Security](security.md) for sessions, CSRF, rate limits and tokens.
   "csrf": "<token>",
   "sso": { "enabled": true, "name": "Example ID" },
   "password_sign_in": true,
-  "version": "v0.2.0"
+  "version": "v0.2.0",
+  "source": "https://github.com/zjcochran/eyrie"
 }
 ```
 
 `setup` is `true` only while no account exists. `user` is `null` and
 `csrf` is left out when not signed in. `password_sign_in` is `false` when
 single sign-on is the only way in (and `EYRIE_LOCAL_LOGIN` is not `force`).
+`source` is where the running version's source code is (`EYRIE_SOURCE_URL`,
+or the URL built in), `""` when neither is set; the app's footer links to
+it and to the licence on every page, signed in or not.
 
 #### User
 

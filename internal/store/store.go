@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package store keeps Eyrie's data in SQLite or PostgreSQL.
 //
 // Queries are written once, with ? placeholders, in SQL both databases

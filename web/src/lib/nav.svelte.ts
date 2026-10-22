@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // Where the app is: the browser's path and query, kept in sync with the
 // history so the back button works.
 

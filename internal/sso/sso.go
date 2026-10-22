@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package sso signs people in with an OpenID Connect provider: the
 // authorization code flow with PKCE, ID-token verification, and the group
 // rules. What to do with a verified sign-in (sign in, create or link an

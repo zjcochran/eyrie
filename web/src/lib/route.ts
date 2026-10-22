@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The app's pages, by path. Pure functions, so the tests can run them.
 
 export type Page = 'home' | 'account' | 'users' | 'sso' | 'tokens' | 'not-found';

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package config reads Eyrie's settings from environment variables.
 package config
 
@@ -27,6 +29,10 @@ type Config struct {
 	// ForceLocal is EYRIE_LOCAL_LOGIN=force: password sign-in works even
 	// when single sign-on is set to be the only way in.
 	ForceLocal bool
+	// SourceURL is EYRIE_SOURCE_URL: where this version's source code is,
+	// linked from every page (AGPL section 13); empty for the one set at
+	// build time.
+	SourceURL string
 }
 
 // Defaults.
@@ -55,11 +61,12 @@ func Load(getenv func(string) string) (Config, error) {
 	if c.DatabaseURL != "" && !c.Postgres() {
 		return c, fmt.Errorf("EYRIE_DATABASE_URL must start with postgres:// or postgresql://; leave it empty for SQLite in EYRIE_DATA_DIR")
 	}
-	if c.BaseURL = strings.TrimRight(get("EYRIE_BASE_URL", ""), "/"); c.BaseURL != "" {
-		u, err := url.Parse(c.BaseURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
-			return c, fmt.Errorf("EYRIE_BASE_URL %q: want a URL such as https://eyrie.example.com", c.BaseURL)
-		}
+	c.BaseURL = strings.TrimRight(get("EYRIE_BASE_URL", ""), "/")
+	if !webURL(c.BaseURL, false) {
+		return c, fmt.Errorf("EYRIE_BASE_URL %q: want a URL such as https://eyrie.example.com", c.BaseURL)
+	}
+	if c.SourceURL = get("EYRIE_SOURCE_URL", ""); !webURL(c.SourceURL, true) {
+		return c, fmt.Errorf("EYRIE_SOURCE_URL %q: want a URL such as https://git.example.com/eyrie", c.SourceURL)
 	}
 	proxies, err := ParseProxies(SplitList(getenv("EYRIE_TRUSTED_PROXIES")))
 	if err != nil {
@@ -96,6 +103,19 @@ func (c Config) Database() string {
 // SecretKeyFile is where the key for stored secrets is kept when
 // EYRIE_SECRET_KEY is not set.
 func (c Config) SecretKeyFile() string { return filepath.Join(c.DataDir, "secret.key") }
+
+// webURL reports whether s is empty or an http(s) URL with a host; a query
+// or fragment is allowed only when query is true.
+func webURL(s string, query bool) bool {
+	if s == "" {
+		return true
+	}
+	u, err := url.Parse(s)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return false
+	}
+	return query || (u.RawQuery == "" && u.Fragment == "")
+}
 
 // SplitList splits a list separated by commas or white space.
 func SplitList(s string) []string {

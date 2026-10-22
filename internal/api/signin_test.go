@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -25,7 +27,8 @@ func TestBeforeSetup(t *testing.T) {
 	e := newEnv(t)
 	c := e.client()
 	var v sessionView
-	want := sessionView{Setup: true, SSO: ssoButton{false, "SSO"}, PasswordSignIn: true, Version: "v1.2.3"}
+	want := sessionView{Setup: true, SSO: ssoButton{false, "SSO"}, PasswordSignIn: true, Version: "v1.2.3",
+		Source: "https://git.example.com/eyrie"}
 	if code := c.call("GET", "/api/v1/session", nil, &v); code != http.StatusOK || v != want {
 		t.Fatalf("before setup: %d %+v", code, v)
 	}

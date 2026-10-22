@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Package secrets encrypts values stored in the database (passwords and
 // tokens that monitors and notification channels need) with AES-256-GCM.
 package secrets

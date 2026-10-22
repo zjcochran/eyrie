@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import Avatar from './components/Avatar.svelte';
@@ -84,8 +85,16 @@
       {/if}
     {/if}
   </main>
-  <footer class="muted">Eyrie {app.session.version}</footer>
 {/if}
+
+<!-- Eyrie is under the AGPL: every page offers the source of the running version. -->
+<footer class="muted">
+  Eyrie {app.session?.version ?? ''} ·
+  <a href="https://www.gnu.org/licenses/agpl-3.0.html" rel="license noreferrer" target="_blank">AGPL-3.0-or-later</a>
+  {#if app.session?.source}
+    · <a href={app.session.source} rel="noreferrer" target="_blank">Source code</a>
+  {/if}
+</footer>
 
 <style>
   header {

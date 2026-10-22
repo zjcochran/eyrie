@@ -10,13 +10,14 @@ RUN npm run build
 FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS build
 ARG TARGETOS TARGETARCH
 ARG VERSION=dev
+ARG SOURCE_URL=""
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=web /src/internal/ui/dist ./internal/ui/dist
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -tags ui -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/eyrie ./cmd/eyrie && \
+    go build -tags ui -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.sourceURL=${SOURCE_URL}" -o /out/eyrie ./cmd/eyrie && \
     mkdir /out/data
 
 FROM gcr.io/distroless/static-debian13:nonroot
@@ -26,7 +27,8 @@ ARG SOURCE_URL=""
 LABEL org.opencontainers.image.title="Eyrie" \
       org.opencontainers.image.description="Self-hosted uptime and infrastructure monitor" \
       org.opencontainers.image.version="${VERSION}" \
-      org.opencontainers.image.source="${SOURCE_URL}"
+      org.opencontainers.image.source="${SOURCE_URL}" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later"
 COPY --from=build /out/eyrie /eyrie
 # /data belongs to the image's non-root user, so a new volume does too.
 COPY --from=build --chown=65532:65532 /out/data /data

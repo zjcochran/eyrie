@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // The signed-in session, shared by every page, and the API client that
 // carries its CSRF token.
 import { Client, type Session } from './api.ts';

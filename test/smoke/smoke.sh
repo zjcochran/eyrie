@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Smoke test of the real image on a real Docker engine: Eyrie on SQLite and
 # on PostgreSQL. Needs Docker with Compose and curl. Removes everything it
 # created.
