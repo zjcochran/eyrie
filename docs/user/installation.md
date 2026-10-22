@@ -39,7 +39,9 @@ volumes:
 docker compose up -d
 ```
 
-Open `http://<host>:8080`.
+Open `http://<host>:8080` and create the first account, an admin (see
+[Using the web app](web-ui.md#first-start-setup)). Do it right away: until
+then anyone who can reach Eyrie can.
 
 ## With PostgreSQL
 
@@ -92,7 +94,7 @@ for example `?sslmode=require`.
 | File | What it is |
 | --- | --- |
 | `eyrie.db`, `eyrie.db-wal`, `eyrie.db-shm` | The SQLite database, in WAL mode. Not used with PostgreSQL. |
-| `secret.key` | The key that encrypts passwords and tokens Eyrie stores (AES-256-GCM), made at first start. Not used when `EYRIE_SECRET_KEY` is set. |
+| `secret.key` | The key that encrypts the secrets Eyrie stores (AES-256-GCM): two-factor secrets and the single sign-on client secret so far. Made at first start. Not used when `EYRIE_SECRET_KEY` is set. |
 
 Back up the whole folder, and with PostgreSQL the database as well. Without
 `secret.key` (or the same `EYRIE_SECRET_KEY`), stored secrets cannot be
@@ -101,6 +103,24 @@ decrypted and must be entered again.
 The container runs as the non-root user 65532, which owns `/data` in the
 image, so a new volume belongs to it too. A bind-mounted folder must be
 writable by that user: `sudo chown 65532:65532 ./data`.
+
+## Behind a reverse proxy
+
+Serve Eyrie over HTTPS through a reverse proxy whenever people you do not
+trust can reach it. Tell Eyrie about the proxy:
+
+```yaml
+    environment:
+      EYRIE_BASE_URL: https://eyrie.example.com
+      EYRIE_TRUSTED_PROXIES: 192.0.2.10
+```
+
+`EYRIE_BASE_URL` is the public address: it makes the single sign-on
+callback URL and marks the session cookie `Secure`. `EYRIE_TRUSTED_PROXIES`
+is the proxy's address as Eyrie sees it (an IP or a CIDR range), so the
+client address in the log and the sign-in rate limit is the visitor's, from
+`X-Forwarded-For`, and not the proxy's. Headers from any other address are
+ignored.
 
 ## Health check
 

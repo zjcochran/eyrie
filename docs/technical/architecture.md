@@ -7,11 +7,13 @@ app, and will run the monitor engine. It runs as a single instance.
 
 | Package | Responsibility |
 | --- | --- |
-| `cmd/eyrie` | Entry point: the `serve`, `healthcheck` and `version` commands, wiring, graceful shutdown. |
+| `cmd/eyrie` | Entry point: the `serve`, `healthcheck`, `reset-password`, `reset-2fa` and `version` commands, wiring, graceful shutdown, the daily session prune. |
 | `internal/config` | Environment variables, defaults, validation. See the [configuration reference](configuration-reference.md). |
 | `internal/store` | All saved data, in SQLite or PostgreSQL, with migrations for each. See the [data model](data-model.md). |
 | `internal/secrets` | AES-256-GCM sealing of secrets the store keeps (sealed values start with `v1:`). |
-| `internal/api` | HTTP routes, the health check, security headers. See the [HTTP interface](http-interface.md). |
+| `internal/totp` | Time-based one-time passwords (RFC 6238) for two-factor sign-in. |
+| `internal/sso` | OpenID Connect sign-in: discovery, the authorization code flow with PKCE, ID-token checks, group rules. `internal/sso/ssotest` is a fake provider for tests. |
+| `internal/api` | HTTP routes: setup, sign-in, sessions and CSRF, accounts, users, single sign-on, API tokens, the health check, security headers. See the [HTTP interface](http-interface.md) and [Security](security.md). |
 | `internal/ui` | Serves the web app embedded from `internal/ui/dist`. |
 | `web/` | The web app: Svelte 5, Vite, TypeScript. Not a Go package. |
 
@@ -39,7 +41,9 @@ Node.js is never installed on a developer's machine. It runs only:
 3. Loads the secret key (`EYRIE_SECRET_KEY`, or `secret.key`, made if
    missing), so it exists from the first start.
 4. Opens the database and applies pending migrations.
-5. Listens on `EYRIE_LISTEN` and logs `eyrie started` with the version,
+5. With `EYRIE_LOCAL_LOGIN=force`, logs a warning.
+6. Deletes expired sessions, and again every 24 hours.
+7. Listens on `EYRIE_LISTEN` and logs `eyrie started` with the version,
    address and database.
 
 On SIGINT or SIGTERM it stops accepting connections, waits up to 10 seconds

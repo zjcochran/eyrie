@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
+	"net/url"
 	"path/filepath"
 	"strings"
 )
@@ -16,6 +18,15 @@ type Config struct {
 	DatabaseURL string     // EYRIE_DATABASE_URL: postgres:// to use PostgreSQL; empty for SQLite
 	SecretKey   string     // EYRIE_SECRET_KEY: replaces the key file when set
 	LogLevel    slog.Level // EYRIE_LOG_LEVEL: debug, info, warn or error
+	// BaseURL is EYRIE_BASE_URL: how browsers reach Eyrie, without a
+	// trailing slash; empty to use the address of each request.
+	BaseURL string
+	// TrustedProxies is EYRIE_TRUSTED_PROXIES: reverse proxies whose
+	// X-Forwarded-* headers are believed.
+	TrustedProxies []netip.Prefix
+	// ForceLocal is EYRIE_LOCAL_LOGIN=force: password sign-in works even
+	// when single sign-on is set to be the only way in.
+	ForceLocal bool
 }
 
 // Defaults.
@@ -44,6 +55,24 @@ func Load(getenv func(string) string) (Config, error) {
 	if c.DatabaseURL != "" && !c.Postgres() {
 		return c, fmt.Errorf("EYRIE_DATABASE_URL must start with postgres:// or postgresql://; leave it empty for SQLite in EYRIE_DATA_DIR")
 	}
+	if c.BaseURL = strings.TrimRight(get("EYRIE_BASE_URL", ""), "/"); c.BaseURL != "" {
+		u, err := url.Parse(c.BaseURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
+			return c, fmt.Errorf("EYRIE_BASE_URL %q: want a URL such as https://eyrie.example.com", c.BaseURL)
+		}
+	}
+	proxies, err := ParseProxies(SplitList(getenv("EYRIE_TRUSTED_PROXIES")))
+	if err != nil {
+		return c, fmt.Errorf("EYRIE_TRUSTED_PROXIES: %w", err)
+	}
+	c.TrustedProxies = proxies
+	switch v := strings.ToLower(get("EYRIE_LOCAL_LOGIN", "")); v {
+	case "":
+	case "force":
+		c.ForceLocal = true
+	default:
+		return c, fmt.Errorf("EYRIE_LOCAL_LOGIN %q: the only value is force", v)
+	}
 	level := get("EYRIE_LOG_LEVEL", "info")
 	if err := c.LogLevel.UnmarshalText([]byte(level)); err != nil {
 		return c, fmt.Errorf("EYRIE_LOG_LEVEL %q: want debug, info, warn or error", level)
@@ -67,3 +96,26 @@ func (c Config) Database() string {
 // SecretKeyFile is where the key for stored secrets is kept when
 // EYRIE_SECRET_KEY is not set.
 func (c Config) SecretKeyFile() string { return filepath.Join(c.DataDir, "secret.key") }
+
+// SplitList splits a list separated by commas or white space.
+func SplitList(s string) []string {
+	return strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' || r == '\n' })
+}
+
+// ParseProxies parses IP addresses and CIDR ranges.
+func ParseProxies(list []string) ([]netip.Prefix, error) {
+	var out []netip.Prefix
+	for _, s := range list {
+		if p, err := netip.ParsePrefix(s); err == nil {
+			out = append(out, p.Masked())
+			continue
+		}
+		ip, err := netip.ParseAddr(s)
+		if err != nil {
+			return nil, fmt.Errorf("%q is not an IP address or CIDR range", s)
+		}
+		ip = ip.Unmap()
+		out = append(out, netip.PrefixFrom(ip, ip.BitLen()))
+	}
+	return out, nil
+}

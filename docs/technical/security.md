@@ -1,0 +1,205 @@
+# Security
+
+## What is being protected
+
+Eyrie's web app and API show what is monitored and, with an admin account,
+change it. The threat model for sign-in and accounts:
+
+| Threat | Mitigation |
+| --- | --- |
+| Someone on the network uses the app | Every API route needs a session or, for reading, an API token, except setup (until the first account exists), sign-in, `/api/v1/session`, `/api/v1/info` and `/healthz` |
+| Password guessing | argon2id hashes, at least 12 characters, a rate limit per client address and per username |
+| A stolen password | Optional two-factor sign-in with an authenticator app |
+| A stolen session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS; only a hash stored; sessions end on a password change, a reset or disabling |
+| Cross-site request forgery | A per-session CSRF token on every change, plus Go's cross-origin protection |
+| Script injection | Svelte escapes text; a Content-Security-Policy without inline scripts; SVG pictures refused |
+| Clickjacking | `X-Frame-Options: DENY`, `frame-ancestors 'none'` |
+| Forged proxy headers | Believed only from configured trusted proxies |
+| Single sign-on attacks | Authorization code with PKCE, state, nonce, ID-token checks, matching on issuer and subject |
+| A leaked database | Passwords and tokens hashed; two-factor secrets and the client secret sealed with a key kept apart |
+| An open redirect after sign-in | `next` must be a local path |
+
+Eyrie does not protect against someone with access to the host, the data
+folder or the database, or against a malicious single sign-on provider you
+configured. Over plain HTTP, anyone on the network path can read the
+traffic, cookies included: serve Eyrie over HTTPS (through a reverse proxy)
+whenever it is reachable by anyone you do not trust.
+
+## Setup window
+
+Until the first account exists, `POST /api/v1/setup` creates an admin
+**without authentication**. It creates the account only while the users
+table is empty, in one statement, so two setups racing cannot both win.
+After that it answers `403`. Complete setup right after the first start.
+
+## Passwords
+
+- At least 12 characters (`store.MinPasswordLength`); no other rules.
+- Hashed with **argon2id**: 64 MiB of memory, 3 passes, 2 lanes, a 16-byte
+  random salt and a 32-byte key (RFC 9106's second recommended set), stored
+  as `$argon2id$v=19$m=65536,t=3,p=2$<salt>$<key>`.
+- Checked with the parameters stored in the hash, so they can be raised
+  later, and compared in constant time.
+- A sign-in for an unknown username is checked against a dummy hash, so it
+  takes as long as a real one and does not reveal which usernames exist. A
+  wrong password, an unknown user and a disabled account get the same
+  answer.
+- Usernames are unique ignoring case.
+
+## Two-factor sign-in
+
+Optional for each account with a password (`internal/totp`, RFC 6238):
+
+- HMAC-SHA1, 6 digits, 30-second steps, a 160-bit random secret; one step
+  either side is accepted. The secret is sealed with the instance key.
+- `users.totp_step` keeps the last step accepted, updated with
+  `UPDATE … WHERE totp_step < ?`, so each code (and any older one) works
+  once, even with two sign-ins racing.
+- 10 recovery codes of 12 characters (about 59 bits each) from a
+  31-character alphabet, stored as SHA-256 hashes and deleted when used.
+- After the right password, no session is made: a random 256-bit token in
+  the `eyrie_2fa` cookie (path `/api/v1/login/code`, `HttpOnly`,
+  `SameSite=Strict`) points to a pending sign-in kept in memory for 5
+  minutes, which allows 5 codes. Wrong codes count toward the sign-in rate
+  limit. The sign-in time is recorded only when the code is right.
+- Setting it up, making new recovery codes and turning it off need the
+  current password. During setup the secret travels to the browser and back
+  sealed, so it is stored only after a right code.
+- It is not offered to accounts linked to single sign-on, and linking turns
+  it off: those accounts use the provider's second factor. It is not offered
+  either while password sign-in is off.
+- An admin can turn it off for another user; `eyrie reset-2fa` does it from
+  the command line.
+
+## Sign-in rate limit
+
+In memory, per process (cleared on restart). A failed password or code
+counts against two keys, `ip:<client address>` and
+`user:<lower-cased username>`. A sign-in is refused with `429` while either
+key has 5 or more failures in the last 15 minutes (a sliding window). A
+successful sign-in clears both keys.
+
+## Sessions
+
+- Made at sign-in: a 32-byte random token (base64url) in the cookie
+  `eyrie_session`. The database keeps only its SHA-256.
+- Cookie: `Path=/`, `HttpOnly`, `SameSite=Lax`, `Max-Age` 7 days, `Secure`
+  when the request came over HTTPS (directly, through a trusted proxy with
+  `X-Forwarded-Proto: https`, or when `EYRIE_BASE_URL` is `https://…`).
+- Lifetime: 7 days, sliding; use extends it, at most once an hour.
+- Ended by signing out, a password change or reset (every session of that
+  user; a change gives the browser that made it a new one), disabling or
+  deleting the user, and expiry. Expired sessions are deleted daily. A
+  disabled user's session is refused even before it is deleted.
+
+## CSRF and cross-origin requests
+
+Two independent layers:
+
+1. **CSRF token.** Each session has a random token, which
+   `GET /api/v1/session` and every sign-in return. Every request other than
+   `GET` and `HEAD` to a session route must send it in `X-CSRF-Token`,
+   compared in constant time; otherwise `403`.
+2. **Cross-origin protection.** Go's `http.CrossOriginProtection` wraps
+   every route and refuses unsafe requests that the browser marks as
+   cross-site (`Sec-Fetch-Site`) or whose `Origin` does not match the
+   `Host`. `EYRIE_BASE_URL` is a trusted origin.
+
+Setup, sign-in and sign-out have no session yet (or end it) and rely on
+layer 2.
+
+## Roles
+
+| Role | Can |
+| --- | --- |
+| viewer | Read the app; change their own password, two-factor sign-in, picture and single sign-on link |
+| admin | Everything, including users, single sign-on settings and API tokens |
+
+Checked for each route on the server, not only by hiding controls. Admins
+cannot disable, delete or change the role of themselves, and the last
+enabled admin cannot be disabled, deleted or made a viewer.
+
+## API tokens
+
+`eyt_` followed by 32 random bytes in base64url, made by an admin and shown
+once. Only a SHA-256 hash is stored; a request is matched by hashing the
+token it presents. A token can only read (`GET` and `HEAD`): it cannot sign
+in, reach session routes or change anything. Its last use is recorded.
+Revoking deletes it at once.
+
+## Trusted proxies
+
+`EYRIE_TRUSTED_PROXIES` lists addresses and ranges. For a request whose
+direct peer is in it:
+
+- **Client address:** `X-Forwarded-For` (all values joined) is walked from
+  the right, skipping trusted addresses; the first other address is the
+  client. An entry that is not an address stops the walk. Without one,
+  `X-Real-IP`, else the peer.
+- **HTTPS:** `X-Forwarded-Proto: https`.
+- **Host for the callback URL:** `X-Forwarded-Host`.
+
+From any other peer these headers are ignored. Walking from the right means
+a client cannot pick its address by sending its own `X-Forwarded-For`:
+proxies append, so the rightmost untrusted entry is the one the trusted
+proxy saw.
+
+## Single sign-on
+
+- Discovery from `<issuer>/.well-known/openid-configuration` (10-second
+  limit), kept until the settings change.
+- Authorization code flow with **PKCE S256**. Each sign-in has a random
+  `state` and `nonce` (24 bytes each) and a verifier, kept in memory for 10
+  minutes and usable once; a restart drops sign-ins in progress.
+- The ID token is checked by go-oidc: the signature against the provider's
+  keys (JWKS), `iss` equal to the issuer, `aud` containing the client ID,
+  and expiry. Eyrie then checks the `nonce`.
+- Algorithms: RS, ES and PS 256/384/512 and EdDSA against the provider's
+  keys. HS256 only when the provider lists it and a client secret of at
+  least 32 bytes is saved; its key is the client secret (OIDC Core 10.1). An
+  HS256 token is never checked against the keys and an asymmetric one never
+  against the secret, so the public keys cannot be used as an HMAC key.
+- Scopes: `openid profile email`, plus `groups` when `scopes_supported`
+  lists it or is absent.
+- Accounts are matched by `(issuer, subject)`, never by username or email,
+  so someone who controls an account at the provider named like a local
+  user gets a separate account at most.
+- The allowed and admin groups are compared with the `groups` claim
+  ignoring case, from the ID token or, when it has none, from userinfo.
+- Linking needs a session when it starts, and the callback checks that the
+  same user is still signed in.
+- "SSO only" can be saved only by an admin whose own account is linked.
+  `EYRIE_LOCAL_LOGIN=force` overrides it from the environment.
+- Profile pictures come from the verified ID token's `picture` claim, which
+  must be `http` or `https`. The access token is sent only when the URL has
+  the issuer's scheme and host. At most 1 MiB is read, within 10 seconds,
+  and only PNG, JPEG, GIF and WebP (by content) are kept; SVG is refused
+  because, served from Eyrie's origin, it could run script. Uploads have the
+  same limits. Pictures are served only to their user and to admins.
+- `next` must start with `/`, must not start with `//` and must not contain
+  `\`; anything else becomes `/`.
+
+## Stored secrets
+
+Two-factor secrets and the single sign-on client secret are sealed with
+AES-256-GCM (`internal/secrets`):
+
+- Key: SHA-256 of `EYRIE_SECRET_KEY`, or of the contents of
+  `EYRIE_DATA_DIR/secret.key`, made (32 random bytes, mode 0600) at the
+  first start when neither exists.
+- Format: `v1:` + base64(12-byte random nonce ‖ ciphertext ‖ tag).
+- Secrets are never sent to the browser: the settings only say whether a
+  client secret is saved.
+
+## Response headers
+
+See [HTTP interface](http-interface.md#response-headers).
+`Strict-Transport-Security` is not set by Eyrie: set it at your HTTPS
+reverse proxy.
+
+## Logging
+
+The log has usernames and client addresses for sign-ins that fail, the
+groups a provider sent at each single sign-on sign-in, and a line for every
+account change (who did it). It never has passwords, codes, session or CSRF
+tokens, API tokens or secrets.

@@ -22,7 +22,9 @@ Column conventions, the same in both:
 | Times | `BIGINT` | Unix milliseconds, UTC |
 | Text, JSON | `TEXT` | JSON documents are stored as text |
 | Flags | `BOOLEAN` | SQLite stores 0 and 1 |
-| Binary | `BLOB` / `BYTEA` | The only type spelled differently |
+| Binary | `BLOB` / `BYTEA` | Spelled differently |
+| Generated IDs | `INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT` / `BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY` | Spelled differently; IDs are never reused. New rows get theirs from `RETURNING id`. |
+| Unique columns | `CREATE UNIQUE INDEX` | Never a `UNIQUE` constraint, so both databases list the same indexes |
 
 ## Migrations
 
@@ -51,4 +53,83 @@ Settings saved from the web UI, one JSON document per key.
 | `value` | `TEXT` | JSON |
 | `updated_at` | `BIGINT` | Unix milliseconds of the last save |
 
-No setting is stored yet.
+| Key | Value |
+| --- | --- |
+| `sso` | Single sign-on settings: `enabled`, `issuer`, `client_id`, `client_secret` (sealed with the instance key; `""` for none), `display_name`, `auto_provision`, `allowed_group`, `admin_group`, `sso_only`. Missing: off, with `auto_provision` on. |
+
+### users
+
+Accounts (migration `00002_users`).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key, assigned by the database (`AUTOINCREMENT` / identity) |
+| `username` | `TEXT` | As typed, trimmed; 1 to 64 characters, no control characters |
+| `username_key` | `TEXT` | The username in lower case; unique index `users_username_key`, so `Alice` and `alice` are one account |
+| `password_hash` | `TEXT` | argon2id, PHC format; `NULL` for an account that signs in only with single sign-on |
+| `role` | `TEXT` | `admin` or `viewer` |
+| `disabled` | `BOOLEAN` | A disabled account cannot sign in and has no sessions |
+| `totp_secret` | `TEXT` | Two-factor secret, sealed with the instance key; `''` when off |
+| `totp_step` | `BIGINT` | The last 30-second step a code was accepted for; a code for it or an earlier step is refused |
+| `sso_picture` | `BOOLEAN` | Single sign-on may set the picture; off once the user removes one it set |
+| `created_at` | `BIGINT` | |
+| `last_login` | `BIGINT` | `0`: never |
+
+### sessions
+
+Signed-in browsers. Index `sessions_user` on `user_id`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `TEXT` | Primary key: SHA-256 (hex) of the cookie token, never the token |
+| `user_id` | `BIGINT` | `users.id`, `ON DELETE CASCADE` |
+| `csrf` | `TEXT` | The session's CSRF token |
+| `created_at`, `expires_at` | `BIGINT` | Expiry slides to 7 days after use, at most once an hour |
+| `ip` | `TEXT` | Client address at sign-in |
+| `user_agent` | `TEXT` | At most 256 bytes |
+
+Expired sessions are deleted at start and then once a day.
+
+### oidc_identities
+
+Single sign-on accounts linked to users. Primary key `(issuer, subject)`,
+so an identity belongs to one user at most; index `oidc_identities_user`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `issuer`, `subject` | `TEXT` | The ID token's `iss` and `sub` |
+| `user_id` | `BIGINT` | `users.id`, `ON DELETE CASCADE` |
+| `email` | `TEXT` | The `email` claim when linked or last updated, for display |
+| `linked_at` | `BIGINT` | |
+
+### recovery_codes
+
+Unused two-factor recovery codes. Primary key `(user_id, hash)`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `user_id` | `BIGINT` | `users.id`, `ON DELETE CASCADE` |
+| `hash` | `TEXT` | SHA-256 (hex) of the code as `xxxx-xxxx-xxxx`; deleted when used |
+
+### user_pictures
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `user_id` | `BIGINT` | Primary key, `users.id`, `ON DELETE CASCADE` |
+| `content_type` | `TEXT` | `image/png`, `image/jpeg`, `image/gif` or `image/webp` |
+| `data` | `BLOB` / `BYTEA` | At most 1 MiB |
+| `source` | `TEXT` | `upload` or `sso`. A picture from single sign-on never replaces an upload. |
+| `updated_at` | `BIGINT` | |
+
+### api_tokens
+
+Unique index `api_tokens_hash` on `hash`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `name` | `TEXT` | 1 to 64 characters |
+| `hash` | `TEXT` | SHA-256 (hex) of the token; the token itself is shown once and never stored |
+| `created_at` | `BIGINT` | |
+| `created_by` | `TEXT` | Username of the admin who made it |
+| `last_used` | `BIGINT` | `0`: never |
