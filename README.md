@@ -12,11 +12,11 @@ notifications, tags, maintenance windows and status pages follow; see
 
 ## Quick start
 
-There is no published image yet. Build one and start it with Docker
-Compose:
+Each release is published as a multi-arch image (amd64, arm64) at
+`ghcr.io/zjcochran/eyrie`. Start it with the `compose.yaml` in this
+repository:
 
 ```sh
-docker build -t eyrie .
 docker compose up -d
 ```
 

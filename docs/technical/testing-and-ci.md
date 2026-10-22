@@ -56,9 +56,11 @@ exits 1 if any is below the minimum.
 | `release-label` | test | `alpine:3` | Merge requests: exactly one label `major`, `minor` or `patch` | |
 | `release` | release | `alpine:3` | After a merge: `ci/release.sh` | |
 | `github-sync` | publish | `alpine:3` | After a merge: `ci/github-sync.sh`, below | |
+| `github-image` | publish | `docker:28` + dind | After a release: the multi-arch image to ghcr.io, below | |
 | `deps`, `deps-fix` | test | `golang:1.26` | Scheduled pipelines only: the weekly dependency check | `.deps/` (artifact) |
 
 A merge request pipeline runs every job but `release`, `github-sync`,
+`github-image`,
 `deps` and `deps-fix`; a branch with an open merge request gets no branch pipeline.
 
 ### The web job
@@ -127,8 +129,9 @@ Every merge request has exactly one label, `major`, `minor` or `patch`
 merge request, bumps the latest `vX.Y.Z` tag accordingly (the first release
 is v0.1.0), and creates the tag and a GitLab release with the merge
 request's description and commits. It needs the CI/CD variable
-`RELEASE_TOKEN`, a project access token with the `api` scope. No image is
-published yet.
+`RELEASE_TOKEN`, a project access token with the `api` scope. It passes the
+new tag to the publish jobs as `RELEASE_TAG` (a dotenv report); when nothing
+was released, `RELEASE_TAG` is empty and `github-image` does nothing.
 
 Then `github-sync` (`ci/github-sync.sh`) copies the default branch, the
 `vX.Y.Z` tags and the releases to GitHub; nothing runs on GitHub. It pushes
@@ -147,7 +150,18 @@ Before the push, `ci/leak-check.sh history` checks every commit of the copy,
 and each release note is checked before it is created. Releases GitHub
 does not have yet are created oldest first. It needs the CI/CD variables
 `GHCR_REPO` (`owner/name`), `GHCR_USER` and `GHCR_TOKEN` (a classic token
-with the `repo` scope), and `RELEASE_TOKEN` to read the GitLab releases.
+with the `repo` and `write:packages` scopes), and `RELEASE_TOKEN` to read
+the GitLab releases.
+
+`github-image` builds the image for `linux/amd64` and `linux/arm64` with
+buildx (arm64 through QEMU, `tonistiigi/binfmt`) and pushes it to
+`ghcr.io/<GHCR_REPO>` as `X.Y.Z`, `X.Y` and `latest`, with
+`VERSION=vX.Y.Z` built in. The index carries the
+`org.opencontainers.image.source` annotation pointing at the GitHub
+repository, which links the package to it; provenance and SBOM
+attestations are left out, because GitHub lists each as an extra
+`unknown/unknown` platform. `ci/leak-check.sh tree` runs first, since the
+image is built from these files.
 
 ## Weekly dependency check
 

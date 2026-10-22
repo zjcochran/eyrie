@@ -3,17 +3,22 @@
 ## Requirements
 
 - Docker with Compose, on amd64 or arm64.
-- To build the image: an internet connection (Go modules, npm packages and
-  base images are downloaded during the build).
 
-There is no published image yet: build it from the repository.
+## The image
+
+Each release is published at `ghcr.io/zjcochran/eyrie`, for amd64 and
+arm64, with three tags: the version (`0.2.0`), its minor line (`0.2`, which
+follows patch releases) and `latest`. Pin a version or a minor line if you
+do not want upgrades to arrive on their own.
+
+To build it yourself instead (Go modules, npm packages and base images are
+downloaded during the build):
 
 ```sh
-docker build -t eyrie .
+docker build -t eyrie --build-arg VERSION=v0.2.0 .
 ```
 
-Pass `--build-arg VERSION=v0.1.0` to set the version Eyrie reports; it is
-`dev` otherwise.
+and use `image: eyrie` below. Without `VERSION`, Eyrie reports `dev`.
 
 ## With SQLite (the default)
 
@@ -22,7 +27,7 @@ Pass `--build-arg VERSION=v0.1.0` to set the version Eyrie reports; it is
 ```yaml
 services:
   eyrie:
-    image: eyrie
+    image: ghcr.io/zjcochran/eyrie:latest
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -52,7 +57,7 @@ version tested.
 ```yaml
 services:
   eyrie:
-    image: eyrie
+    image: ghcr.io/zjcochran/eyrie:latest
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -130,10 +135,10 @@ timeout, 20 s start period, 3 retries). It asks the running server for
 
 ## Upgrading
 
-Rebuild the image and recreate the container:
+Pull the new image and recreate the container:
 
 ```sh
-git pull && docker build -t eyrie . && docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
 Database migrations run by themselves at start.

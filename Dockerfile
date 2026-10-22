@@ -21,9 +21,12 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
 
 FROM gcr.io/distroless/static-debian13:nonroot
 ARG VERSION=dev
+# Where the source is, for published images (github-image sets it).
+ARG SOURCE_URL=""
 LABEL org.opencontainers.image.title="Eyrie" \
       org.opencontainers.image.description="Self-hosted uptime and infrastructure monitor" \
-      org.opencontainers.image.version="${VERSION}"
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.source="${SOURCE_URL}"
 COPY --from=build /out/eyrie /eyrie
 # /data belongs to the image's non-root user, so a new volume does too.
 COPY --from=build --chown=65532:65532 /out/data /data
