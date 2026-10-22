@@ -1,0 +1,7 @@
+.git
+.go
+data
+web/node_modules
+internal/ui/dist
+web-lock
+.deps

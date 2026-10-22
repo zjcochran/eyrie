@@ -1,0 +1,39 @@
+# The smoke test's containers: Eyrie on SQLite, and Eyrie on PostgreSQL.
+name: eyriesmoke
+
+x-eyrie: &eyrie
+  build:
+    context: ../..
+    args:
+      VERSION: ${SMOKE_VERSION:-smoke}
+  image: eyrie:smoke
+
+services:
+  sqlite:
+    <<: *eyrie
+    ports:
+      - "${SMOKE_BIND:-127.0.0.1}:18080:8080"
+    volumes:
+      - sqlite-data:/data
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 2s
+      retries: 30
+
+  postgres:
+    <<: *eyrie
+    environment:
+      EYRIE_DATABASE_URL: postgres://postgres@db:5432/postgres?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${SMOKE_BIND:-127.0.0.1}:18081:8080"
+
+volumes:
+  sqlite-data:

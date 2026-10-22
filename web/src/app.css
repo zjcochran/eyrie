@@ -1,0 +1,21 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1b1f24;
+  --error: #b42318;
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121418;
+    --fg: #e6e8eb;
+    --error: #f97066;
+  }
+}
+
+body {
+  margin: 0;
+}

@@ -1,0 +1,22 @@
+/data/
+/eyrie
+*.db
+*.db-*
+.DS_Store
+.go/
+/.deps/
+# CI reports
+/report.xml
+/web-report.xml
+/web-lcov.info
+/web-coverage.xml
+/smoke-report.xml
+/coverage.out
+/coverage.xml
+/web-lock/
+/svelte-check.txt
+/osv.json
+/gl-*.json
+# The web app: dependencies and the build the binary embeds
+/web/node_modules/
+/internal/ui/dist/
