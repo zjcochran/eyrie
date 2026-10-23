@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zjcochran/eyrie/internal/analysis"
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/notify"
@@ -44,6 +45,12 @@ type env struct {
 	up  atomic.Bool // whether port checks connect
 
 	notifier *notify.Notifier
+	analyzer *analysis.Analyzer
+	// model is a fake OpenAI-compatible server: it answers with the body in
+	// answer, and prompts gets what it was asked.
+	model   *httptest.Server
+	answer  atomic.Value
+	prompts chan string
 }
 
 type syncBuffer struct {
@@ -91,11 +98,29 @@ func newEnv(t *testing.T) *env {
 	}
 	log := slog.New(slog.NewTextHandler(e.log, nil))
 	eng := engine.New(st, checkEnv, log)
+	e.answer.Store(`{"choices":[{"message":{"content":"The port is closed: the database is likely stopped."}}]}`)
+	e.prompts = make(chan string, 10)
+	e.model = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/v1/models" {
+			io.WriteString(w, `{"object":"list","data":[{"id":"qwen3:14b"},{"id":"gemma3:12b"}]}`)
+			return
+		}
+		var body struct {
+			Messages []struct{ Content string } `json:"messages"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if len(body.Messages) == 2 {
+			e.prompts <- body.Messages[1].Content
+		}
+		io.WriteString(w, e.answer.Load().(string))
+	}))
+	t.Cleanup(e.model.Close)
+	e.analyzer = &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: "v1.2.3"}
 	e.notifier = &notify.Notifier{Store: st, Secrets: box, Log: log, Version: "v1.2.3", BaseURL: "https://eyrie.example.com",
-		Retry: []time.Duration{time.Millisecond}}
+		Retry: []time.Duration{time.Millisecond}, Analyst: e.analyzer}
 	eng.OnNotify, eng.OnCert, eng.CertDays = e.notifier.Monitor, e.notifier.CertExpiring, e.notifier.CertDays
 	e.s = &Server{
-		Engine: eng, Env: checkEnv, MetricsToken: "m3trics", Notifier: e.notifier,
+		Engine: eng, Env: checkEnv, MetricsToken: "m3trics", Notifier: e.notifier, Analyzer: e.analyzer,
 		Store: st, Secrets: box, Version: "v1.2.3", SourceURL: "https://git.example.com/eyrie",
 		Log: log,
 		UI: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

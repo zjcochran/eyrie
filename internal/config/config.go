@@ -36,6 +36,9 @@ type Config struct {
 	// MetricsToken is EYRIE_METRICS_TOKEN: turns on /metrics behind this
 	// Bearer token.
 	MetricsToken string
+	// ClaudeCode is EYRIE_CLAUDE_CODE=true: Eyrie downloads Claude Code
+	// from Anthropic, so alert analysis can use a Claude subscription.
+	ClaudeCode bool
 }
 
 // Defaults.
@@ -83,6 +86,13 @@ func Load(getenv func(string) string) (Config, error) {
 		c.ForceLocal = true
 	default:
 		return c, fmt.Errorf("EYRIE_LOCAL_LOGIN %q: the only value is force", v)
+	}
+	switch v := strings.ToLower(get("EYRIE_CLAUDE_CODE", "false")); v {
+	case "true":
+		c.ClaudeCode = true
+	case "false":
+	default:
+		return c, fmt.Errorf("EYRIE_CLAUDE_CODE %q: want true or false", v)
 	}
 	level := get("EYRIE_LOG_LEVEL", "info")
 	if err := c.LogLevel.UnmarshalText([]byte(level)); err != nil {

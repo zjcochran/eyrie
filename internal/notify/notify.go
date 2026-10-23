@@ -26,6 +26,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/zjcochran/eyrie/internal/store"
 )
@@ -186,13 +187,22 @@ type Notifier struct {
 	Version string          // sent in the User-Agent
 	BaseURL string          // EYRIE_BASE_URL: messages link to the monitor when set
 	TLS     *tls.Config     // RootCAs for SMTP servers; nil uses the system's
+	// Analyst explains down alerts; nil sends them without an analysis.
+	Analyst Analyst
 
 	queue        chan job
 	once         sync.Once
 	mu           sync.Mutex
 	last         map[int64]Result
+	pending      map[int64]chan struct{} // closed when a monitor's waiting message is queued
 	settings     atomic.Pointer[Settings]
 	sent, failed atomic.Uint64
+}
+
+// Analyst explains why a monitor went down, for its down alert. It
+// returns "" without an explanation, and returns within its own timeout.
+type Analyst interface {
+	Analyze(m store.Monitor, b store.Beat) string
 }
 
 // job is a message for a monitor's channels.
@@ -205,6 +215,7 @@ func (n *Notifier) init() {
 	n.once.Do(func() {
 		n.queue = make(chan job, 256)
 		n.last = map[int64]Result{}
+		n.pending = map[int64]chan struct{}{}
 		if n.Client == nil {
 			n.Client = &http.Client{Timeout: 10 * time.Second}
 		}
@@ -390,7 +401,7 @@ func request(ctx context.Context, c Channel, m Message) (*http.Request, error) {
 		}
 		return req, err
 	}
-	text := m.Text
+	text := withAnalysis(m)
 	if m.URL != "" {
 		text += "\n" + m.URL
 	}
@@ -421,7 +432,8 @@ func request(ctx context.Context, c Channel, m Message) (*http.Request, error) {
 		req.Header.Set("X-Gotify-Key", c.Token)
 		return req, nil
 	case KindPushover:
-		form := url.Values{"token": {c.Token}, "user": {c.User}, "title": {m.Title}, "message": {m.Text},
+		// Pushover takes at most 1024 characters.
+		form := url.Values{"token": {c.Token}, "user": {c.User}, "title": {m.Title}, "message": {shorten(withAnalysis(m), 1024)},
 			"priority": {fmt.Sprint(pushoverPriority(m.Priority))}, "timestamp": {fmt.Sprint(m.Time.Unix())}}
 		if m.URL != "" {
 			form.Set("url", m.URL)
@@ -433,12 +445,12 @@ func request(ctx context.Context, c Channel, m Message) (*http.Request, error) {
 			base = c.URL
 		}
 		b, _ := json.Marshal(map[string]any{
-			"chat_id": c.To, "text": m.Title + "\n\n" + text, "disable_web_page_preview": true,
+			"chat_id": c.To, "text": shorten(m.Title+"\n\n"+text, 4096), "disable_web_page_preview": true,
 		})
 		return post(strings.TrimRight(base, "/")+"/bot"+c.Token+"/sendMessage", b, "application/json")
 	case KindDiscord:
 		// The URL is a channel webhook; it carries its own secret.
-		b, _ := json.Marshal(map[string]any{"username": "Eyrie", "content": "**" + m.Title + "**\n" + text})
+		b, _ := json.Marshal(map[string]any{"username": "Eyrie", "content": shorten("**"+m.Title+"**\n"+text, 2000)})
 		return post(c.URL, b, "application/json")
 	default:
 		b, _ := json.Marshal(m)
@@ -451,6 +463,23 @@ func request(ctx context.Context, c Channel, m Message) (*http.Request, error) {
 		}
 		return req, nil
 	}
+}
+
+// withAnalysis is the message's text followed by the analysis.
+func withAnalysis(m Message) string {
+	if m.Analysis == "" {
+		return m.Text
+	}
+	return m.Text + "\n\nAnalysis: " + m.Analysis
+}
+
+// shorten cuts s to at most n characters (Telegram and Discord limits),
+// ending it with "…" when cut.
+func shorten(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	return string([]rune(s)[:n-1]) + "…"
 }
 
 func ntfyTag(m Message) string {

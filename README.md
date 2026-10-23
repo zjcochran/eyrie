@@ -9,9 +9,11 @@ in, and keeps its data in SQLite or, for large installations, PostgreSQL.
 keywords, JSON), TCP ports, ping and DNS, takes pushes from jobs, and has
 manual monitors and groups, a live dashboard, uptime history and Prometheus
 metrics, and notifies ntfy, Gotify, Pushover, Telegram, Discord, email and
-signed webhooks, with accounts, two-factor sign-in and single sign-on. Alert
-analysis by Claude, tags, maintenance windows and status pages follow; see
-[the plan](#roadmap).
+signed webhooks, with accounts, two-factor sign-in and single sign-on.
+Down alerts can carry an analysis of the failure by Claude (an API key or
+your Claude subscription) or a model on your own server, such as Ollama
+(off by default).
+Tags, maintenance windows and status pages follow; see [the plan](#roadmap).
 
 ## Quick start
 
@@ -30,7 +32,7 @@ See [Installation](docs/user/installation.md), including PostgreSQL.
 
 ## Documentation
 
-Everything is in [docs/](docs/README.md): installation, monitors, notifications, using the web app,
+Everything is in [docs/](docs/README.md): installation, monitors, notifications, alert analysis, using the web app,
 single sign-on, configuration, the HTTP interface, security, the data
 model, testing and CI, development.
 
@@ -39,8 +41,8 @@ model, testing and CI, development.
 1. Scaffold and CI
 2. Users and sign-in: passwords, two-factor sign-in, single sign-on, API tokens
 3. The monitor engine, the first monitor types, Prometheus metrics
-4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks (this version)
-5. Alert analysis with Claude: connect an API key or OAuth token, and alerts carry Claude's analysis in their notifications
+4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks
+5. Alert analysis: down alerts carry an analysis by Claude (an Anthropic API key, or a Claude subscription through Claude Code) or a model on your own server (Ollama, LM Studio, llama.cpp, vLLM) (this version)
 6. Tags and maintenance windows
 7. Status pages, incidents and status badges
 8. and 9. The remaining monitor types (every type Uptime Kuma and Peekaping have)

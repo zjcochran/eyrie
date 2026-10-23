@@ -11,6 +11,7 @@ are updated in the same change as the behaviour they describe.
 | [Installation](user/installation.md) | Building the image, Docker Compose with SQLite or PostgreSQL, the data folder, upgrading |
 | [Monitors](user/monitors.md) | The dashboard, a monitor's page, adding monitors, every type and setting, push URLs, uptime and history |
 | [Notifications](user/notifications.md) | Channels (ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks), what is sent, certificate warnings, delivery |
+| [Alert analysis](user/alert-analysis.md) | Claude with an API key or your subscription (Claude Code), or a model on your own server (Ollama and other OpenAI-compatible servers), what is sent, timeouts |
 | [Using the web app](user/web-ui.md) | Setup, signing in, your account, two-factor sign-in, users, API tokens |
 | [Single sign-on](user/single-sign-on.md) | Signing in with an OpenID Connect provider: setup, groups, linking, SSO only |
 

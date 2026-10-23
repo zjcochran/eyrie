@@ -74,6 +74,32 @@ export interface SSOSettingsChange extends Omit<SSOSettings, 'has_secret' | 'cal
   clear_secret: boolean;
 }
 
+export interface AnalysisSettings {
+  enabled: boolean;
+  /** 'api': Claude with an Anthropic API key; 'claude-code': Claude with a
+   * subscription, through Claude Code; 'local': an OpenAI-compatible server. */
+  provider: 'api' | 'claude-code' | 'local';
+  model: string;
+  has_api_key: boolean;
+  base_url: string;
+  has_local_api_key: boolean;
+  timeout_s: number;
+  default_model: string;
+  /** The Claude Code download; null unless EYRIE_CLAUDE_CODE=true. */
+  claude_code: { state: 'installing' | 'ready' | 'failed'; version?: string; error?: string } | null;
+}
+
+export interface AnalysisSettingsChange {
+  enabled: boolean;
+  provider: 'api' | 'claude-code' | 'local';
+  model: string;
+  base_url: string;
+  timeout_s: number;
+  /** The chosen provider's key: '' keeps the saved one. */
+  api_key: string;
+  clear_api_key: boolean;
+}
+
 export interface Token {
   id: number;
   name: string;
@@ -302,6 +328,14 @@ export class Client {
   notifySettings = () => this.request<{ cert_expiry_days: number[] }>('GET', '/api/v1/settings/notifications');
   saveNotifySettings = (days: number[]) =>
     this.request<{ cert_expiry_days: number[] }>('PUT', '/api/v1/settings/notifications', { cert_expiry_days: days });
+  analysisSettings = () => this.request<AnalysisSettings>('GET', '/api/v1/settings/analysis');
+  saveAnalysisSettings = (s: AnalysisSettingsChange) =>
+    this.request<AnalysisSettings>('PUT', '/api/v1/settings/analysis', s);
+  testAnalysis = (s: AnalysisSettingsChange) =>
+    this.request<{ ok: boolean; message: string }>('POST', '/api/v1/settings/analysis/test', s);
+  /** The models the form's provider offers, or why they could not be listed. */
+  analysisModels = (s: AnalysisSettingsChange) =>
+    this.request<{ models: string[]; error?: string }>('POST', '/api/v1/settings/analysis/models', s);
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });

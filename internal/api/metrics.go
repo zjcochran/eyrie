@@ -89,6 +89,9 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 	sent, failed := s.Notifier.Counts()
 	metric("eyrie_notifications_total", "Notifications sent since Eyrie started, by result (failed: after every retry).", "counter")
 	fmt.Fprintf(&b, "eyrie_notifications_total{result=\"sent\"} %d\neyrie_notifications_total{result=\"failed\"} %d\n", sent, failed)
+	ok, failed := s.Analyzer.Counts()
+	metric("eyrie_alert_analyses_total", "Alert analyses since Eyrie started, by result (failed: an error, a timeout or too many at once).", "counter")
+	fmt.Fprintf(&b, "eyrie_alert_analyses_total{result=\"ok\"} %d\neyrie_alert_analyses_total{result=\"failed\"} %d\n", ok, failed)
 
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)

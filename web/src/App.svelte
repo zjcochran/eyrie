@@ -7,6 +7,7 @@
   import { routeFor, settingsTabs } from './lib/route.ts';
   import { api, app, refresh } from './lib/session.svelte.ts';
   import Account from './pages/Account.svelte';
+  import Analysis from './pages/Analysis.svelte';
   import Home from './pages/Home.svelte';
   import Login from './pages/Login.svelte';
   import MonitorForm from './pages/MonitorForm.svelte';
@@ -109,6 +110,8 @@
         <Retention />
       {:else if page === 'notifications'}
         <Notifications />
+      {:else if page === 'analysis'}
+        <Analysis />
       {/if}
     {/if}
   </main>

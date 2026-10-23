@@ -1,6 +1,6 @@
 # The web app is built with Node.js here, in its own stage; the image that
 # ships has only the Go binary, with the app embedded (build tag "ui").
-FROM --platform=$BUILDPLATFORM node:24.22.1-alpine AS web
+FROM --platform=$BUILDPLATFORM node:26.12.1-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json web/.npmrc ./
 RUN npm ci --ignore-scripts --no-audit
@@ -20,7 +20,9 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -tags ui -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.sourceURL=${SOURCE_URL}" -o /out/eyrie ./cmd/eyrie && \
     mkdir /out/data
 
-FROM gcr.io/distroless/static-debian13:nonroot
+# Alpine, for the C library (musl) the Claude Code binary that
+# EYRIE_CLAUDE_CODE=true downloads at start needs; the Go binary is static.
+FROM alpine:3
 ARG VERSION=dev
 # Where the source is, for published images (github-image sets it).
 ARG SOURCE_URL=""
@@ -29,6 +31,13 @@ LABEL org.opencontainers.image.title="Eyrie" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.source="${SOURCE_URL}" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
+# alpine:3 is the newest Alpine release, and apk upgrade adds every fix
+# published since the image was built; a non-root user (UID 65532, as
+# before).
+# The base already has the CA certificates HTTPS checks use.
+RUN apk upgrade --no-cache && \
+    addgroup -g 65532 eyrie && \
+    adduser -D -H -u 65532 -G eyrie -h /data -s /sbin/nologin eyrie
 COPY --from=build /out/eyrie /eyrie
 # /data belongs to the image's non-root user, so a new volume does too.
 COPY --from=build --chown=65532:65532 /out/data /data

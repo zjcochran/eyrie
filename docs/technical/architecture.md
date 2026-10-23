@@ -15,6 +15,7 @@ app, and runs the monitor engine. It runs as a single instance.
 | `internal/check` | The monitor types: their settings, defaults and validation, and the checks themselves. Every check reaches the network through an `Env` (dialer, HTTP transport, resolver, pinger) that tests replace. Includes Eyrie's own DNS client, ICMP echo and JSON path. |
 | `internal/engine` | Runs the monitors, below. |
 | `internal/notify` | Notification channels (ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks), the messages for status changes and certificate warnings, and a background queue with retries. See [Notifications](../user/notifications.md). |
+| `internal/analysis` | Alert analysis: builds the prompt from a monitor, its safe settings (`check.Describe`) and recent checks, and asks Claude through the Messages API with an API key, Claude through Claude Code (which `ClaudeCode` downloads from Anthropic and keeps current when `EYRIE_CLAUDE_CODE` is true), or a model on an OpenAI-compatible server through `/chat/completions`. See [Alert analysis](../user/alert-analysis.md). |
 | `internal/totp` | Time-based one-time passwords (RFC 6238) for two-factor sign-in. |
 | `internal/sso` | OpenID Connect sign-in: discovery, the authorization code flow with PKCE, ID-token checks, group rules. `internal/sso/ssotest` is a fake provider for tests. |
 | `internal/api` | HTTP routes: setup, sign-in, sessions and CSRF, accounts, users, single sign-on, API tokens, the health check, security headers. See the [HTTP interface](http-interface.md) and [Security](security.md). |
@@ -34,7 +35,9 @@ Node.js is never installed on a developer's machine. It runs only:
 - in the CI jobs `web` (type check, build, tests) and `web-lock`, and
 - in the first stage of the Dockerfile, which builds the app; the second
   stage builds the Go binary with `-tags ui`, and the image that ships has
-  only the binary, on `gcr.io/distroless/static-debian13:nonroot`.
+  only the binary, on `alpine:3`, the newest Alpine release (with every
+  published Alpine fix; its C library, musl, is for the Claude Code
+  binary that `EYRIE_CLAUDE_CODE=true` downloads), running as UID 65532.
 
 ## The monitor engine
 
@@ -53,7 +56,10 @@ Node.js is never installed on a developer's machine. It runs only:
   a writer goroutine that saves them in batches about once a second, sent
   to the event stream, and logged when the status changed. Outcomes worth a
   notification go to `internal/notify`'s queue, as do certificate warnings,
-  which the engine decides from each HTTPS result and the warning days.
+  which the engine decides from each HTTPS result and the warning days. A
+  down alert, when alert analysis is on, first waits in its own goroutine
+  for `internal/analysis` (at most the timeout); the monitor's later
+  messages wait behind it.
 - Push monitors have a deadline instead of a check; manual monitors only
   change when set; groups are evaluated at their interval and when a
   member's status changes.

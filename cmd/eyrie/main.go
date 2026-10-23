@@ -22,11 +22,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
-	_ "time/tzdata" // distroless has no zoneinfo; TZ still works
+	_ "time/tzdata" // the image has no zoneinfo; TZ still works
 
+	"github.com/zjcochran/eyrie/internal/analysis"
 	"github.com/zjcochran/eyrie/internal/api"
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/config"
@@ -112,14 +114,24 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 
 	env := check.DefaultEnv("Eyrie/" + version)
 	eng := engine.New(st, env, log)
-	notifier := &notify.Notifier{Store: st, Secrets: box, Log: log, Version: version, BaseURL: cfg.BaseURL}
+	analyzer := &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: version}
+	if cfg.ClaudeCode {
+		analyzer.Claude = &analysis.ClaudeCode{Dir: filepath.Join(cfg.DataDir, "claude-code"), Log: log}
+		go analyzer.Claude.Run(ctx)
+	}
+	if a, err := analysis.LoadSettings(ctx, st); err != nil {
+		log.Error("cannot read the alert analysis settings", "err", err)
+	} else {
+		analyzer.SetSettings(a)
+	}
+	notifier := &notify.Notifier{Store: st, Secrets: box, Log: log, Version: version, BaseURL: cfg.BaseURL, Analyst: analyzer}
 	eng.OnNotify, eng.OnCert, eng.CertDays = notifier.Monitor, notifier.CertExpiring, notifier.CertDays
 	go notifier.Run(ctx)
 	apiSrv := &api.Server{
 		Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),
 		BaseURL: cfg.BaseURL, TrustedProxies: cfg.TrustedProxies, ForceLocal: cfg.ForceLocal,
 		SourceURL: cmp.Or(cfg.SourceURL, sourceURL), Engine: eng, Env: env, MetricsToken: cfg.MetricsToken,
-		Notifier: notifier,
+		Notifier: notifier, Analyzer: analyzer,
 	}
 	srv := &http.Server{
 		Handler:           apiSrv.Handler(),

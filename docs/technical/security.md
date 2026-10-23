@@ -208,7 +208,9 @@ proxy saw.
 
 - Requests go only to the URLs admins configure (Pushover's and Telegram's
   own APIs for those kinds). Messages carry the monitor's name, type,
-  description, status and check message, never settings or secrets.
+  description, status and check message, never settings or secrets; with
+  alert analysis, also the model's explanation, written from the safe settings
+  below.
 - Webhooks with a signing secret carry `X-Hub-Signature-256`, the
   HMAC-SHA256 of the body, so a receiver can reject forged calls.
 - Email is only sent encrypted: STARTTLS is required on `smtp://`, `smtps://`
@@ -219,10 +221,42 @@ proxy saw.
   bytes of an error.
 - Test messages use the form's URL, so only admins can send them.
 
+## Alert analysis
+
+Off by default. When an admin turns it on, each down alert sends the
+monitor's data to Anthropic under the admin's API key or subscription, or
+to the server URL the admin set. See [what is sent](../user/alert-analysis.md#what-is-sent-to-the-model).
+
+- Monitor settings are sent only through `check.Describe`, which each
+  monitor type implements to list what may leave Eyrie: never header
+  values, request bodies, or a URL's user, password, query and fragment. A
+  new monitor type cannot compile without saying what it shares.
+- Check messages can contain text from the monitored service; the prompt
+  marks the monitor's data as data, not instructions. The answer is only
+  ever text in a notification: the model has no tools and Eyrie runs
+  nothing it says.
+- The API keys (Anthropic's and the local server's, kept apart so one is
+  never sent to the other) are sealed like other secrets and never
+  returned. Claude subscription tokens are refused as API keys: Anthropic
+  allows them only in its own apps.
+- With `EYRIE_CLAUDE_CODE=true`, Eyrie downloads Claude Code over HTTPS
+  from Anthropic and runs it only if its size and SHA-256 match the
+  release's manifest, from the same place (as Anthropic's installer
+  does). The binary is kept in the data folder, readable and runnable
+  only by Eyrie's user. It runs as a fixed command with fixed arguments,
+  but for the model name, which may not start with `-` or contain spaces,
+  with no tools, MCP servers or slash commands, in a new empty folder, and
+  is killed at the timeout. Its sign-in, `CLAUDE_CODE_OAUTH_TOKEN`, is
+  read only by Claude Code.
+- Only admins set the server URL, which must be `http` or `https` without
+  a user, query or fragment. Without `https`, the monitor's data crosses
+  the network in clear.
+- At most four analyses run at once, bounding requests in an outage.
+
 ## Stored secrets
 
-Two-factor secrets, the single sign-on client secret and notification
-channels' URLs, tokens and users are sealed with AES-256-GCM
+Two-factor secrets, the single sign-on client secret, the alert analysis
+API key and notification channels' URLs, tokens and users are sealed with AES-256-GCM
 (`internal/secrets`):
 
 - Key: SHA-256 of `EYRIE_SECRET_KEY`, or of the contents of

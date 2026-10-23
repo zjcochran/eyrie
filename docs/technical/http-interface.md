@@ -184,6 +184,30 @@ On a saved channel, an empty `url`, `token` or `user` keeps the saved one
 unless its `clear_` flag is set. `apply_to_all` adds the channel to every
 monitor.
 
+### Alert analysis
+
+All admin routes. See [Alert analysis](../user/alert-analysis.md).
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `GET /api/v1/settings/analysis` | | `200` the settings, below |
+| `PUT /api/v1/settings/analysis` | `{"enabled","provider","model","base_url","timeout_s","api_key","clear_api_key"}` | `200` the settings; applies at once. `422` for an unknown `provider` (`api`, `claude-code` or `local`), `claude-code` without `EYRIE_CLAUDE_CODE=true`, a timeout outside 5 to 300 seconds, a model name with spaces or starting with `-`, a `base_url` that is not an `http` or `https` URL with a host (or has a user, query or fragment), a subscription token (`sk-ant-oat…`) as `api_key`, turning on `api` without a key, or turning on `local` without `base_url` and `model`. `api_key` and `clear_api_key` are the chosen provider's key: an empty one keeps the saved key unless `clear_api_key` is set; the other provider's key is kept. |
+| `POST /api/v1/settings/analysis/test` | the same, not saved | `200` `{"ok":true,"message":"<the analysis of a made-up alert>"}` or `{"ok":false,"message":"<why>"}`. `422` as for `PUT`. |
+| `POST /api/v1/settings/analysis/models` | the same, not saved | `200` `{"models":["<id>",…]}`: the provider's models (the Claude API's newest first, Claude Code's aliases `opus`, `sonnet`, `haiku`, a server's by name), or `{"models":[],"error":"<why>"}`. Waits at most 10 seconds. `422` as for `PUT`. |
+
+```json
+{
+  "enabled": true, "provider": "local", "model": "llama3.2", "has_api_key": false,
+  "base_url": "http://192.0.2.20:11434/v1", "has_local_api_key": false, "timeout_s": 60,
+  "default_model": "claude-opus-5-5",
+  "claude_code": {"state": "ready", "version": "2.1.308"}
+}
+```
+
+The keys themselves are never returned. `claude_code` is `null` unless
+`EYRIE_CLAUDE_CODE=true`; otherwise its `state` is `installing`, `ready`
+(with the `version`) or `failed` (with the `error`).
+
 ### Monitors
 
 | Method and path | Access | Body | Answer |
@@ -298,6 +322,7 @@ compared in constant time). Without the setting it is `404`.
 | `eyrie_monitor_checks_total` | counter | same, `result` (`up`, `down`) | checks since Eyrie started; pending counts as up |
 | `eyrie_checks_running` | gauge | | checks in progress |
 | `eyrie_notifications_total` | counter | `result` (`sent`, `failed`) | notifications since Eyrie started, per channel; failed after every retry |
+| `eyrie_alert_analyses_total` | counter | `result` (`ok`, `failed`) | alert analyses since Eyrie started; failed: an error, no answer in time, or more than four at once |
 | `go_goroutines`, `go_memstats_alloc_bytes`, `go_memstats_sys_bytes` | gauge | | Go runtime |
 | `process_start_time_seconds` | gauge | | when Eyrie started, Unix seconds |
 
@@ -335,8 +360,8 @@ page saying it has no web interface.
 
 The app's pages: `/` (monitors), `/monitors/new`, `/monitors/{id}`,
 `/monitors/{id}/edit`, `/login`, `/settings/account`, `/settings/users`,
-`/settings/sso`, `/settings/api-tokens`, `/settings/notifications` and
-`/settings/history`. Before the
+`/settings/sso`, `/settings/api-tokens`, `/settings/notifications`,
+`/settings/alert-analysis` and `/settings/history`. Before the
 first account exists every page shows the setup form.
 
 ## Response headers

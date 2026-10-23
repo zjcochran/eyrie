@@ -90,6 +90,9 @@ type settings interface {
 	normalize() error
 	// checker is what checks a monitor with these settings.
 	checker(env *Env) Checker
+	// describe lists the settings that may leave Eyrie, for alert
+	// analysis: never header values, bodies or credentials.
+	describe() []Fact
 }
 
 // Types are every monitor type, by name.
@@ -154,6 +157,7 @@ type none struct{}
 
 func (*none) normalize() error     { return nil }
 func (*none) checker(*Env) Checker { return nil }
+func (*none) describe() []Fact     { return nil }
 
 // host checks a host name or IP address.
 func host(h string) (string, error) {
