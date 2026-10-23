@@ -330,6 +330,9 @@ export class Client {
     this.request<AnalysisSettings>('PUT', '/api/v1/settings/analysis', s);
   testAnalysis = (s: AnalysisSettingsChange) =>
     this.request<{ ok: boolean; message: string }>('POST', '/api/v1/settings/analysis/test', s);
+  /** The models the form's provider offers, or why they could not be listed. */
+  analysisModels = (s: AnalysisSettingsChange) =>
+    this.request<{ models: string[]; error?: string }>('POST', '/api/v1/settings/analysis/models', s);
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });

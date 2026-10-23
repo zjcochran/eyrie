@@ -126,3 +126,30 @@ func (s *Server) testAnalysis(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, ssoTest{true, text})
 }
+
+// modelsAnswer is the provider's models, or why they could not be listed.
+type modelsAnswer struct {
+	Models []string `json:"models"`
+	Error  string   `json:"error,omitempty"`
+}
+
+// analysisModels lists the models of the provider in the form as it is,
+// saved or not, for the settings page to offer.
+func (s *Server) analysisModels(w http.ResponseWriter, r *http.Request) {
+	var b analysisBody
+	if !readJSON(w, r, &b) {
+		return
+	}
+	b.Enabled = false
+	next, key, ok := s.analysisSettings(w, r, b)
+	if !ok {
+		return
+	}
+	*next.Key() = key
+	models, err := s.Analyzer.Models(r.Context(), next)
+	if err != nil {
+		writeJSON(w, http.StatusOK, modelsAnswer{Models: []string{}, Error: capitalize(err.Error()) + "."})
+		return
+	}
+	writeJSON(w, http.StatusOK, modelsAnswer{Models: models})
+}

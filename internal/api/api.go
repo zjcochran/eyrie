@@ -144,6 +144,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/v1/settings/analysis", s.admin(s.getAnalysis))
 	mux.Handle("PUT /api/v1/settings/analysis", s.admin(s.saveAnalysis))
 	mux.Handle("POST /api/v1/settings/analysis/test", s.admin(s.testAnalysis))
+	mux.Handle("POST /api/v1/settings/analysis/models", s.admin(s.analysisModels))
 	mux.Handle("GET /api/v1/settings/retention", s.admin(s.getRetention))
 	mux.Handle("PUT /api/v1/settings/retention", s.admin(s.saveRetention))
 

@@ -101,6 +101,10 @@ func newEnv(t *testing.T) *env {
 	e.answer.Store(`{"choices":[{"message":{"content":"The port is closed: the database is likely stopped."}}]}`)
 	e.prompts = make(chan string, 10)
 	e.model = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/v1/models" {
+			io.WriteString(w, `{"object":"list","data":[{"id":"qwen3:14b"},{"id":"gemma3:12b"}]}`)
+			return
+		}
 		var body struct {
 			Messages []struct{ Content string } `json:"messages"`
 		}

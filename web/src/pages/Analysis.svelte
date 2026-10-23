@@ -17,6 +17,28 @@
   let notice = $state<{ ok: boolean; text: string } | null>(null);
   let test = $state<{ ok: boolean; message: string } | null>(null);
   let busy = $state(false);
+  // The provider's models; null until listed. modelsError says why not.
+  let models = $state<string[] | null>(null);
+  let modelsError = $state('');
+  let listing = 0;
+
+  async function loadModels() {
+    const n = ++listing;
+    modelsError = '';
+    try {
+      const r = await api.analysisModels({ ...form, timeout_s: Number(form.timeout_s) });
+      if (n !== listing) return;
+      models = r.error ? null : r.models;
+      modelsError = r.error ?? '';
+    } catch (e) {
+      if (n !== listing) return;
+      models = null;
+      modelsError = message(e);
+    }
+  }
+
+  // The saved model stays choosable even if the server no longer lists it.
+  let choices = $derived(models && form.model && !models.includes(form.model) ? [form.model, ...models] : models);
 
   function fill(s: AnalysisSettings) {
     saved = s;
@@ -32,7 +54,13 @@
   }
 
   onMount(() => {
-    api.analysisSettings().then(fill, (e) => (notice = { ok: false, text: message(e) }));
+    api.analysisSettings().then(
+      (s) => {
+        fill(s);
+        void loadModels();
+      },
+      (e) => (notice = { ok: false, text: message(e) }),
+    );
   });
 
   let hasKey = $derived(saved ? (form.provider === 'api' ? saved.has_api_key : saved.has_local_api_key) : false);
@@ -80,11 +108,11 @@
       <fieldset>
         <legend>Model</legend>
         <label class="check"
-          ><input type="radio" bind:group={form.provider} value="api" /> Claude, with an Anthropic API key (billed to the
+          ><input type="radio" bind:group={form.provider} value="api" onchange={loadModels} /> Claude, with an Anthropic API key (billed to the
           key's Claude Console account)</label
         >
         <label class="check"
-          ><input type="radio" bind:group={form.provider} value="local" /> A model on your own server (Ollama, LM Studio,
+          ><input type="radio" bind:group={form.provider} value="local" onchange={loadModels} /> A model on your own server (Ollama, LM Studio,
           llama.cpp, vLLM or another OpenAI-compatible API)</label
         >
       </fieldset>
@@ -94,12 +122,13 @@
           <input
             type="url"
             bind:value={form.base_url}
+            onchange={loadModels}
             required={form.enabled}
             placeholder="http://192.0.2.20:11434/v1"
           /></label
         >
         <p class="muted">
-          The server's OpenAI-compatible API, ending in <code>/v1</code>. Ollama listens on port 11434, LM Studio on
+          The server's OpenAI-compatible API, ending in <code>/v1</code>; its models are listed below. Ollama listens on port 11434, LM Studio on
           1234, llama.cpp on 8080 and vLLM on 8000.
         </p>
       {/if}
@@ -108,6 +137,7 @@
         <input
           type="password"
           bind:value={form.api_key}
+          onchange={loadModels}
           autocomplete="off"
           placeholder={hasKey ? 'Saved; leave blank to keep it' : form.provider === 'api' ? 'sk-ant-api03-…' : ''}
         /></label
@@ -115,15 +145,32 @@
       {#if hasKey}<label class="check"
           ><input type="checkbox" bind:checked={form.clear_api_key} /> Remove the saved API key</label
         >{/if}
-      <label
-        >Model name
-        <input
-          bind:value={form.model}
-          maxlength="100"
-          required={form.enabled && form.provider === 'local'}
-          placeholder={form.provider === 'api' ? saved.default_model : 'llama3.2'}
-        /></label
-      >
+      {#if choices}
+        <label
+          >Model
+          <select bind:value={form.model} required={form.enabled && form.provider === 'local'}>
+            {#if form.provider === 'api'}<option value="">Default ({saved.default_model})</option>
+            {:else if !form.model}<option value="" disabled>Choose a model</option>{/if}
+            {#each choices as id (id)}<option value={id}>{id}</option>{/each}
+          </select></label
+        >
+      {:else}
+        <label
+          >Model name
+          <input
+            bind:value={form.model}
+            maxlength="100"
+            required={form.enabled && form.provider === 'local'}
+            placeholder={form.provider === 'api' ? saved.default_model : 'llama3.2'}
+          /></label
+        >
+      {/if}
+      <p class="muted">
+        {#if choices}{choices.length} models listed by the {form.provider === 'api' ? 'Claude API' : 'server'}.
+        {:else if modelsError}Cannot list the models: {modelsError}
+        {:else}Listing the models…{/if}
+        <button type="button" onclick={loadModels}>List again</button>
+      </p>
       <label>Timeout (seconds) <input type="number" min="5" max="300" bind:value={form.timeout_s} /></label>
       <div class="row">
         <button type="button" onclick={runTest} disabled={busy}>Test with a made-up alert</button>

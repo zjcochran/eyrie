@@ -151,3 +151,21 @@ func TestAlertCarriesAnalysis(t *testing.T) {
 		t.Errorf("metrics %s", metrics)
 	}
 }
+
+func TestAnalysisModels(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	var res modelsAnswer
+	if admin.call("POST", "/api/v1/settings/analysis/models", map[string]any{"provider": "local", "timeout_s": 60,
+		"base_url": e.model.URL + "/v1"}, &res); res.Error != "" || strings.Join(res.Models, ",") != "gemma3:12b,qwen3:14b" {
+		t.Errorf("local %+v", res)
+	}
+	if admin.call("POST", "/api/v1/settings/analysis/models", map[string]any{"provider": "api", "timeout_s": 60}, &res); res.Error != "Enter the API key first." ||
+		res.Models == nil {
+		t.Errorf("no key %+v", res)
+	}
+	if code, _ := admin.errorOf("POST", "/api/v1/settings/analysis/models", map[string]any{"provider": "local", "timeout_s": 60,
+		"base_url": "192.0.2.20"}); code != http.StatusUnprocessableEntity {
+		t.Errorf("bad URL: %d", code)
+	}
+}

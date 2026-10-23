@@ -44,6 +44,17 @@ type messagesResponse struct {
 	} `json:"error"`
 }
 
+func (a *Analyzer) apiURL() string {
+	if a.APIURL == "" {
+		return "https://api.anthropic.com"
+	}
+	return a.APIURL
+}
+
+func anthropicHeaders(key string) http.Header {
+	return http.Header{"X-Api-Key": {key}, "Anthropic-Version": {"2023-06-01"}}
+}
+
 // messages asks the Claude API (POST /v1/messages) with an API key.
 func (a *Analyzer) messages(ctx context.Context, s Settings, key, prompt string) (string, error) {
 	model := s.Model
@@ -54,15 +65,11 @@ func (a *Analyzer) messages(ctx context.Context, s Settings, key, prompt string)
 	if slices.Contains(fallbackModels, model) {
 		body.Fallbacks = "default"
 	}
-	base := a.APIURL
-	if base == "" {
-		base = "https://api.anthropic.com"
-	}
-	h := http.Header{"X-Api-Key": {key}, "Anthropic-Version": {"2023-06-01"}}
+	h := anthropicHeaders(key)
 	if body.Fallbacks != "" {
 		h.Set("Anthropic-Beta", "server-side-fallback-2026-07-01")
 	}
-	resp, err := a.post(ctx, base+"/v1/messages", h, body)
+	resp, err := a.post(ctx, a.apiURL()+"/v1/messages", h, body)
 	if err != nil {
 		return "", err
 	}
@@ -98,12 +105,17 @@ type answer struct {
 // post sends body as JSON with headers h.
 func (a *Analyzer) post(ctx context.Context, url string, h http.Header, body any) (answer, error) {
 	b, _ := json.Marshal(body)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
+	h.Set("Content-Type", "application/json")
+	return a.do(ctx, http.MethodPost, url, h, bytes.NewReader(b))
+}
+
+// do sends a request with headers h.
+func (a *Analyzer) do(ctx context.Context, method, url string, h http.Header, body io.Reader) (answer, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return answer{}, err
 	}
 	req.Header = h
-	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Eyrie/"+a.Version)
 	client := a.Client
 	if client == nil {

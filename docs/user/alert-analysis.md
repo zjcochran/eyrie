@@ -49,8 +49,10 @@ Eyrie runs somewhere else. Set:
   | llama.cpp (`llama-server`) | 8080 | `http://192.0.2.20:8080/v1` |
   | vLLM | 8000 | `http://192.0.2.20:8000/v1` |
 
-- **Model name**: required, as the server names it, such as `llama3.2`
-  for Ollama (`ollama list` shows them).
+- **Model**: required. The settings page lists the server's models
+  (`GET <server URL>/models`) as soon as the server URL is set; choose one.
+  If the list cannot be loaded, it shows why and takes a name typed in,
+  such as `qwen3:14b` for Ollama.
 - **API key**: only if the server asks for one (vLLM's `--api-key`, a
   proxy in front). It is sent as `Authorization: Bearer <key>`, stored
   encrypted, and kept separately from the Claude API key.
@@ -85,7 +87,7 @@ made-up alert** to see how long it takes.
 | Model | Claude, or a model on your own server. |
 | Server URL | Your own server only. Required to turn analysis on. |
 | API key | Claude: required to turn analysis on. Your own server: only if it needs one. |
-| Model name | Claude: a model ID such as `claude-sonnet-5-5`; blank for `claude-opus-5-5`. Your own server: required. |
+| Model | Chosen from the models the provider lists (Claude: `GET /v1/models` with the API key; your own server: `GET <server URL>/models`), or typed in when the list cannot be loaded. Claude: blank is `claude-opus-5-5`. Your own server: required. |
 | Timeout | 5 to 300 seconds, 60 by default: how long a down alert waits for the analysis. |
 
 **Test with a made-up alert** sends a made-up down alert (a shop website
