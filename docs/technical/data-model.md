@@ -282,3 +282,47 @@ among the monitors, and the monitors with the tags). Primary keys
 CASCADE`, so deleting a monitor or a tag takes it out of windows; indexes
 `maintenance_monitors_monitor` on `monitor_id` and `maintenance_tags_tag`
 on `tag_id`.
+
+### status_pages
+
+Migration `00006_status_pages`. Unique index `status_pages_slug` on `slug`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `slug` | `TEXT` | The address, `/status/<slug>`: 1 to 64 lower-case letters, digits and single dashes |
+| `title` | `TEXT` | 1 to 100 characters |
+| `description`, `footer` | `TEXT` | Up to 2000 characters each |
+| `published` | `BOOLEAN` | False: only signed-in users see it, and its monitors have no badges |
+| `theme` | `TEXT` | `auto`, `light` or `dark` |
+| `accent` | `TEXT` | `#rrggbb`; `''` for Eyrie's |
+| `show_tags`, `show_cert_expiry` | `BOOLEAN` | |
+| `created_at`, `updated_at` | `BIGINT` | |
+
+### status_page_logos
+
+A page's logo, at most one: `page_id` (primary key, `ON DELETE CASCADE`),
+`content_type`, `data` (`BLOB` / `BYTEA`, at most 1 MB), `updated_at`.
+
+### status_page_sections, status_page_monitors
+
+A page's sections: `id`, `page_id` (`ON DELETE CASCADE`), `position` (from
+0, in order), `title` (up to 100 characters), `tag_id` (`NULL` for none;
+`ON DELETE SET NULL`). Indexes `status_page_sections_page` and
+`status_page_sections_tag`. `status_page_monitors` lists the monitors a
+section names: primary key `(section_id, monitor_id)`, both `ON DELETE
+CASCADE`, index `status_page_monitors_monitor`. A section shows those and
+the monitors with its tag.
+
+### incidents, incident_updates
+
+`incidents`: `id`, `page_id` (`ON DELETE CASCADE`), `title` (1 to 200
+characters), `status` (that of the latest update), `created_at`,
+`updated_at`, `resolved_at` (`0` while open). Index `incidents_page` on
+`(page_id, created_at)`.
+
+`incident_updates`, the timeline: `id`, `incident_id` (`ON DELETE
+CASCADE`), `status` (`investigating`, `identified`, `monitoring` or
+`resolved`), `message` (1 to 5000 characters), `author` (the username of
+who posted it), `created_at`. Index `incident_updates_incident` on
+`(incident_id, created_at)`.

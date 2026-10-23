@@ -217,6 +217,81 @@ export interface Window extends WindowChange {
   updated_at: string;
 }
 
+export interface PageSection {
+  title: string;
+  /** The tag whose monitors it shows; null for none. */
+  tag_id: number | null;
+  /** Monitors it shows besides the tag's. */
+  monitors: number[];
+}
+
+/** A status page's settings, as created or changed. */
+export interface StatusPageChange {
+  slug: string;
+  title: string;
+  description: string;
+  footer: string;
+  published: boolean;
+  theme: 'auto' | 'light' | 'dark';
+  /** Such as #1f5fbf; '' for Eyrie's. */
+  accent: string;
+  show_tags: boolean;
+  show_cert_expiry: boolean;
+  sections: PageSection[];
+}
+
+export interface StatusPage extends StatusPageChange {
+  id: number;
+  /** '' for none. */
+  logo_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type IncidentStatus = 'investigating' | 'identified' | 'monitoring' | 'resolved';
+
+export interface Incident {
+  id: number;
+  title: string;
+  status: IncidentStatus;
+  /** Newest first. author is only there for signed-in users. */
+  updates: { status: IncidentStatus; message: string; author?: string; created_at: string }[];
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+}
+
+export type PublicStatus = 'up' | 'down' | 'maintenance' | 'paused' | 'unknown';
+
+/** What GET /api/v1/status/{slug} answers: a status page as anyone sees it. */
+export interface PublicPage {
+  slug: string;
+  title: string;
+  description: string;
+  footer: string;
+  published: boolean;
+  theme: 'auto' | 'light' | 'dark';
+  accent: string;
+  logo_url: string;
+  show_cert_expiry: boolean;
+  status: 'up' | 'partial' | 'down' | 'maintenance' | 'unknown';
+  sections: {
+    title: string;
+    monitors: {
+      id: number;
+      name: string;
+      status: PublicStatus;
+      uptime: { '24h': number | null; '30d': number | null; '90d': number | null };
+      days: { date: string; uptime: number | null }[];
+      tags?: { name: string; color: string; value: string }[];
+      cert_expires?: string;
+    }[];
+  }[];
+  incidents: Incident[];
+  maintenance: { title: string; description: string; state: 'on' | 'scheduled'; change: string | null }[];
+  generated_at: string;
+}
+
 export interface HourStats {
   start: string;
   up: number;
@@ -386,6 +461,22 @@ export class Client {
   createWindow = (w: WindowChange) => this.request<Window>('POST', '/api/v1/maintenance', w);
   updateWindow = (id: number, w: WindowChange) => this.request<Window>('PUT', `/api/v1/maintenance/${id}`, w);
   deleteWindow = (id: number) => this.request<void>('DELETE', `/api/v1/maintenance/${id}`);
+  statusPages = () => this.request<StatusPage[]>('GET', '/api/v1/status-pages');
+  statusPage = (id: number) => this.request<StatusPage>('GET', `/api/v1/status-pages/${id}`);
+  createStatusPage = (p: StatusPageChange) => this.request<StatusPage>('POST', '/api/v1/status-pages', p);
+  updateStatusPage = (id: number, p: StatusPageChange) =>
+    this.request<StatusPage>('PUT', `/api/v1/status-pages/${id}`, p);
+  deleteStatusPage = (id: number) => this.request<void>('DELETE', `/api/v1/status-pages/${id}`);
+  uploadLogo = (id: number, file: Blob) => this.request<StatusPage>('PUT', `/api/v1/status-pages/${id}/logo`, file);
+  removeLogo = (id: number) => this.request<StatusPage>('DELETE', `/api/v1/status-pages/${id}/logo`);
+  incidents = (pageID: number) => this.request<Incident[]>('GET', `/api/v1/status-pages/${pageID}/incidents`);
+  openIncident = (pageID: number, title: string, status: IncidentStatus, message: string) =>
+    this.request<Incident>('POST', `/api/v1/status-pages/${pageID}/incidents`, { title, status, message });
+  updateIncident = (id: number, status: IncidentStatus, message: string) =>
+    this.request<Incident>('POST', `/api/v1/incidents/${id}/updates`, { status, message });
+  renameIncident = (id: number, title: string) => this.request<Incident>('PUT', `/api/v1/incidents/${id}`, { title });
+  deleteIncident = (id: number) => this.request<void>('DELETE', `/api/v1/incidents/${id}`);
+  publicStatus = (slug: string) => this.request<PublicPage>('GET', `/api/v1/status/${encodeURIComponent(slug)}`);
   channelKinds = () => this.request<{ id: string; name: string }[]>('GET', '/api/v1/channel-kinds');
   channels = () => this.request<Channel[]>('GET', '/api/v1/channels');
   createChannel = (c: ChannelChange) => this.request<Channel>('POST', '/api/v1/channels', c);

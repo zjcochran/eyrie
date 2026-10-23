@@ -26,6 +26,14 @@ describe('pageFor', () => {
     assert.equal(pageFor('/monitors/0'), 'not-found');
     assert.equal(pageFor('/monitors/x'), 'not-found');
   });
+  it('reads status pages', () => {
+    assert.deepEqual(routeFor('/status-pages'), { page: 'status-pages', id: 0 });
+    assert.deepEqual(routeFor('/status-pages/new'), { page: 'new-status-page', id: 0 });
+    assert.deepEqual(routeFor('/status-pages/4'), { page: 'status-page', id: 4 });
+    assert.deepEqual(routeFor('/status/shop-status'), { page: 'status', id: 0, slug: 'shop-status' });
+    assert.equal(pageFor('/status/Shop'), 'not-found');
+    assert.equal(pageFor('/status/'), 'not-found');
+  });
 });
 
 describe('safeNext', () => {

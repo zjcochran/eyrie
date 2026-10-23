@@ -14,8 +14,11 @@
   import MonitorForm from './pages/MonitorForm.svelte';
   import MonitorPage from './pages/MonitorPage.svelte';
   import Notifications from './pages/Notifications.svelte';
+  import PublicStatus from './pages/PublicStatus.svelte';
   import Retention from './pages/Retention.svelte';
   import SSO from './pages/SSO.svelte';
+  import StatusPageEdit from './pages/StatusPageEdit.svelte';
+  import StatusPages from './pages/StatusPages.svelte';
   import Setup from './pages/Setup.svelte';
   import Tags from './pages/Tags.svelte';
   import Tokens from './pages/Tokens.svelte';
@@ -28,6 +31,7 @@
   const page = $derived(route.page);
   const signedIn = $derived(user !== null);
   const inSettings = $derived(settingsTabs.some((t) => t.page === page));
+  const inStatusPages = $derived(page === 'status-pages' || page === 'status-page' || page === 'new-status-page');
 
   // Monitors and their live updates, while signed in.
   $effect(() => {
@@ -57,7 +61,10 @@
   }
 </script>
 
-{#if !app.session}
+{#if page === 'status'}
+  <!-- Public: anyone may see a published status page, signed in or not. -->
+  <PublicStatus slug={route.slug ?? ''} />
+{:else if !app.session}
   <main class="narrow">
     {#if app.error}
       <p class="notice error">Eyrie could not be reached: {app.error}</p>
@@ -74,8 +81,11 @@
   <header>
     <a class="brand" href="/" onclick={link}>Eyrie</a>
     <nav>
-      <a href="/" onclick={link} aria-current={!inSettings && page !== 'maintenance' ? 'page' : undefined}>Monitors</a>
+      <a href="/" onclick={link} aria-current={!inSettings && !inStatusPages && page !== 'maintenance' ? 'page' : undefined}
+        >Monitors</a
+      >
       <a href="/maintenance" onclick={link} aria-current={page === 'maintenance' ? 'page' : undefined}>Maintenance</a>
+      <a href="/status-pages" onclick={link} aria-current={inStatusPages ? 'page' : undefined}>Status pages</a>
       <a href="/settings/account" onclick={link} aria-current={inSettings ? 'page' : undefined}>Settings</a>
     </nav>
     <div class="me">
@@ -91,6 +101,10 @@
       <MonitorPage id={route.id} />
     {:else if page === 'maintenance'}
       <Maintenance />
+    {:else if page === 'status-pages'}
+      <StatusPages />
+    {:else if page === 'status-page' || (page === 'new-status-page' && user.role === 'admin')}
+      {#key route.id}<StatusPageEdit id={route.id} />{/key}
     {:else if (page === 'new-monitor' || page === 'edit-monitor') && user.role === 'admin'}
       {#key route.id}<MonitorForm id={route.id} />{/key}
     {:else if page === 'not-found' || !tabs.some((t) => t.page === page)}

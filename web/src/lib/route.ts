@@ -15,12 +15,17 @@ export type Page =
   | 'analysis'
   | 'tags'
   | 'maintenance'
+  | 'status-pages'
+  | 'new-status-page'
+  | 'status-page'
+  | 'status'
   | 'not-found';
 
-/** A page, with the monitor ID of monitor pages. */
+/** A page, with the ID of monitor and status page pages, and the address of a public status page. */
 export interface Route {
   page: Page;
   id: number;
+  slug?: string;
 }
 
 /** The settings tabs, in order; admin tabs are hidden from viewers. */
@@ -42,6 +47,12 @@ export function routeFor(path: string): Route {
   if (p === '/settings') return { page: 'account', id: 0 };
   if (p === '/monitors/new') return { page: 'new-monitor', id: 0 };
   if (p === '/maintenance') return { page: 'maintenance', id: 0 };
+  if (p === '/status-pages') return { page: 'status-pages', id: 0 };
+  if (p === '/status-pages/new') return { page: 'new-status-page', id: 0 };
+  const sp = /^\/status-pages\/([1-9][0-9]*)$/.exec(p);
+  if (sp) return { page: 'status-page', id: Number(sp[1]) };
+  const pub = /^\/status\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(p);
+  if (pub) return { page: 'status', id: 0, slug: pub[1] };
   const m = /^\/monitors\/([1-9][0-9]*)(\/edit)?$/.exec(p);
   if (m) return { page: m[2] ? 'edit-monitor' : 'monitor', id: Number(m[1]) };
   return { page: settingsTabs.find((t) => t.path === p)?.page ?? 'not-found', id: 0 };

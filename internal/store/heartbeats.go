@@ -285,7 +285,7 @@ func (s *Store) totals(ctx context.Context, table string, from int64) (map[int64
 	return out, rows.Err()
 }
 
-// HourBucket is one monitor's counts for one hour.
+// HourBucket is one monitor's counts for one hour, or one day from Days.
 type HourBucket struct {
 	Start time.Time
 	Totals
@@ -309,6 +309,28 @@ func (s *Store) Hours(ctx context.Context, id int64, since time.Time) ([]HourBuc
 		}
 		b.Start = fromMillis(start)
 		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
+// Days returns every monitor's daily stats from the day that contains
+// since (days in UTC), oldest first, by monitor ID.
+func (s *Store) Days(ctx context.Context, since time.Time) (map[int64][]HourBucket, error) {
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT monitor_id, bucket, up, down, latency_sum, latency_count FROM stats_daily
+		WHERE bucket >= ? ORDER BY monitor_id, bucket`), since.UnixMilli()-since.UnixMilli()%day)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64][]HourBucket{}
+	for rows.Next() {
+		var b HourBucket
+		var id, start int64
+		if err := rows.Scan(&id, &start, &b.Up, &b.Down, &b.LatencySum, &b.LatencyCount); err != nil {
+			return nil, err
+		}
+		b.Start = fromMillis(start)
+		out[id] = append(out[id], b)
 	}
 	return out, rows.Err()
 }
