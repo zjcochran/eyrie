@@ -184,6 +184,27 @@ On a saved channel, an empty `url`, `token` or `user` keeps the saved one
 unless its `clear_` flag is set. `apply_to_all` adds the channel to every
 monitor.
 
+### Alert analysis
+
+All admin routes. See [Alert analysis with Claude](../user/alert-analysis.md).
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `GET /api/v1/settings/analysis` | | `200` the settings, below |
+| `PUT /api/v1/settings/analysis` | `{"enabled","provider","model","timeout_s","api_key","clear_api_key"}` | `200` the settings; applies at once. `422` for an unknown `provider` (`api` or `claude-code`), a timeout outside 5 to 300 seconds, a model name with spaces or starting with `-`, a subscription token (`sk-ant-oat…`) as `api_key`, or turning on `api` without a key. An empty `api_key` keeps the saved one unless `clear_api_key` is set. |
+| `POST /api/v1/settings/analysis/test` | the same, not saved | `200` `{"ok":true,"message":"<Claude's analysis of a made-up alert>"}` or `{"ok":false,"message":"<why>"}`. `422` as for `PUT`. |
+
+```json
+{
+  "enabled": true, "provider": "api", "model": "", "has_api_key": true, "timeout_s": 60,
+  "default_model": "claude-opus-5-5", "claude_code": "", "claude_code_error": "Exec: \"claude\": executable file not found in $PATH."
+}
+```
+
+The key itself is never returned. `claude_code` is where
+`EYRIE_CLAUDE_COMMAND` was found, or `""` with the reason in
+`claude_code_error`.
+
 ### Monitors
 
 | Method and path | Access | Body | Answer |
@@ -298,6 +319,7 @@ compared in constant time). Without the setting it is `404`.
 | `eyrie_monitor_checks_total` | counter | same, `result` (`up`, `down`) | checks since Eyrie started; pending counts as up |
 | `eyrie_checks_running` | gauge | | checks in progress |
 | `eyrie_notifications_total` | counter | `result` (`sent`, `failed`) | notifications since Eyrie started, per channel; failed after every retry |
+| `eyrie_alert_analyses_total` | counter | `result` (`ok`, `failed`) | alert analyses by Claude since Eyrie started; failed: an error, no answer in time, or more than four at once |
 | `go_goroutines`, `go_memstats_alloc_bytes`, `go_memstats_sys_bytes` | gauge | | Go runtime |
 | `process_start_time_seconds` | gauge | | when Eyrie started, Unix seconds |
 
@@ -335,8 +357,8 @@ page saying it has no web interface.
 
 The app's pages: `/` (monitors), `/monitors/new`, `/monitors/{id}`,
 `/monitors/{id}/edit`, `/login`, `/settings/account`, `/settings/users`,
-`/settings/sso`, `/settings/api-tokens`, `/settings/notifications` and
-`/settings/history`. Before the
+`/settings/sso`, `/settings/api-tokens`, `/settings/notifications`,
+`/settings/alert-analysis` and `/settings/history`. Before the
 first account exists every page shows the setup form.
 
 ## Response headers

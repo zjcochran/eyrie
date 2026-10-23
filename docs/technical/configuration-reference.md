@@ -16,6 +16,7 @@ variable.
 | `EYRIE_LOCAL_LOGIN` | empty | `force` (any case): password sign-in works even when single sign-on is set to be the only way in, for when the provider cannot be reached. Eyrie logs a warning at start while it is set. Any other value is refused. |
 | `EYRIE_SOURCE_URL` | the URL set at build time (published images: `https://github.com/zjcochran/eyrie`) | Where the source code of the running version is: an `http(s)` URL, linked from the footer of every page and given in `/api/v1/info` (AGPL section 13). Set it when you run a modified version. Without either, the footer links only to the licence. |
 | `EYRIE_METRICS_TOKEN` | empty | Turns on `/metrics` (Prometheus) behind `Authorization: Bearer <token>`. Empty: `/metrics` answers 404. See [HTTP interface](http-interface.md#metrics). |
+| `EYRIE_CLAUDE_COMMAND` | `claude` | The Claude Code binary that [alert analysis](../user/alert-analysis.md) runs when it connects with Claude Code: a name looked up on `PATH`, or a full path. Only this variable sets it, never the web app. |
 | `EYRIE_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`, in any case. The log is plain text (`key=value`) on standard error. |
 | `TZ` | `UTC` | Time zone for the log, as an IANA name such as `Etc/UTC`. The zone database is built into the binary. |
 

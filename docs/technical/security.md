@@ -208,7 +208,9 @@ proxy saw.
 
 - Requests go only to the URLs admins configure (Pushover's and Telegram's
   own APIs for those kinds). Messages carry the monitor's name, type,
-  description, status and check message, never settings or secrets.
+  description, status and check message, never settings or secrets; with
+  alert analysis, also Claude's explanation, written from the safe settings
+  below.
 - Webhooks with a signing secret carry `X-Hub-Signature-256`, the
   HMAC-SHA256 of the body, so a receiver can reject forged calls.
 - Email is only sent encrypted: STARTTLS is required on `smtp://`, `smtps://`
@@ -219,10 +221,35 @@ proxy saw.
   bytes of an error.
 - Test messages use the form's URL, so only admins can send them.
 
+## Alert analysis
+
+Off by default. When an admin turns it on, each down alert sends the
+monitor's data to Anthropic, under the admin's API key or Claude
+subscription. See [what is sent](../user/alert-analysis.md#what-is-sent-to-claude).
+
+- Monitor settings are sent only through `check.Describe`, which each
+  monitor type implements to list what may leave Eyrie: never header
+  values, request bodies, or a URL's user, password, query and fragment. A
+  new monitor type cannot compile without saying what it shares.
+- Check messages can contain text from the monitored service; the prompt
+  marks the monitor's data as data, not instructions. The answer is only
+  ever text in a notification: Claude has no tools and Eyrie runs nothing
+  it says.
+- The API key is sealed like other secrets and never returned. Subscription
+  tokens are refused as API keys: Anthropic allows them only in its own
+  apps.
+- Claude Code is run as a fixed command, `EYRIE_CLAUDE_COMMAND`, which only
+  Eyrie's environment sets, so an admin cannot make Eyrie run another
+  program. Its arguments are fixed but for the model name, which may not
+  start with `-` or contain spaces. It runs with no tools, MCP servers or
+  slash commands, in a new empty folder, and is killed at the timeout.
+  Eyrie never reads or stores its sign-in.
+- At most four analyses run at once, bounding requests in an outage.
+
 ## Stored secrets
 
-Two-factor secrets, the single sign-on client secret and notification
-channels' URLs, tokens and users are sealed with AES-256-GCM
+Two-factor secrets, the single sign-on client secret, the alert analysis
+API key and notification channels' URLs, tokens and users are sealed with AES-256-GCM
 (`internal/secrets`):
 
 - Key: SHA-256 of `EYRIE_SECRET_KEY`, or of the contents of

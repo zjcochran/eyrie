@@ -36,6 +36,10 @@ type Config struct {
 	// MetricsToken is EYRIE_METRICS_TOKEN: turns on /metrics behind this
 	// Bearer token.
 	MetricsToken string
+	// ClaudeCommand is EYRIE_CLAUDE_COMMAND: the Claude Code binary that
+	// alert analysis runs with a Claude subscription; "claude" from PATH by
+	// default.
+	ClaudeCommand string
 }
 
 // Defaults.
@@ -53,11 +57,12 @@ func Load(getenv func(string) string) (Config, error) {
 		return def
 	}
 	c := Config{
-		Listen:       get("EYRIE_LISTEN", DefaultListen),
-		DataDir:      get("EYRIE_DATA_DIR", DefaultDataDir),
-		DatabaseURL:  get("EYRIE_DATABASE_URL", ""),
-		SecretKey:    getenv("EYRIE_SECRET_KEY"),
-		MetricsToken: strings.TrimSpace(getenv("EYRIE_METRICS_TOKEN")),
+		Listen:        get("EYRIE_LISTEN", DefaultListen),
+		DataDir:       get("EYRIE_DATA_DIR", DefaultDataDir),
+		DatabaseURL:   get("EYRIE_DATABASE_URL", ""),
+		SecretKey:     getenv("EYRIE_SECRET_KEY"),
+		MetricsToken:  strings.TrimSpace(getenv("EYRIE_METRICS_TOKEN")),
+		ClaudeCommand: get("EYRIE_CLAUDE_COMMAND", "claude"),
 	}
 	if _, _, err := net.SplitHostPort(c.Listen); err != nil {
 		return c, fmt.Errorf("EYRIE_LISTEN %q: want host:port or :port", c.Listen)

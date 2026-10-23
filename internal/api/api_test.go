@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zjcochran/eyrie/internal/analysis"
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/notify"
@@ -44,6 +45,10 @@ type env struct {
 	up  atomic.Bool // whether port checks connect
 
 	notifier *notify.Notifier
+	analyzer *analysis.Analyzer
+	// claude is what the fake Claude Code prints; prompts gets what it was asked.
+	claude  atomic.Value
+	prompts chan string
 }
 
 type syncBuffer struct {
@@ -91,11 +96,18 @@ func newEnv(t *testing.T) *env {
 	}
 	log := slog.New(slog.NewTextHandler(e.log, nil))
 	eng := engine.New(st, checkEnv, log)
+	e.claude.Store(`{"is_error":false,"result":"The port is closed: the database is likely stopped."}`)
+	e.prompts = make(chan string, 10)
+	e.analyzer = &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: "v1.2.3", Command: "/opt/claude/bin/claude",
+		Run: func(_ context.Context, _ string, stdin []byte, _ string, _ ...string) ([]byte, error) {
+			e.prompts <- string(stdin)
+			return []byte(e.claude.Load().(string)), nil
+		}}
 	e.notifier = &notify.Notifier{Store: st, Secrets: box, Log: log, Version: "v1.2.3", BaseURL: "https://eyrie.example.com",
-		Retry: []time.Duration{time.Millisecond}}
+		Retry: []time.Duration{time.Millisecond}, Analyst: e.analyzer}
 	eng.OnNotify, eng.OnCert, eng.CertDays = e.notifier.Monitor, e.notifier.CertExpiring, e.notifier.CertDays
 	e.s = &Server{
-		Engine: eng, Env: checkEnv, MetricsToken: "m3trics", Notifier: e.notifier,
+		Engine: eng, Env: checkEnv, MetricsToken: "m3trics", Notifier: e.notifier, Analyzer: e.analyzer,
 		Store: st, Secrets: box, Version: "v1.2.3", SourceURL: "https://git.example.com/eyrie",
 		Log: log,
 		UI: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

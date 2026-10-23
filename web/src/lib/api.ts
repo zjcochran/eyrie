@@ -74,6 +74,27 @@ export interface SSOSettingsChange extends Omit<SSOSettings, 'has_secret' | 'cal
   clear_secret: boolean;
 }
 
+export interface AnalysisSettings {
+  enabled: boolean;
+  provider: 'api' | 'claude-code';
+  model: string;
+  has_api_key: boolean;
+  timeout_s: number;
+  default_model: string;
+  /** Where the Claude Code binary is; '' when not found, with the reason. */
+  claude_code: string;
+  claude_code_error: string;
+}
+
+export interface AnalysisSettingsChange {
+  enabled: boolean;
+  provider: 'api' | 'claude-code';
+  model: string;
+  timeout_s: number;
+  api_key: string;
+  clear_api_key: boolean;
+}
+
 export interface Token {
   id: number;
   name: string;
@@ -302,6 +323,11 @@ export class Client {
   notifySettings = () => this.request<{ cert_expiry_days: number[] }>('GET', '/api/v1/settings/notifications');
   saveNotifySettings = (days: number[]) =>
     this.request<{ cert_expiry_days: number[] }>('PUT', '/api/v1/settings/notifications', { cert_expiry_days: days });
+  analysisSettings = () => this.request<AnalysisSettings>('GET', '/api/v1/settings/analysis');
+  saveAnalysisSettings = (s: AnalysisSettingsChange) =>
+    this.request<AnalysisSettings>('PUT', '/api/v1/settings/analysis', s);
+  testAnalysis = (s: AnalysisSettingsChange) =>
+    this.request<{ ok: boolean; message: string }>('POST', '/api/v1/settings/analysis/test', s);
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });

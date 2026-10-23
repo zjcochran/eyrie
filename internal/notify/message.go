@@ -31,6 +31,9 @@ type Message struct {
 	Heartbeat *BeatInfo    `json:"heartbeat,omitempty"`
 	// CertExpires is when the certificate expires (certificate warnings).
 	CertExpires *time.Time `json:"cert_expires,omitempty"`
+	// Analysis is Claude's explanation of a down alert, when alert
+	// analysis is on and Claude answered in time.
+	Analysis string `json:"analysis,omitempty"`
 }
 
 // MonitorInfo describes the monitor a message is about.
@@ -53,8 +56,38 @@ type BeatInfo struct {
 // uses: down, back up, or still down. since is when the status before this
 // one began (how long it was down, for "back up"), or when the down status
 // began (for "still down").
+//
+// With an Analyst, a down alert waits for its analysis. The monitor's later
+// messages wait for it too, so they never arrive before it.
 func (n *Notifier) Monitor(m store.Monitor, b store.Beat, since time.Time) {
-	n.enqueue(job{m.ID, n.statusMessage(m, b, since)})
+	n.init()
+	msg := n.statusMessage(m, b, since)
+	analyse := msg.Event == EventDown && n.Analyst != nil
+	n.mu.Lock()
+	prev := n.pending[m.ID]
+	if prev == nil && !analyse {
+		n.mu.Unlock()
+		n.enqueue(job{m.ID, msg})
+		return
+	}
+	done := make(chan struct{})
+	n.pending[m.ID] = done
+	n.mu.Unlock()
+	go func() {
+		if analyse {
+			msg.Analysis = n.Analyst.Analyze(m, b)
+		}
+		if prev != nil {
+			<-prev
+		}
+		n.enqueue(job{m.ID, msg})
+		n.mu.Lock()
+		if n.pending[m.ID] == done {
+			delete(n.pending, m.ID)
+		}
+		n.mu.Unlock()
+		close(done)
+	}()
 }
 
 func (n *Notifier) statusMessage(m store.Monitor, b store.Beat, since time.Time) Message {

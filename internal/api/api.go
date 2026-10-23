@@ -14,6 +14,7 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/zjcochran/eyrie/internal/analysis"
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/notify"
@@ -53,6 +54,8 @@ type Server struct {
 	// Notifier sends notifications; the API manages its channels and tests
 	// them.
 	Notifier *notify.Notifier
+	// Analyzer asks Claude about down alerts; the API manages its settings.
+	Analyzer *analysis.Analyzer
 
 	now     func() time.Time
 	limiter *limiter
@@ -138,6 +141,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/channels/test", s.admin(s.testChannel))
 	mux.Handle("GET /api/v1/settings/notifications", s.admin(s.getNotifySettings))
 	mux.Handle("PUT /api/v1/settings/notifications", s.admin(s.saveNotifySettings))
+	mux.Handle("GET /api/v1/settings/analysis", s.admin(s.getAnalysis))
+	mux.Handle("PUT /api/v1/settings/analysis", s.admin(s.saveAnalysis))
+	mux.Handle("POST /api/v1/settings/analysis/test", s.admin(s.testAnalysis))
 	mux.Handle("GET /api/v1/settings/retention", s.admin(s.getRetention))
 	mux.Handle("PUT /api/v1/settings/retention", s.admin(s.saveRetention))
 
