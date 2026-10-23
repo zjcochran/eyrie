@@ -1,6 +1,6 @@
 # The web app is built with Node.js here, in its own stage; the image that
 # ships has only the Go binary, with the app embedded (build tag "ui").
-FROM --platform=$BUILDPLATFORM node:24.22.1-alpine AS web
+FROM --platform=$BUILDPLATFORM node:26.12.1-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json web/.npmrc ./
 RUN npm ci --ignore-scripts --no-audit
