@@ -35,9 +35,9 @@ Node.js is never installed on a developer's machine. It runs only:
 - in the CI jobs `web` (type check, build, tests) and `web-lock`, and
 - in the first stage of the Dockerfile, which builds the app; the second
   stage builds the Go binary with `-tags ui`, and the image that ships has
-  only the binary, on `gcr.io/distroless/base-nossl-debian13:nonroot`
-  (Debian's glibc and nothing more, for the Claude Code binary that
-  `EYRIE_CLAUDE_CODE=true` downloads).
+  only the binary, on `debian:13-slim` (with every published Debian fix
+  and the CA certificates; Debian's C library is for the Claude Code
+  binary that `EYRIE_CLAUDE_CODE=true` downloads), running as UID 65532.
 
 ## The monitor engine
 

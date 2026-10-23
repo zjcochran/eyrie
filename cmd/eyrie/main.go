@@ -26,7 +26,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	_ "time/tzdata" // distroless has no zoneinfo; TZ still works
+	_ "time/tzdata" // the image has no zoneinfo; TZ still works
 
 	"github.com/zjcochran/eyrie/internal/analysis"
 	"github.com/zjcochran/eyrie/internal/api"
