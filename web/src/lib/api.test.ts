@@ -86,6 +86,24 @@ describe('Client', () => {
     assert.equal(calls[0].headers['Content-Type'], undefined);
   });
 
+  it('downloads a backup file with its name, and sends a restore as a form', async () => {
+    const file = new Response('{"format":"eyrie-backup"}', {
+      headers: { 'Content-Disposition': 'attachment; filename="eyrie-backup-20270115-080000.json"' },
+    });
+    const { calls, client } = fake(file, json({ error: 'The passphrase must be at least 12 characters.' }, 422), json({ restored: {} }), json({}));
+    const got = await client.makeBackup('30', 'correct horse battery');
+    assert.equal(got.name, 'eyrie-backup-20270115-080000.json');
+    assert.equal(await got.blob.text(), '{"format":"eyrie-backup"}');
+    assert.equal(calls[0].body, JSON.stringify({ history: '30', passphrase: 'correct horse battery' }));
+    await assert.rejects(client.makeBackup('30', 'short'), /at least 12 characters/);
+    await client.restore(new Blob(['x']), 'correct horse battery');
+    const form = calls[2].body as FormData;
+    assert.equal(form.get('passphrase'), 'correct horse battery');
+    assert.equal(calls[2].headers['Content-Type'], undefined, 'the browser sets the multipart boundary');
+    await client.setupRestore(new Blob(['x']), 'p');
+    assert.equal(calls[3].path, '/api/v1/setup/restore');
+  });
+
   it('turns error answers into ApiError with the message', async () => {
     const { client } = fake(json({ error: 'Wrong username or password.' }, 401), new Response('oops', { status: 502 }));
     await assert.rejects(client.login('alice', 'nope'), /Wrong username or password/);
@@ -123,7 +141,7 @@ describe('Client', () => {
       default: false,
     };
     const routes: [() => Promise<unknown>, string, string][] = [];
-    const { calls, client } = fake(...Array.from({ length: 50 }, () => json({})));
+    const { calls, client } = fake(...Array.from({ length: 60 }, () => json({})));
     routes.push(
       [() => client.account(), 'GET', '/api/v1/account'],
       [() => client.changePassword('a', 'b'), 'PUT', '/api/v1/account/password'],
@@ -186,6 +204,13 @@ describe('Client', () => {
       [() => client.notifySettings(), 'GET', '/api/v1/settings/notifications'],
       [() => client.saveNotifySettings([21, 7]), 'PUT', '/api/v1/settings/notifications'],
       [() => client.saveRetention(30), 'PUT', '/api/v1/settings/retention'],
+      [() => client.backupSchedule(), 'GET', '/api/v1/settings/backup'],
+      [
+        () => client.saveBackupSchedule({ enabled: true, time: '03:00', keep: 14, history: 'none', passphrase: '' }),
+        'PUT',
+        '/api/v1/settings/backup',
+      ],
+      [() => client.runBackup(), 'POST', '/api/v1/backups/run'],
     );
     for (const [call, method, path] of routes) {
       await call();

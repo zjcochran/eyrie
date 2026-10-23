@@ -30,6 +30,7 @@ import (
 
 	"github.com/zjcochran/eyrie/internal/analysis"
 	"github.com/zjcochran/eyrie/internal/api"
+	"github.com/zjcochran/eyrie/internal/backup"
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/config"
 	"github.com/zjcochran/eyrie/internal/engine"
@@ -128,11 +129,13 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	notifier := &notify.Notifier{Store: st, Secrets: box, Log: log, Version: version, BaseURL: cfg.BaseURL, Analyst: analyzer}
 	eng.OnNotify, eng.OnCert, eng.CertDays = notifier.Monitor, notifier.CertExpiring, notifier.CertDays
 	go notifier.Run(ctx)
+	backups := &backup.Backups{Store: st, Secrets: box, Dir: cfg.BackupDir, Version: version, Log: log}
+	go backups.Run(ctx)
 	apiSrv := &api.Server{
 		Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),
 		BaseURL: cfg.BaseURL, TrustedProxies: cfg.TrustedProxies, ForceLocal: cfg.ForceLocal,
 		SourceURL: cmp.Or(cfg.SourceURL, sourceURL), Engine: eng, Env: env, MetricsToken: cfg.MetricsToken,
-		Notifier: notifier, Analyzer: analyzer,
+		Notifier: notifier, Analyzer: analyzer, Backups: backups,
 	}
 	srv := &http.Server{
 		Handler:           apiSrv.Handler(),

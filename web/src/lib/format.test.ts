@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ago, daysUntil, duration, millis, percent } from './format.ts';
+import { ago, daysUntil, duration, millis, percent, size } from './format.ts';
 import { toSettings, toValues } from './settings.ts';
 
 describe('format', () => {
@@ -75,5 +75,14 @@ describe('settings', () => {
       ignore_tls: false,
       notify_cert_expiry: false,
     });
+  });
+});
+
+describe('size', () => {
+  it('writes bytes in the largest fitting unit', () => {
+    assert.equal(size(512), '512 B');
+    assert.equal(size(3400), '3.4 KB');
+    assert.equal(size(12_100_000), '12.1 MB');
+    assert.equal(size(2_500_000_000), '2.5 GB');
   });
 });

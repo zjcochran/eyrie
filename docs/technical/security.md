@@ -30,7 +30,9 @@ whenever it is reachable by anyone you do not trust.
 Until the first account exists, `POST /api/v1/setup` creates an admin
 **without authentication**. It creates the account only while the users
 table is empty, in one statement, so two setups racing cannot both win.
-After that it answers `403`. Complete setup right after the first start.
+After that it answers `403`. `POST /api/v1/setup/restore` restores a backup
+file the same way: only while the users table is empty, checked again inside
+the restore's transaction. Complete setup right after the first start.
 
 ## Passwords
 
@@ -302,6 +304,38 @@ connection strings, a real browser's address) are sealed with AES-256-GCM (`inte
   client secret is saved, and a monitor's `secrets_set` names its secrets
   that are set. They are opened only to run a check, and never given to
   alert analysis.
+
+## Backup files
+
+Backup files hold password hashes, two-factor secrets and every stored
+secret (opened with this instance's key, sealed again with the restoring
+one's, so `secret.key` is not needed to move a backup), so they are
+encrypted with the passphrase given:
+
+- Key: argon2id(passphrase, 16-byte random salt, time 3, memory 64 MiB,
+  2 threads) → 32 bytes. The parameters are stored in the file.
+- Data: the gzipped JSON payload, sealed with AES-256-GCM (12-byte random
+  nonce, the format name as additional data). A wrong passphrase and a
+  modified file fail the same way.
+- Readable without the passphrase: the format name and version, the Eyrie
+  version, the database, the creation time, the schema version and the
+  history range. The encrypted copy of these is the one used.
+- Passphrases must be at least 12 characters.
+
+Restoring is limited so a crafted file cannot exhaust the host: the upload
+is at most 128 MB, the decompressed payload at most 1 GiB, and files asking
+for more than 256 MiB of memory, 10 passes or 8 threads of argon2id are
+rejected before any key is derived. Restored rows may only name known tables
+and columns, are written with bound values in one transaction, and the
+transaction is rolled back if any row is rejected or no enabled admin
+remains. Only admins restore, except at setup. A restore ends every session.
+
+Scheduled backups use a passphrase stored in the database, sealed with the
+secret key like the other secrets, because nobody is there to type it. The
+backup files alone stay protected by it; whoever has the data folder and
+the key can recover it. Old files are deleted only if their names match
+`eyrie-backup-YYYYMMDD-HHMMSS.json`, and downloads of stored files accept
+only such names, so no other path can be read.
 
 ## Response headers
 

@@ -92,6 +92,10 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 	ok, failed := s.Analyzer.Counts()
 	metric("eyrie_alert_analyses_total", "Alert analyses since Eyrie started, by result (failed: an error, a timeout or too many at once).", "counter")
 	fmt.Fprintf(&b, "eyrie_alert_analyses_total{result=\"ok\"} %d\neyrie_alert_analyses_total{result=\"failed\"} %d\n", ok, failed)
+	if _, last, err := s.Backups.Schedule(r.Context()); err == nil && !last.Success.IsZero() {
+		metric("eyrie_backup_last_success_timestamp_seconds", "When the last scheduled backup was written, in Unix seconds.", "gauge")
+		fmt.Fprintf(&b, "eyrie_backup_last_success_timestamp_seconds %d\n", last.Success.Unix())
+	}
 
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)

@@ -21,7 +21,8 @@ your Claude subscription) or a model on your own server, such as Ollama
 monthly, every N days or by cron) silence the monitors they cover. Public
 status pages, built from tags and monitors, show uptime, incidents with a
 timeline and maintenance, and their monitors have status badges.
-Backup and restore follow; see [the plan](#roadmap).
+Encrypted backup files, made by hand or every day, restore into SQLite or
+PostgreSQL. A documentation pass follows; see [the plan](#roadmap).
 
 ## Quick start
 
@@ -40,7 +41,7 @@ See [Installation](docs/user/installation.md), including PostgreSQL.
 
 ## Documentation
 
-Everything is in [docs/](docs/README.md): installation, monitors, maintenance windows, status pages, notifications, alert analysis, using the web app,
+Everything is in [docs/](docs/README.md): installation, monitors, maintenance windows, status pages, backup and restore, notifications, alert analysis, using the web app,
 single sign-on, configuration, the HTTP interface, security, the data
 model, testing and CI, development.
 
@@ -54,8 +55,8 @@ model, testing and CI, development.
 6. Tags and maintenance windows
 7. Status pages, incidents and status badges
 8. Network and system monitor types: WebSocket, SMTP, NTP, RADIUS, SNMP, Docker, SIP, Tailscale, system services, PM2, Globalping, SFTP, game servers, gRPC, a real browser
-9. Database and message broker monitor types: PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, Redis, MQTT, RabbitMQ, Kafka (this version, with 8)
-10. Backup and restore
+9. Database and message broker monitor types: PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, Redis, MQTT, RabbitMQ, Kafka
+10. Backup and restore (this version)
 11. Documentation pass and compatibility promises
 
 Eyrie is written from scratch; it is not a fork of Uptime Kuma, Peekaping

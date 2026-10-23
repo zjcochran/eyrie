@@ -39,6 +39,7 @@ See [Security](security.md) for sessions, CSRF, rate limits and tokens.
 | --- | --- | --- | --- |
 | `GET /api/v1/session` | public | | `200` [session](#session) |
 | `POST /api/v1/setup` | public, only while no account exists | `{"username","password"}` | `201` session, signed in as the new admin. `403` once an account exists; `422` for a bad username or password. |
+| `POST /api/v1/setup/restore` | public, only while no account exists | a backup file, as for [`POST /api/v1/restore`](#backup-and-restore) | `200` as for that route; no one is signed in. `403` once an account exists. |
 | `POST /api/v1/login` | public | `{"username","password"}` | `200` session; or `200` `{"two_factor":true}` and the `eyrie_2fa` cookie when a code must follow. `401` wrong username or password (the same for a disabled account), `403` when password sign-in is off, `429` rate limited. |
 | `POST /api/v1/login/code` | the `eyrie_2fa` cookie | `{"code"}`: from the app, or a recovery code | `200` session. `401` wrong code, or the step expired or used its 5 tries; `429` rate limited. |
 | `POST /api/v1/logout` | public | | `204`; ends the session if there is one and clears the cookie. |
@@ -471,6 +472,36 @@ page; `404` for any other monitor, an unknown `kind` or a bad `period`.
 
 `?label=` replaces the label (at most 50 characters).
 
+### Backup and restore
+
+All for admins. See [Backup and restore](../user/backup-and-restore.md).
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `POST /api/v1/backup` | `{"history","passphrase"}`: history `none`, `30`, `60`, `90` or `all`; a passphrase of at least 12 characters | `200` the backup file (`application/json`, `Content-Disposition: attachment; filename="eyrie-backup-YYYYMMDD-HHMMSS.json"`, `no-store`). `422` for a short passphrase or another history. |
+| `POST /api/v1/restore` | `multipart/form-data`: `file`, the backup file (at most 128 MB), and `passphrase` | `200` `{"restored":{"app_version","schema","database","created","history"}}`, and the session cookie cleared: every session has ended. `400` without a file or a form; `413` over 128 MB; `422` with the reason (a wrong passphrase, not a backup, a newer version, no enabled admin), nothing changed. |
+| `GET /api/v1/settings/backup` | | `200` the scheduled backups, below |
+| `PUT /api/v1/settings/backup` | `{"enabled","time","keep","history","passphrase"}`: `time` `HH:MM` (the server's time), `keep` 1 to 365, `passphrase` at least 12 characters or `""` to keep the saved one | `200` the scheduled backups. `422` for a bad value, or turning them on without a passphrase. |
+| `POST /api/v1/backups/run` | | `200` the scheduled backups, after making one now with the saved settings (its failure is in `last.error`). `422` without a saved passphrase. |
+| `GET /api/v1/backups/{name}` | | `200` that file of the backup folder, as an attachment. `404` for a name that is not `eyrie-backup-YYYYMMDD-HHMMSS.json` or not there. |
+
+The scheduled backups, never the passphrase:
+
+```json
+{
+  "enabled": true, "time": "03:00", "keep": 14, "history": "none", "has_passphrase": true,
+  "last": { "at": "2027-01-15T03:00:12Z", "file": "eyrie-backup-20270115-030012.json", "error": "", "success": "2027-01-15T03:00:12Z" },
+  "files": [{ "name": "eyrie-backup-20270115-030012.json", "size": 48211, "time": "2027-01-15T03:00:13Z" }],
+  "dir": "/data/backups", "not_mounted": false, "error": ""
+}
+```
+
+`last` is `null` before the first scheduled backup, and `last.success`
+`null` until one works. `files` are the folder's backup files, newest
+first; `error` says why the folder cannot be read. `not_mounted` is true
+when the folder is not on a volume of its own (from `/proc/self/mountinfo`;
+false where that cannot be read).
+
 ### Metrics
 
 `GET /metrics` serves Prometheus' text format (`text/plain; version=0.0.4`)
@@ -489,6 +520,7 @@ compared in constant time). Without the setting it is `404`.
 | `eyrie_checks_running` | gauge | | checks in progress |
 | `eyrie_notifications_total` | counter | `result` (`sent`, `failed`) | notifications since Eyrie started, per channel; failed after every retry |
 | `eyrie_alert_analyses_total` | counter | `result` (`ok`, `failed`) | alert analyses since Eyrie started; failed: an error, no answer in time, or more than four at once |
+| `eyrie_backup_last_success_timestamp_seconds` | gauge | | when the last scheduled backup was written, Unix seconds; absent until one is |
 | `go_goroutines`, `go_memstats_alloc_bytes`, `go_memstats_sys_bytes` | gauge | | Go runtime |
 | `process_start_time_seconds` | gauge | | when Eyrie started, Unix seconds |
 

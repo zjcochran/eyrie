@@ -337,6 +337,43 @@ export interface ChannelChange {
   clear_user?: boolean;
 }
 
+/** The scheduled backups; docs/user/backup-and-restore.md. */
+export interface BackupSchedule {
+  enabled: boolean;
+  /** HH:MM, the server's local time. */
+  time: string;
+  keep: number;
+  /** none, 30, 60, 90 or all. */
+  history: string;
+  has_passphrase: boolean;
+  last: { at: string; file: string; error: string; success: string | null } | null;
+  files: { name: string; size: number; time: string }[];
+  dir: string;
+  not_mounted: boolean;
+  error: string;
+}
+
+export interface BackupScheduleChange {
+  enabled: boolean;
+  time: string;
+  keep: number;
+  history: string;
+  /** '' keeps the saved one. */
+  passphrase: string;
+}
+
+/** What a restore answers: the backup's description. */
+export interface RestoreAnswer {
+  restored: { app_version: string; created: string; history: string; database: string };
+}
+
+function backupForm(file: Blob, passphrase: string): FormData {
+  const f = new FormData();
+  f.append('file', file);
+  f.append('passphrase', passphrase);
+  return f;
+}
+
 /** An error the server answered, with its message for people. */
 export class ApiError extends Error {
   status: number;
@@ -357,20 +394,23 @@ export class Client {
     this.fetchFn = fetchFn;
   }
 
-  /** Sends a request; a Blob body goes as is, anything else as JSON. */
+  /** Sends a request; a Blob or FormData body goes as is, anything else as JSON. */
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const headers: Record<string, string> = { Accept: 'application/json' };
-    let payload: BodyInit | undefined;
-    if (body instanceof Blob) {
-      payload = body;
-    } else if (body !== undefined) {
-      headers['Content-Type'] = 'application/json';
-      payload = JSON.stringify(body);
+    return this.answer<T>(await this.send(method, path, body), method, path);
+  }
+
+  /** Sends a request whose answer is a file; returns it with its name. */
+  async download(path: string, body: unknown): Promise<{ blob: Blob; name: string }> {
+    const resp = await this.send('POST', path, body);
+    if (!resp.ok) {
+      await this.answer(resp, 'POST', path); // throws the server's error
     }
-    if (method !== 'GET' && this.csrf) {
-      headers['X-CSRF-Token'] = this.csrf;
-    }
-    const resp = await this.fetchFn(path, { method, headers, body: payload, credentials: 'same-origin' });
+    const name = /filename="([^"]+)"/.exec(resp.headers.get('Content-Disposition') ?? '')?.[1] ?? 'eyrie-backup.json';
+    return { blob: await resp.blob(), name };
+  }
+
+  /** Reads a JSON answer, throwing the server's error for a failure. */
+  private async answer<T>(resp: Response, method: string, path: string): Promise<T> {
     if (resp.status === 204) {
       return undefined as T;
     }
@@ -386,6 +426,21 @@ export class Client {
       throw new ApiError(resp.status, msg || `${method} ${path} answered ${resp.status}`);
     }
     return data as T;
+  }
+
+  private send(method: string, path: string, body?: unknown): Promise<Response> {
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    let payload: BodyInit | undefined;
+    if (body instanceof Blob || body instanceof FormData) {
+      payload = body;
+    } else if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      payload = JSON.stringify(body);
+    }
+    if (method !== 'GET' && this.csrf) {
+      headers['X-CSRF-Token'] = this.csrf;
+    }
+    return this.fetchFn(path, { method, headers, body: payload, credentials: 'same-origin' });
   }
 
   /** Keeps the CSRF token of a session answer. */
@@ -499,6 +554,17 @@ export class Client {
   /** The models the form's provider offers, or why they could not be listed. */
   analysisModels = (s: AnalysisSettingsChange) =>
     this.request<{ models: string[]; error?: string }>('POST', '/api/v1/settings/analysis/models', s);
+  /** A backup file of the data, encrypted with passphrase. */
+  makeBackup = (history: string, passphrase: string) => this.download('/api/v1/backup', { history, passphrase });
+  /** Replaces the data with a backup's; everyone is signed out. */
+  restore = (file: Blob, passphrase: string) => this.request<RestoreAnswer>('POST', '/api/v1/restore', backupForm(file, passphrase));
+  /** Restores a backup in place of setup. */
+  setupRestore = (file: Blob, passphrase: string) =>
+    this.request<RestoreAnswer>('POST', '/api/v1/setup/restore', backupForm(file, passphrase));
+  backupSchedule = () => this.request<BackupSchedule>('GET', '/api/v1/settings/backup');
+  saveBackupSchedule = (change: BackupScheduleChange) => this.request<BackupSchedule>('PUT', '/api/v1/settings/backup', change);
+  runBackup = () => this.request<BackupSchedule>('POST', '/api/v1/backups/run');
+
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });

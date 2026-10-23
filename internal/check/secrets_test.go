@@ -95,3 +95,20 @@ func TestSentence(t *testing.T) {
 		t.Error("sentence")
 	}
 }
+
+func TestMapSecrets(t *testing.T) {
+	up := func(s string) (string, error) { return strings.ToUpper(s), nil }
+	out, err := MapSecrets("radius", json.RawMessage(`{"host":"r.example.com","secret":"abc","username":"alice"}`), up)
+	if err != nil || !strings.Contains(string(out), `"secret":"ABC"`) || !strings.Contains(string(out), `"username":"alice"`) {
+		t.Errorf("%s %v", out, err)
+	}
+	if out, err := MapSecrets("port", json.RawMessage(`{"host":"db.example.com","port":5432}`), up); err != nil || string(out) != `{"host":"db.example.com","port":5432}` {
+		t.Errorf("no secrets: %s %v", out, err)
+	}
+	if _, err := MapSecrets("radius", json.RawMessage(`{"secret":"x"}`), func(string) (string, error) { return "", errors.New("no key") }); err == nil {
+		t.Error("error lost")
+	}
+	if _, err := MapSecrets("telepathy", nil, up); err == nil {
+		t.Error("unknown type")
+	}
+}

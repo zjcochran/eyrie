@@ -26,6 +26,19 @@ Column conventions, the same in both:
 | Generated IDs | `INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT` / `BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY` | Spelled differently; IDs are never reused. New rows get theirs from `RETURNING id`. |
 | Unique columns | `CREATE UNIQUE INDEX` | Never a `UNIQUE` constraint, so both databases list the same indexes |
 
+## Backup files
+
+A [backup file](../user/backup-and-restore.md) carries tables row by row,
+with values both databases read (numbers, booleans, text, null, bytes in
+base64), so it restores into either. Every table but `sessions` is
+copied; `monitor_state`, `heartbeats`, `stats_hourly` and `stats_daily` only
+with history. A restore deletes the rows of every one of these tables and
+`sessions`, children first, and inserts the backup's with their ids, in one
+transaction; `monitors.parent_id` is set once every monitor is in, and
+PostgreSQL's identity sequences are moved past the restored ids. Only
+known tables and columns are accepted, and the schema version of a backup
+must not be newer than the database's.
+
 ## Migrations
 
 Each database has its own [goose](https://github.com/pressly/goose)
@@ -55,6 +68,8 @@ Settings saved from the web UI, one JSON document per key.
 
 | Key | Value |
 | --- | --- |
+| `backup_schedule` | Scheduled backups: `enabled`, `time` (`HH:MM`), `keep`, `history`, `passphrase` (sealed with the instance key). Missing: off, 03:00, 14, `none`. |
+| `backup_schedule_last` | The last scheduled backup: `at`, `file`, `error`, `success` (times in RFC 3339). |
 | `analysis` | Alert analysis settings: `enabled`, `provider` (`api`, `claude-code` or `local`), `model` (`""` for the default), `api_key` (the Anthropic API key, sealed with the instance key; `""` for none), `base_url` (the local server's API), `local_api_key` (sealed; `""` for none), `timeout_s`. Missing: off, `api`, 60 seconds. |
 | `notifications` | `{"cert_expiry_days":[21,14,7]}`: the days before a certificate expires when monitors that ask for it warn. Missing: 21, 14, 7. |
 | `retention` | `{"heartbeat_days":90}`: how many days heartbeats are kept, 1 to 3650. Missing: 90. |

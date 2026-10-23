@@ -552,3 +552,41 @@ func TestCertWarnings(t *testing.T) {
 		t.Errorf("saved %+v", states[watched.ID])
 	}
 }
+
+func TestReplace(t *testing.T) {
+	h := newHarness(t)
+	h.start()
+	old := h.add(monitor("Old", "port", portConfig))
+	b := h.next()
+	ctx := context.Background()
+	var kept int
+	err := h.e.Replace(ctx, func(ctx context.Context) error {
+		// The heartbeat made before is saved by now.
+		beats, _ := h.st.Heartbeats(ctx, old.ID, b.At.Add(-time.Second), 10)
+		kept = len(beats)
+		if err := h.st.DeleteMonitor(ctx, old.ID); err != nil {
+			return err
+		}
+		_, err := h.st.CreateMonitor(ctx, monitor("New", "manual", `{}`), t0)
+		return err
+	})
+	if err != nil || kept != 1 {
+		t.Fatalf("replace: %v, %d beats saved before", err, kept)
+	}
+	st := h.e.Statuses()
+	if _, ok := st[old.ID]; ok || len(st) != 1 {
+		t.Errorf("statuses after: %+v", st)
+	}
+	// A check of the old data that ends now is dropped.
+	h.e.do(ctx, func() error {
+		h.e.apply(result{id: old.ID + 1, gen: 1, epoch: 0, res: check.Result{OK: true}})
+		return nil
+	})
+	h.none()
+	if err := h.e.Replace(ctx, func(context.Context) error { return errors.New("refused") }); err == nil || err.Error() != "refused" {
+		t.Errorf("failed swap: %v", err)
+	}
+	if len(h.e.Statuses()) != 1 {
+		t.Error("monitors not reloaded after a failed swap")
+	}
+}

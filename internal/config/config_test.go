@@ -21,8 +21,11 @@ func TestDefaults(t *testing.T) {
 		c.BaseURL != "" || c.TrustedProxies != nil || c.ForceLocal || c.ClaudeCode {
 		t.Errorf("defaults = %+v", c)
 	}
-	if c.Database() != "/data/eyrie.db" || c.SecretKeyFile() != "/data/secret.key" {
-		t.Errorf("paths = %s %s", c.Database(), c.SecretKeyFile())
+	if c.Database() != "/data/eyrie.db" || c.SecretKeyFile() != "/data/secret.key" || c.BackupDir != "/data/backups" {
+		t.Errorf("paths = %s %s %s", c.Database(), c.SecretKeyFile(), c.BackupDir)
+	}
+	if c, _ := Load(env(map[string]string{"EYRIE_DATA_DIR": "/srv/eyrie", "EYRIE_BACKUP_DIR": "/backups"})); c.BackupDir != "/backups" {
+		t.Errorf("backup folder %s", c.BackupDir)
 	}
 }
 
