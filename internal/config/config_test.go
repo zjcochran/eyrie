@@ -36,6 +36,7 @@ func TestSet(t *testing.T) {
 		"EYRIE_BASE_URL":        "https://eyrie.example.com/",
 		"EYRIE_TRUSTED_PROXIES": "192.0.2.10, 198.51.100.0/24\n2001:db8::/32 ::ffff:203.0.113.5",
 		"EYRIE_LOCAL_LOGIN":     "Force",
+		"EYRIE_METRICS_TOKEN":   " t0ken ",
 		"EYRIE_SOURCE_URL":      "https://git.example.com/eyrie",
 	}))
 	if err != nil {
@@ -44,7 +45,7 @@ func TestSet(t *testing.T) {
 	if c.Listen != "127.0.0.1:9000" || c.SecretKey != "k" || c.LogLevel != slog.LevelDebug || !c.Postgres() {
 		t.Errorf("config = %+v", c)
 	}
-	if c.BaseURL != "https://eyrie.example.com" || !c.ForceLocal || c.SourceURL != "https://git.example.com/eyrie" {
+	if c.BaseURL != "https://eyrie.example.com" || !c.ForceLocal || c.SourceURL != "https://git.example.com/eyrie" || c.MetricsToken != "t0ken" {
 		t.Errorf("base URL %q, force %v", c.BaseURL, c.ForceLocal)
 	}
 	var proxies []string

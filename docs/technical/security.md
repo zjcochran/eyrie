@@ -7,7 +7,7 @@ change it. The threat model for sign-in and accounts:
 
 | Threat | Mitigation |
 | --- | --- |
-| Someone on the network uses the app | Every API route needs a session or, for reading, an API token, except setup (until the first account exists), sign-in, `/api/v1/session`, `/api/v1/info` and `/healthz` |
+| Someone on the network uses the app | Every API route needs a session or, for reading, an API token, except setup (until the first account exists), sign-in, `/api/v1/session`, `/api/v1/info`, `/healthz`, push URLs (their token) and `/metrics` (its token) |
 | Password guessing | argon2id hashes, at least 12 characters, a rate limit per client address and per username |
 | A stolen password | Optional two-factor sign-in with an authenticator app |
 | A stolen session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS; only a hash stored; sessions end on a password change, a reset or disabling |
@@ -112,8 +112,8 @@ layer 2.
 
 | Role | Can |
 | --- | --- |
-| viewer | Read the app; change their own password, two-factor sign-in, picture and single sign-on link |
-| admin | Everything, including users, single sign-on settings and API tokens |
+| viewer | Read the app: monitors, their history; change their own password, two-factor sign-in, picture and single sign-on link |
+| admin | Everything: monitors, users, single sign-on settings, history retention and API tokens |
 
 Checked for each route on the server, not only by hiding controls. Admins
 cannot disable, delete or change the role of themselves, and the last
@@ -123,9 +123,34 @@ enabled admin cannot be disabled, deleted or made a viewer.
 
 `eyt_` followed by 32 random bytes in base64url, made by an admin and shown
 once. Only a SHA-256 hash is stored; a request is matched by hashing the
-token it presents. A token can only read (`GET` and `HEAD`): it cannot sign
-in, reach session routes or change anything. Its last use is recorded.
+token it presents. A token can only read (`GET` and `HEAD`) the read routes
+(monitors, their history and the event stream): it cannot sign in, reach
+session routes or change anything. Its last use is recorded.
 Revoking deletes it at once.
+
+## Push URLs
+
+A push monitor's URL carries 18 random bytes (base64url) that are its only
+credential: whoever has the URL can report the monitor up or down, and
+nothing else. Only admins see it (not viewers or API tokens). The token is
+stored as is, since the monitor's page shows the URL to admins. **Make a new
+URL** replaces it. Push requests are
+exempt from cross-origin protection, as the token is not a cookie.
+
+## Metrics endpoint
+
+Off (`404`) unless `EYRIE_METRICS_TOKEN` is set. With a token, it requires
+`Authorization: Bearer <token>`, compared in constant time; otherwise `401`
+with `WWW-Authenticate`. Metrics reveal monitor names, types, statuses and
+response times, not their settings.
+
+## Monitor checks
+
+Checks reach whatever admins configure, from Eyrie's network position: an
+admin can make Eyrie connect to internal addresses and see whether they
+answer. Only admins can add or change monitors. HTTP checks follow at most
+the configured redirects and read at most 1 MiB of a response; their TLS
+certificates are verified unless the monitor ignores TLS errors.
 
 ## Trusted proxies
 

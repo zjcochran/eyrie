@@ -1,7 +1,7 @@
 # Architecture
 
 Eyrie is one Go binary (`cmd/eyrie`). It serves the JSON API and the web
-app, and will run the monitor engine. It runs as a single instance.
+app, and runs the monitor engine. It runs as a single instance.
 
 ## Packages
 
@@ -11,6 +11,9 @@ app, and will run the monitor engine. It runs as a single instance.
 | `internal/config` | Environment variables, defaults, validation. See the [configuration reference](configuration-reference.md). |
 | `internal/store` | All saved data, in SQLite or PostgreSQL, with migrations for each. See the [data model](data-model.md). |
 | `internal/secrets` | AES-256-GCM sealing of secrets the store keeps (sealed values start with `v1:`). |
+| `internal/state` | The status of a monitor from its check results: a pure state machine (up, pending, down; retries, notifications, upside-down). |
+| `internal/check` | The monitor types: their settings, defaults and validation, and the checks themselves. Every check reaches the network through an `Env` (dialer, HTTP transport, resolver, pinger) that tests replace. Includes Eyrie's own DNS client, ICMP echo and JSON path. |
+| `internal/engine` | Runs the monitors, below. |
 | `internal/totp` | Time-based one-time passwords (RFC 6238) for two-factor sign-in. |
 | `internal/sso` | OpenID Connect sign-in: discovery, the authorization code flow with PKCE, ID-token checks, group rules. `internal/sso/ssotest` is a fake provider for tests. |
 | `internal/api` | HTTP routes: setup, sign-in, sessions and CSRF, accounts, users, single sign-on, API tokens, the health check, security headers. See the [HTTP interface](http-interface.md) and [Security](security.md). |
@@ -32,6 +35,28 @@ Node.js is never installed on a developer's machine. It runs only:
   stage builds the Go binary with `-tags ui`, and the image that ships has
   only the binary, on `gcr.io/distroless/static-debian13:nonroot`.
 
+## The monitor engine
+
+`internal/engine`:
+
+- One goroutine owns every monitor's state; the API talks to it through
+  commands (add or change, remove, check now, push, set a manual status).
+- It wakes when the earliest check is due, at most a minute apart, and
+  starts every due check on a worker; at most 64 checks run at once, and a
+  check never overlaps itself. Each check gets the monitor's timeout.
+- The next check starts one interval (the retry interval while pending)
+  after the last one started. After a restart, a monitor's first check comes
+  at a fixed offset into its interval, derived from its ID, so they do not
+  all start at once; a push monitor gets one interval for its first push.
+- Results go through `internal/state`; each one is a heartbeat, queued for
+  a writer goroutine that saves them in batches about once a second, sent
+  to the event stream, and logged when the status changed.
+- Push monitors have a deadline instead of a check; manual monitors only
+  change when set; groups are evaluated at their interval and when a
+  member's status changes.
+- The current statuses are kept in a copy that the API reads without
+  waiting for the engine.
+
 ## Startup and shutdown
 
 `eyrie serve`:
@@ -42,9 +67,13 @@ Node.js is never installed on a developer's machine. It runs only:
    missing), so it exists from the first start.
 4. Opens the database and applies pending migrations.
 5. With `EYRIE_LOCAL_LOGIN=force`, logs a warning.
-6. Deletes expired sessions, and again every 24 hours.
-7. Listens on `EYRIE_LISTEN` and logs `eyrie started` with the version,
+6. Deletes expired sessions and old heartbeats and stats, and again every
+   24 hours.
+7. Starts the monitor engine, which loads every monitor and its last state.
+8. Listens on `EYRIE_LISTEN` and logs `eyrie started` with the version,
    address and database.
 
 On SIGINT or SIGTERM it stops accepting connections, waits up to 10 seconds
-for requests in progress, closes the database and logs `eyrie stopped`.
+for requests in progress, stops the engine (which saves the heartbeats still
+queued; checks in progress are dropped), closes the database and logs
+`eyrie stopped`.

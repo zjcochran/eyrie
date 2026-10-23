@@ -55,6 +55,7 @@ Settings saved from the web UI, one JSON document per key.
 
 | Key | Value |
 | --- | --- |
+| `retention` | `{"heartbeat_days":90}`: how many days heartbeats are kept, 1 to 3650. Missing: 90. |
 | `sso` | Single sign-on settings: `enabled`, `issuer`, `client_id`, `client_secret` (sealed with the instance key; `""` for none), `display_name`, `auto_provision`, `allowed_group`, `admin_group`, `sso_only`. Missing: off, with `auto_provision` on. |
 
 ### users
@@ -133,3 +134,80 @@ Unique index `api_tokens_hash` on `hash`.
 | `created_at` | `BIGINT` | |
 | `created_by` | `TEXT` | Username of the admin who made it |
 | `last_used` | `BIGINT` | `0`: never |
+
+### monitors
+
+Migration `00003_monitors`. Index `monitors_parent` on `parent_id`; unique
+index `monitors_push_token` on `push_token` (`NULL` for other types, so it
+does not collide).
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `name` | `TEXT` | 1 to 100 characters |
+| `type` | `TEXT` | `http`, `keyword`, `json-query`, `port`, `ping`, `dns`, `push`, `manual` or `group`; never changes |
+| `parent_id` | `BIGINT` | The group it is in, `NULL` for none; `ON DELETE SET NULL`. Must be a group, and not the monitor itself or one of its members. |
+| `active` | `BOOLEAN` | False: paused |
+| `interval_s`, `retry_interval_s` | `INTEGER` | Seconds |
+| `retries`, `resend_every` | `INTEGER` | |
+| `timeout_ms` | `INTEGER` | Milliseconds |
+| `upside_down` | `BOOLEAN` | |
+| `description` | `TEXT` | |
+| `config` | `TEXT` | The type's settings as JSON, with defaults filled in (package `check`) |
+| `push_token` | `TEXT` | Push monitors: 18 random bytes, base64url |
+| `created_at`, `updated_at` | `BIGINT` | |
+
+### monitor_state
+
+Each monitor's current status, so a restart carries on where it stopped.
+Written with every heartbeat.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `monitor_id` | `BIGINT` | Primary key, `monitors.id`, `ON DELETE CASCADE` |
+| `status` | `TEXT` | `up`, `pending` or `down` |
+| `since` | `BIGINT` | When the status began |
+| `message` | `TEXT` | Of the last check |
+| `last_check` | `BIGINT` | |
+| `latency_ms` | `INTEGER` | Of the last check; `-1` for none |
+| `cert_expires` | `BIGINT` | The last certificate an HTTPS check saw; `0` for none |
+| `failures` | `INTEGER` | Failed checks in a row while pending |
+| `down_checks` | `INTEGER` | Checks since the last down notification, for "notify again every" |
+
+### heartbeats
+
+One row per check. Indexes `heartbeats_monitor_at` on `(monitor_id, at)`
+and `heartbeats_at` on `at` (for pruning). Rows older than the `retention`
+setting are deleted daily.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `monitor_id` | `BIGINT` | `monitors.id`, `ON DELETE CASCADE` |
+| `at` | `BIGINT` | When the check ended |
+| `status` | `TEXT` | `up`, `pending` or `down` |
+| `latency_ms` | `INTEGER` | `-1` for none |
+| `message` | `TEXT` | |
+| `important` | `BOOLEAN` | The status changed |
+
+Heartbeats are written in batches about once a second (at most 500 per
+transaction), with the state and the stats below in the same transaction.
+
+### stats_hourly, stats_daily
+
+Check counts per monitor and hour (`bucket`: the hour's start) or day
+(`bucket`: midnight UTC). Primary key `(monitor_id, bucket)`; `monitor_id`
+`ON DELETE CASCADE`. Hourly rows are kept 35 days, daily rows 400 days.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `monitor_id` | `BIGINT` | |
+| `bucket` | `BIGINT` | |
+| `up` | `INTEGER` | Up and pending checks |
+| `down` | `INTEGER` | Down checks |
+| `latency_sum` | `BIGINT` | Milliseconds, over checks with a response time |
+| `latency_count` | `INTEGER` | Checks with a response time |
+
+Uptime is `up / (up + down)`. The 24-hour and 30-day figures add up the
+hourly rows from the hour that contains "24 hours (30 days) ago", the 1-year
+figure the daily rows from the day 365 days ago.

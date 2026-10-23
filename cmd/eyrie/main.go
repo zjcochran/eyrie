@@ -28,7 +28,9 @@ import (
 	_ "time/tzdata" // distroless has no zoneinfo; TZ still works
 
 	"github.com/zjcochran/eyrie/internal/api"
+	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/config"
+	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/store"
 	"github.com/zjcochran/eyrie/internal/ui"
@@ -105,14 +107,17 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	if cfg.ForceLocal {
 		log.Warn("EYRIE_LOCAL_LOGIN=force: password sign-in works even if single sign-on is the only way in; remove it once you can sign in")
 	}
-	go pruneSessions(ctx, st, log)
+	go prune(ctx, st, log)
 
+	env := check.DefaultEnv("Eyrie/" + version)
+	eng := engine.New(st, env, log)
+	apiSrv := &api.Server{
+		Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),
+		BaseURL: cfg.BaseURL, TrustedProxies: cfg.TrustedProxies, ForceLocal: cfg.ForceLocal,
+		SourceURL: cmp.Or(cfg.SourceURL, sourceURL), Engine: eng, Env: env, MetricsToken: cfg.MetricsToken,
+	}
 	srv := &http.Server{
-		Handler: (&api.Server{
-			Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),
-			BaseURL: cfg.BaseURL, TrustedProxies: cfg.TrustedProxies, ForceLocal: cfg.ForceLocal,
-			SourceURL: cmp.Or(cfg.SourceURL, sourceURL),
-		}).Handler(),
+		Handler:           apiSrv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
@@ -120,6 +125,17 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	if err != nil {
 		return err
 	}
+	eng.Publish = apiSrv.Publish
+	engCtx, stopEngine := context.WithCancel(context.Background())
+	engDone := make(chan error, 1)
+	go func() { engDone <- eng.Run(engCtx) }()
+	// The engine stops after the web server, and writes its last heartbeats.
+	defer func() {
+		stopEngine()
+		if err := <-engDone; err != nil {
+			log.Error("the monitor engine stopped", "err", err)
+		}
+	}()
 	log.Info("eyrie started", "version", version, "listen", ln.Addr().String(), "database", st.Dialect())
 	if ready != nil {
 		ready(ln.Addr().String())
@@ -161,14 +177,30 @@ func open(ctx context.Context, cfg config.Config) (*store.Store, *secrets.Box, e
 	return st, box, err
 }
 
-// pruneSessions deletes expired sessions at start and then daily, until ctx
-// ends.
-func pruneSessions(ctx context.Context, st *store.Store, log *slog.Logger) {
+// How long the stats are kept: hourly ones for the 30-day figures, daily
+// ones for the 1-year figures.
+const (
+	hourlyKept = 35 * 24 * time.Hour
+	dailyKept  = 400 * 24 * time.Hour
+)
+
+// prune deletes expired sessions, and heartbeats and stats past their
+// retention, at start and then daily, until ctx ends.
+func prune(ctx context.Context, st *store.Store, log *slog.Logger) {
 	t := time.NewTicker(24 * time.Hour)
 	defer t.Stop()
 	for {
-		if err := st.PruneSessions(ctx, time.Now()); err != nil && ctx.Err() == nil {
+		now := time.Now()
+		if err := st.PruneSessions(ctx, now); err != nil && ctx.Err() == nil {
 			log.Warn("cannot delete expired sessions", "err", err)
+		}
+		keep := api.DefaultRetention
+		_, err := st.GetSetting(ctx, api.SettingRetention, &keep)
+		if err == nil {
+			err = st.Prune(ctx, now.Add(-time.Duration(keep.HeartbeatDays)*24*time.Hour), now.Add(-hourlyKept), now.Add(-dailyKept))
+		}
+		if err != nil && ctx.Err() == nil {
+			log.Warn("cannot delete old heartbeats", "err", err)
 		}
 		select {
 		case <-ctx.Done():

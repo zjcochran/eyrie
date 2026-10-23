@@ -12,6 +12,10 @@
   --error-bg: #fef3f2;
   --ok: #067647;
   --ok-bg: #ecfdf3;
+  --up: #12a150;
+  --down: #d92d20;
+  --pending: #dc8a04;
+  --unknown: #98a2b3;
   --radius: 8px;
   font-family: system-ui, sans-serif;
   line-height: 1.5;
@@ -32,6 +36,10 @@
     --error-bg: #2a1514;
     --ok: #47cd89;
     --ok-bg: #0f2419;
+    --up: #32d583;
+    --down: #f97066;
+    --pending: #fdb022;
+    --unknown: #667085;
   }
 }
 

@@ -31,10 +31,16 @@ only way in, the password fields are not shown.
 
 If you opened a page while signed out, you land on it after signing in.
 
+## Monitors
+
+The start page is the dashboard of monitors; see [Monitors](monitors.md)
+for the dashboard, each monitor's page, adding monitors and every type.
+
 ## Settings
 
 **Settings**, at the top, has tabs. Everyone has **Your account**; admins
-also have **Users**, **Single sign-on** and **API tokens**.
+also have **Users**, **Single sign-on**, **API tokens** and **History**
+(how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history)).
 
 ### Your account
 
@@ -115,9 +121,9 @@ enabled admin cannot be disabled, deleted or made a viewer.
 ### API tokens
 
 Admins only. A token lets a script read Eyrie without signing in, with the
-header `Authorization: Bearer <token>`. It can only read: it cannot sign
-in or change anything. No part of Eyrie reads with tokens yet; the monitor
-routes of the next version will.
+header `Authorization: Bearer <token>`: the monitors, their history and the
+event stream (see the [HTTP interface](../technical/http-interface.md#monitors)).
+It can only read: it cannot sign in or change anything.
 
 **New token** asks for a name (up to 64 characters, such as `ci`) and shows
 the token, which starts with `eyt_`, once: copy it then. The list shows who

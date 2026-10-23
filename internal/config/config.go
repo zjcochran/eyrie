@@ -33,6 +33,9 @@ type Config struct {
 	// linked from every page (AGPL section 13); empty for the one set at
 	// build time.
 	SourceURL string
+	// MetricsToken is EYRIE_METRICS_TOKEN: turns on /metrics behind this
+	// Bearer token.
+	MetricsToken string
 }
 
 // Defaults.
@@ -50,10 +53,11 @@ func Load(getenv func(string) string) (Config, error) {
 		return def
 	}
 	c := Config{
-		Listen:      get("EYRIE_LISTEN", DefaultListen),
-		DataDir:     get("EYRIE_DATA_DIR", DefaultDataDir),
-		DatabaseURL: get("EYRIE_DATABASE_URL", ""),
-		SecretKey:   getenv("EYRIE_SECRET_KEY"),
+		Listen:       get("EYRIE_LISTEN", DefaultListen),
+		DataDir:      get("EYRIE_DATA_DIR", DefaultDataDir),
+		DatabaseURL:  get("EYRIE_DATABASE_URL", ""),
+		SecretKey:    getenv("EYRIE_SECRET_KEY"),
+		MetricsToken: strings.TrimSpace(getenv("EYRIE_METRICS_TOKEN")),
 	}
 	if _, _, err := net.SplitHostPort(c.Listen); err != nil {
 		return c, fmt.Errorf("EYRIE_LISTEN %q: want host:port or :port", c.Listen)

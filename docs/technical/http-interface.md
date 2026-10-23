@@ -18,6 +18,8 @@ One server (`internal/api`) answers everything on `EYRIE_LISTEN`.
   other than `GET` and `HEAD` on them must also send the session's CSRF
   token in the `X-CSRF-Token` header, or get `403`. **Admin** routes are
   session routes for the admin role only (`403` for viewers).
+- **Read** routes take a session or an API token
+  (`Authorization: Bearer eyt_…`); they are all `GET`.
 - **Public** routes need nothing.
 
 See [Security](security.md) for sessions, CSRF, rate limits and tokens.
@@ -141,8 +143,123 @@ All admin routes.
 | `DELETE /api/v1/tokens/{id}` | | `204`; the token stops working at once |
 
 A token is sent as `Authorization: Bearer eyt_…`. Tokens can only read
-(`GET` and `HEAD`) and are accepted on the monitor routes that come with
-the monitor engine; no route of this version takes one.
+(`GET` and `HEAD`): they are accepted on the read routes below; every other
+route answers a request that has only a token with `401`.
+
+### Monitors
+
+| Method and path | Access | Body | Answer |
+| --- | --- | --- | --- |
+| `GET /api/v1/monitor-types` | read | | `200` `[{"name":"dns","label":"DNS"},…]`, by name |
+| `GET /api/v1/monitors?beats=<n>` | read | | `200` list of [monitors](#monitor), by name. With `beats` (1 to 100), each has its last `n` heartbeats, oldest first. |
+| `GET /api/v1/monitors/{id}` | read | | `200` monitor |
+| `GET /api/v1/monitors/{id}/heartbeats?since=<time>&limit=<n>` | read | | `200` [heartbeats](#heartbeat), newest first, from `since` (RFC 3339; default 24 hours ago), at most `limit` (default and most 10000). `400` for a bad `since`. |
+| `GET /api/v1/monitors/{id}/hours?days=<n>` | read | | `200` `[{"start","up","down","avg_latency_ms"}]`: hourly counts for the last `n` days (default 7, most 35), oldest first; hours without checks are left out |
+| `POST /api/v1/monitors` | admin | [monitor settings](#monitor-settings) | `201` monitor. `422` with the reason for a bad setting. |
+| `PUT /api/v1/monitors/{id}` | admin | monitor settings; `type` may be left out but not changed | `200` monitor |
+| `DELETE /api/v1/monitors/{id}` | admin | | `204`, with its heartbeats and stats; members of a deleted group leave it |
+| `POST /api/v1/monitors/{id}/pause` | admin | | `200` monitor, paused |
+| `POST /api/v1/monitors/{id}/resume` | admin | | `200` monitor, checked at once |
+| `POST /api/v1/monitors/{id}/check` | admin | | `202`: checked at once; the result arrives as an event. `422` for paused, push and manual monitors. |
+| `POST /api/v1/monitors/{id}/status` | admin | `{"status":"up"\|"down","message"}` | `200` monitor; manual monitors only (`422` otherwise) |
+| `GET`, `POST /api/push/{token}?status=up\|down&msg=<text>&ping=<ms>` | public: the token | | `200` `{"ok":true}`; `404` `{"ok":false,"msg":"Monitor not found or not active."}` for an unknown token, or a monitor that is paused or not a push monitor. `status` defaults to `up`; `msg` is cut to 500 characters. Not subject to cross-origin protection. |
+| `GET /api/v1/events` | read | | `text/event-stream`, below |
+| `GET /api/v1/settings/retention` | admin | | `200` `{"heartbeat_days":90}` |
+| `PUT /api/v1/settings/retention` | admin | `{"heartbeat_days"}`, 1 to 3650 | `200` the saved setting |
+
+#### Monitor
+
+```json
+{
+  "id": 3,
+  "name": "Example site",
+  "type": "http",
+  "parent_id": null,
+  "active": true,
+  "interval": 60,
+  "retry_interval": 60,
+  "retries": 1,
+  "resend_every": 0,
+  "timeout": 48,
+  "upside_down": false,
+  "description": "",
+  "settings": { "url": "https://example.com", "method": "GET", "...": "the type's settings, defaults filled in" },
+  "push_url": "https://eyrie.example.com/api/push/<token>?status=up&msg=OK&ping=",
+  "created_at": "2027-01-15T08:00:00Z",
+  "updated_at": "2027-01-15T08:00:00Z",
+  "status": {
+    "status": "up",
+    "since": "2027-01-15T08:00:12Z",
+    "message": "200 OK",
+    "last_check": "2027-01-15T09:30:12Z",
+    "latency_ms": 123.45,
+    "cert_expires": "2027-03-01T00:00:00Z",
+    "checking": false
+  },
+  "uptime": { "24h": 0.9993, "30d": 0.9998, "1y": null, "avg_latency_24h_ms": 130.2 },
+  "beats": []
+}
+```
+
+Times are in seconds (`interval`, `retry_interval`, `timeout`) or
+milliseconds (`latency_ms`). `status.status` is `unknown` (never checked),
+`up`, `pending` or `down`; a paused monitor keeps its last status with
+`active` false. `push_url` is only on push monitors, only for admins, and uses
+`EYRIE_BASE_URL` or the request's address. Uptime shares are from 0 to 1,
+`null` without checks in the period. `beats` is only there with `?beats=`.
+
+#### Monitor settings
+
+`{"name","type","parent_id","active","interval","retry_interval","retries","resend_every","timeout","upside_down","description","settings","reset_push_token"}`.
+Missing numbers take their defaults (interval 60, retry interval the
+interval, timeout 80% of the interval up to 48, the rest 0) and `active`
+defaults to true. The limits and each type's `settings` are in
+[Monitors](../user/monitors.md); unknown `settings` keys are refused.
+`reset_push_token: true` gives a push monitor a new URL.
+
+#### Heartbeat
+
+```json
+{ "monitor_id": 3, "at": "2027-01-15T09:30:12Z", "status": "up", "latency_ms": 123.45, "message": "200 OK", "important": false }
+```
+
+`important` is true when the status changed. `latency_ms` is `null` when
+there was none (a failed connection, a push without `ping`).
+
+#### Events
+
+`GET /api/v1/events` keeps the connection open and sends
+[Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html):
+
+| Event | Data | When |
+| --- | --- | --- |
+| `beat` | a heartbeat | every check |
+| `monitors` | `{"id":<id>}` | a monitor was added, changed, paused, resumed or deleted |
+
+An idle stream gets a `: keepalive` comment every 25 seconds. A listener
+that cannot keep up (64 events behind) misses events rather than slowing
+the others; the app reloads the list when it reconnects.
+
+### Metrics
+
+`GET /metrics` serves Prometheus' text format (`text/plain; version=0.0.4`)
+when `EYRIE_METRICS_TOKEN` is set, to requests with
+`Authorization: Bearer <token>` (`401` with `WWW-Authenticate` otherwise;
+compared in constant time). Without the setting it is `404`.
+
+| Metric | Type | Labels | Value |
+| --- | --- | --- | --- |
+| `eyrie_build_info` | gauge | `version` | 1 |
+| `eyrie_monitor_status` | gauge | `id`, `monitor`, `type` | 1 up, 0 down, 2 pending, -1 not checked yet |
+| `eyrie_monitor_active` | gauge | same | 1 running, 0 paused |
+| `eyrie_monitor_response_seconds` | gauge | same | the last check's response time; absent when it had none |
+| `eyrie_monitor_cert_days_remaining` | gauge | same | days until the certificate seen by an HTTPS check expires |
+| `eyrie_monitor_checks_total` | counter | same, `result` (`up`, `down`) | checks since Eyrie started; pending counts as up |
+| `eyrie_checks_running` | gauge | | checks in progress |
+| `go_goroutines`, `go_memstats_alloc_bytes`, `go_memstats_sys_bytes` | gauge | | Go runtime |
+| `process_start_time_seconds` | gauge | | when Eyrie started, Unix seconds |
+
+`monitor` is the monitor's name, with new lines replaced by spaces.
 
 ### Everything else
 
@@ -174,8 +291,9 @@ tag `ui`, as the image is):
 A binary built without the tag `ui` answers every app path with `503` and a
 page saying it has no web interface.
 
-The app's pages: `/` (monitors), `/login`, `/settings/account`,
-`/settings/users`, `/settings/sso` and `/settings/api-tokens`. Before the
+The app's pages: `/` (monitors), `/monitors/new`, `/monitors/{id}`,
+`/monitors/{id}/edit`, `/login`, `/settings/account`, `/settings/users`,
+`/settings/sso`, `/settings/api-tokens` and `/settings/history`. Before the
 first account exists every page shows the setup form.
 
 ## Response headers
