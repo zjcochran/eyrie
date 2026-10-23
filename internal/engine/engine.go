@@ -92,9 +92,13 @@ type Engine struct {
 	cmds    chan func()
 	results chan result
 	writes  chan store.Record
-	mons    map[int64]*entry
-	sem     chan struct{}
-	ready   chan struct{}
+	flushes chan chan struct{} // the writer saves what it holds, then closes the channel
+	// epoch counts Replace calls; results of checks started before one are
+	// dropped.
+	epoch int
+	mons  map[int64]*entry
+	sem   chan struct{}
+	ready chan struct{}
 	// windows are the maintenance windows, tags each monitor's tag IDs, and
 	// maintNext when a window next starts or ends (zero: never).
 	windows   []window
@@ -131,6 +135,7 @@ type window struct {
 
 type result struct {
 	id      int64
+	epoch   int
 	gen     int
 	started time.Time
 	res     check.Result
@@ -143,6 +148,7 @@ func (e *Engine) init() {
 	e.cmds = make(chan func())
 	e.results = make(chan result, Workers)
 	e.writes = make(chan store.Record, 10000)
+	e.flushes = make(chan chan struct{})
 	e.mons = map[int64]*entry{}
 	e.sem = make(chan struct{}, Workers)
 	e.snap = map[int64]Status{}
@@ -296,7 +302,7 @@ func (e *Engine) runDue() {
 		default:
 			en.running = true
 			e.setSnap(en)
-			go e.work(result{id: id, gen: en.gen, started: now}, en.checker, en.m.Timeout)
+			go e.work(result{id: id, epoch: e.epoch, gen: en.gen, started: now}, en.checker, en.m.Timeout)
 		}
 	}
 }
@@ -312,7 +318,7 @@ func (e *Engine) work(r result, c check.Checker, timeout time.Duration) {
 
 func (e *Engine) apply(r result) {
 	en, ok := e.mons[r.id]
-	if !ok || en.gen != r.gen {
+	if !ok || en.gen != r.gen || r.epoch != e.epoch {
 		return // deleted or changed meanwhile
 	}
 	en.running = false
@@ -474,6 +480,19 @@ func (e *Engine) writer(done chan<- struct{}) {
 			}
 		case <-tick.C:
 			flush()
+		case done := <-e.flushes:
+			// Only the engine's loop queues records, and it waits for
+			// this: what is queued now is all there is.
+			for drained := false; !drained; {
+				select {
+				case r := <-e.writes:
+					batch = append(batch, r)
+				default:
+					drained = true
+				}
+			}
+			flush()
+			close(done)
 		}
 	}
 }
@@ -526,6 +545,28 @@ func (e *Engine) do(ctx context.Context, f func() error) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// Replace stops every check, waits until the heartbeats already made are
+// saved, runs swap (which replaces the data, such as a restore) and loads
+// every monitor again, whether swap worked or not. Checks running meanwhile
+// are dropped when they end.
+func (e *Engine) Replace(ctx context.Context, swap func(context.Context) error) error {
+	return e.do(ctx, func() error {
+		e.epoch++
+		e.mons = map[int64]*entry{}
+		done := make(chan struct{})
+		e.flushes <- done
+		<-done
+		err := swap(ctx)
+		e.mu.Lock()
+		e.snap = map[int64]Status{}
+		e.mu.Unlock()
+		if lerr := e.load(ctx); err == nil {
+			err = lerr
+		}
+		return err
+	})
 }
 
 // Upsert starts running a new monitor, or applies a monitor's new

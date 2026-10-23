@@ -148,3 +148,23 @@ func open(env *Env, s settings) error {
 	}
 	return nil
 }
+
+// MapSecrets applies f to each secret of a monitor's saved settings, such as
+// to open them with one key and seal them with another. Settings of types
+// without secrets come back as they are.
+func MapSecrets(typ string, saved json.RawMessage, f func(string) (string, error)) (json.RawMessage, error) {
+	_, s, err := decode(typ, saved)
+	if err != nil {
+		return nil, err
+	}
+	sec := secretsOf(s)
+	if len(sec) == 0 {
+		return saved, nil
+	}
+	for name, v := range sec {
+		if *v, err = f(*v); err != nil {
+			return nil, fmt.Errorf("the %s: %w", name, err)
+		}
+	}
+	return json.Marshal(s)
+}

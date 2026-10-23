@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/zjcochran/eyrie/internal/analysis"
+	"github.com/zjcochran/eyrie/internal/backup"
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/notify"
@@ -122,7 +123,8 @@ func newEnv(t *testing.T) *env {
 	eng.OnNotify, eng.OnCert, eng.CertDays = e.notifier.Monitor, e.notifier.CertExpiring, e.notifier.CertDays
 	e.s = &Server{
 		Engine: eng, Env: checkEnv, MetricsToken: "m3trics", Notifier: e.notifier, Analyzer: e.analyzer,
-		Store: st, Secrets: box, Version: "v1.2.3", SourceURL: "https://git.example.com/eyrie",
+		Backups: &backup.Backups{Store: st, Secrets: box, Dir: filepath.Join(t.TempDir(), "backups"), Version: "v1.2.3", Log: log, Now: e.clock},
+		Store:   st, Secrets: box, Version: "v1.2.3", SourceURL: "https://git.example.com/eyrie",
 		Log: log,
 		UI: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Write([]byte("the app"))

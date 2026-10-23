@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/zjcochran/eyrie/internal/analysis"
+	"github.com/zjcochran/eyrie/internal/backup"
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/notify"
@@ -56,6 +57,8 @@ type Server struct {
 	Notifier *notify.Notifier
 	// Analyzer asks a model about down alerts; the API manages its settings.
 	Analyzer *analysis.Analyzer
+	// Backups makes and restores backup files.
+	Backups *backup.Backups
 
 	now     func() time.Time
 	limiter *limiter
@@ -84,6 +87,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("GET /api/v1/session", s.getSession)
 	mux.HandleFunc("POST /api/v1/setup", s.setup)
+	mux.HandleFunc("POST /api/v1/setup/restore", s.setupRestore)
 	mux.HandleFunc("POST /api/v1/login", s.login)
 	mux.HandleFunc("POST /api/v1/login/code", s.loginCode)
 	mux.HandleFunc("POST /api/v1/logout", s.logout)
@@ -112,6 +116,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/v1/settings/sso", s.admin(s.getSSOSettings))
 	mux.Handle("PUT /api/v1/settings/sso", s.admin(s.saveSSOSettings))
 	mux.Handle("POST /api/v1/settings/sso/test", s.admin(s.testSSO))
+
+	mux.Handle("POST /api/v1/backup", s.admin(s.makeBackup))
+	mux.Handle("POST /api/v1/restore", s.admin(s.restoreBackup))
+	mux.Handle("GET /api/v1/settings/backup", s.admin(s.getSchedule))
+	mux.Handle("PUT /api/v1/settings/backup", s.admin(s.saveSchedule))
+	mux.Handle("POST /api/v1/backups/run", s.admin(s.runBackup))
+	mux.Handle("GET /api/v1/backups/{name}", s.admin(s.storedBackup))
 
 	mux.Handle("GET /api/v1/tokens", s.admin(s.listTokens))
 	mux.Handle("POST /api/v1/tokens", s.admin(s.createToken))

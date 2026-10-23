@@ -11,6 +11,7 @@ export type Page =
   | 'sso'
   | 'tokens'
   | 'retention'
+  | 'backup'
   | 'notifications'
   | 'analysis'
   | 'tags'
@@ -38,6 +39,7 @@ export const settingsTabs: { page: Page; path: string; label: string; admin: boo
   { page: 'notifications', path: '/settings/notifications', label: 'Notifications', admin: true },
   { page: 'analysis', path: '/settings/alert-analysis', label: 'Alert analysis', admin: true },
   { page: 'retention', path: '/settings/history', label: 'History', admin: true },
+  { page: 'backup', path: '/settings/backup', label: 'Backup and restore', admin: true },
 ];
 
 /** The page for a path; /settings is the account tab. */

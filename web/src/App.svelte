@@ -8,6 +8,7 @@
   import { api, app, refresh } from './lib/session.svelte.ts';
   import Account from './pages/Account.svelte';
   import Analysis from './pages/Analysis.svelte';
+  import Backup from './pages/Backup.svelte';
   import Home from './pages/Home.svelte';
   import Login from './pages/Login.svelte';
   import Maintenance from './pages/Maintenance.svelte';
@@ -127,6 +128,8 @@
         <Tokens />
       {:else if page === 'retention'}
         <Retention />
+      {:else if page === 'backup'}
+        <Backup />
       {:else if page === 'notifications'}
         <Notifications />
       {:else if page === 'tags'}

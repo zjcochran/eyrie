@@ -36,6 +36,9 @@ type Config struct {
 	// MetricsToken is EYRIE_METRICS_TOKEN: turns on /metrics behind this
 	// Bearer token.
 	MetricsToken string
+	// BackupDir is EYRIE_BACKUP_DIR: where scheduled backups are written;
+	// empty: backups in EYRIE_DATA_DIR.
+	BackupDir string
 	// ClaudeCode is EYRIE_CLAUDE_CODE=true: Eyrie downloads Claude Code
 	// from Anthropic, so alert analysis can use a Claude subscription.
 	ClaudeCode bool
@@ -62,6 +65,7 @@ func Load(getenv func(string) string) (Config, error) {
 		SecretKey:    getenv("EYRIE_SECRET_KEY"),
 		MetricsToken: strings.TrimSpace(getenv("EYRIE_METRICS_TOKEN")),
 	}
+	c.BackupDir = get("EYRIE_BACKUP_DIR", filepath.Join(c.DataDir, "backups"))
 	if _, _, err := net.SplitHostPort(c.Listen); err != nil {
 		return c, fmt.Errorf("EYRIE_LISTEN %q: want host:port or :port", c.Listen)
 	}

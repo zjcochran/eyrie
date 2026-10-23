@@ -11,6 +11,10 @@ username and a password of at least 12 characters, twice, and click
 once. Do this right after the first start: until then anyone who can reach
 Eyrie could do it.
 
+Below it, **Or restore a backup** brings back the accounts, monitors and
+settings of a backup file instead; then sign in with an account from it. See
+[Backup and restore](backup-and-restore.md#restoring-at-setup).
+
 ## Signing in
 
 The sign-in page asks for your username and password. Usernames ignore
@@ -55,8 +59,9 @@ and what it covers; admins add, change, turn off and delete them there. See
 also have **Users**, **Single sign-on**, **API tokens**, **Tags** (see
 [Tags](monitors.md#tags)), **Notifications** (see
 [Notifications](notifications.md)), **Alert
-analysis** (see [Alert analysis](alert-analysis.md)) and **History**
-(how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history)).
+analysis** (see [Alert analysis](alert-analysis.md)), **History**
+(how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history))
+and **Backup and restore** (see [Backup and restore](backup-and-restore.md)).
 
 ### Your account
 
