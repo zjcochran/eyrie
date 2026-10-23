@@ -113,6 +113,7 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	go prune(ctx, st, log)
 
 	env := check.DefaultEnv("Eyrie/" + version)
+	env.Secrets = box
 	eng := engine.New(st, env, log)
 	analyzer := &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: version}
 	if cfg.ClaudeCode {

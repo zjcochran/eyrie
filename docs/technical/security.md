@@ -163,6 +163,29 @@ answer. Only admins can add or change monitors. HTTP checks follow at most
 the configured redirects and read at most 1 MiB of a response; their TLS
 certificates are verified unless the monitor ignores TLS errors.
 
+- **Programs.** The Tailscale ping, system service and PM2 types run
+  `tailscale ping`, `systemctl is-active` (or `sc.exe query` on Windows)
+  and `pm2 jlist` on Eyrie's host, directly and never through a shell. Their
+  one argument (a host, a service or a process name) is checked: it cannot
+  start with `-`, and host and service names allow no spaces or shell
+  characters. In Eyrie's image these programs are not installed, so these
+  types fail unless you add them.
+- **Docker.** A Docker monitor only reads a container's state
+  (`GET /containers/{name}/json`), but whoever can reach the Docker socket
+  controls the host: mount it only if you need Docker monitors, and prefer
+  a read-only socket proxy that allows just that request.
+- **SFTP host keys.** Without a host key fingerprint, an SFTP monitor
+  accepts any server key (and shows its fingerprint in the message); set
+  the fingerprint to detect a changed key.
+- **Real browser.** The browser runs pages Eyrie asks for; it should be its
+  own container, not reachable from the internet.
+- **Databases.** SQL monitors run their query as written: give them a
+  database user with only the rights the query needs (a `SELECT 1` needs
+  none). Kafka monitors write a message to their topic at every check.
+- **gRPC.** The `.proto` definition is parsed by Eyrie's own reader (at
+  most 256 KiB, nesting at most 64 deep when decoding); imports are not
+  followed.
+
 ## Trusted proxies
 
 `EYRIE_TRUSTED_PROXIES` lists addresses and ranges. For a request whose
@@ -267,15 +290,18 @@ to the server URL the admin set. See [what is sent](../user/alert-analysis.md#wh
 ## Stored secrets
 
 Two-factor secrets, the single sign-on client secret, the alert analysis
-API key and notification channels' URLs, tokens and users are sealed with AES-256-GCM
-(`internal/secrets`):
+API key, notification channels' URLs, tokens and users, and monitors'
+secret settings (passwords, keys, tokens, SNMP communities, database
+connection strings, a real browser's address) are sealed with AES-256-GCM (`internal/secrets`):
 
 - Key: SHA-256 of `EYRIE_SECRET_KEY`, or of the contents of
   `EYRIE_DATA_DIR/secret.key`, made (32 random bytes, mode 0600) at the
   first start when neither exists.
 - Format: `v1:` + base64(12-byte random nonce ‖ ciphertext ‖ tag).
 - Secrets are never sent to the browser: the settings only say whether a
-  client secret is saved.
+  client secret is saved, and a monitor's `secrets_set` names its secrets
+  that are set. They are opened only to run a check, and never given to
+  alert analysis.
 
 ## Response headers
 

@@ -6,7 +6,6 @@
 package check
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,9 +13,13 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"os/exec"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Result is what one check found.
@@ -30,6 +33,21 @@ type Result struct {
 func fail(format string, args ...any) Result {
 	return Result{Message: fmt.Sprintf(format, args...), Latency: -1}
 }
+
+// failErr is a failed check whose message is an error.
+func failErr(err error) Result { return fail("%s", sentence(err.Error())) }
+
+// sentence starts a message with a capital letter.
+func sentence(s string) string {
+	if s == "" {
+		return s
+	}
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[n:]
+}
+
+// errTimeout is what a check says when its time is up.
+var errTimeout = errors.New("timed out")
 
 // Checker checks one monitor. The context ends at the monitor's timeout.
 type Checker interface {
@@ -47,6 +65,13 @@ type Env struct {
 	// Ping sends one ICMP echo request of size bytes and waits for its
 	// reply.
 	Ping func(ctx context.Context, addr netip.Addr, size, seq int) (time.Duration, error)
+	// Run runs a program (never through a shell) and returns its output
+	// and error output.
+	Run func(ctx context.Context, name string, args ...string) ([]byte, error)
+	// OS is the operating system Eyrie runs on, as runtime.GOOS.
+	OS string
+	// Secrets opens the monitors' sealed secrets; nil: they are not sealed.
+	Secrets Sealer
 	// UserAgent is sent with HTTP requests.
 	UserAgent string
 }
@@ -68,8 +93,17 @@ func DefaultEnv(userAgent string) *Env {
 			return net.DefaultResolver.LookupNetIP(ctx, "ip", h)
 		},
 		Ping:      ping,
+		Run:       runProgram,
+		OS:        runtime.GOOS,
 		UserAgent: userAgent,
 	}
+}
+
+func runProgram(ctx context.Context, name string, args ...string) ([]byte, error) {
+	// The program is fixed by the monitor type, its arguments are checked,
+	// and no shell runs them.
+	// nosemgrep
+	return exec.CommandContext(ctx, name, args...).CombinedOutput() //nolint:gosec // G204: the program is fixed by the monitor type and its arguments are checked
 }
 
 // Type is a monitor type.
@@ -107,6 +141,31 @@ func init() {
 	register(Type{"port", "TCP port", true, func() settings { return &Port{} }})
 	register(Type{"ping", "Ping", true, func() settings { return &Ping{} }})
 	register(Type{"dns", "DNS", true, func() settings { return &DNS{} }})
+	register(Type{"websocket-upgrade", "WebSocket upgrade", true, func() settings { return &WebSocket{} }})
+	register(Type{"smtp", "SMTP", true, func() settings { return &SMTP{} }})
+	register(Type{"ntp", "NTP", true, func() settings { return &NTP{} }})
+	register(Type{"radius", "RADIUS", true, func() settings { return &Radius{} }})
+	register(Type{"snmp", "SNMP", true, func() settings { return &SNMP{} }})
+	register(Type{"docker", "Docker container", true, func() settings { return &Docker{} }})
+	register(Type{"sip-options", "SIP OPTIONS", true, func() settings { return &SIP{} }})
+	register(Type{"tailscale-ping", "Tailscale ping", true, func() settings { return &Tailscale{} }})
+	register(Type{"system-service", "System service", true, func() settings { return &Service{} }})
+	register(Type{"pm2", "PM2 process", true, func() settings { return &PM2{} }})
+	register(Type{"globalping", "Globalping", true, func() settings { return &Globalping{} }})
+	register(Type{"sftp", "SFTP", true, func() settings { return &SFTP{} }})
+	register(Type{"steam", "Steam game server", true, func() settings { return &steam{} }})
+	register(Type{"gamedig", "Game server", true, func() settings { return &Game{} }})
+	register(Type{"grpc-keyword", "gRPC keyword", true, func() settings { return &GRPC{} }})
+	register(Type{"real-browser", "HTTP(S) in a real browser", true, func() settings { return &Browser{} }})
+	register(Type{"postgres", "PostgreSQL", true, func() settings { return &SQL{kind: "postgres"} }})
+	register(Type{"mysql", "MySQL / MariaDB", true, func() settings { return &SQL{kind: "mysql"} }})
+	register(Type{"sqlserver", "Microsoft SQL Server", true, func() settings { return &SQL{kind: "sqlserver"} }})
+	register(Type{"oracledb", "Oracle Database", true, func() settings { return &SQL{kind: "oracledb"} }})
+	register(Type{"mongodb", "MongoDB", true, func() settings { return &MongoDB{} }})
+	register(Type{"redis", "Redis", true, func() settings { return &Redis{} }})
+	register(Type{"mqtt", "MQTT", true, func() settings { return &MQTT{} }})
+	register(Type{"rabbitmq", "RabbitMQ", true, func() settings { return &RabbitMQ{} }})
+	register(Type{"kafka-producer", "Kafka producer", true, func() settings { return &Kafka{} }})
 	register(Type{"push", "Push", false, func() settings { return &none{} }})
 	register(Type{"manual", "Manual", false, func() settings { return &none{} }})
 	register(Type{"group", "Group", false, func() settings { return &none{} }})
@@ -122,22 +181,14 @@ func Names() []string {
 	return out
 }
 
-// Parse reads a type's settings from JSON, fills in defaults and checks
-// them. It returns the settings as they will be saved, and their Checker
-// (nil for types the engine runs). Errors are meant for people.
+// Parse reads a monitor's saved settings, fills in defaults and checks
+// them. It returns the settings as they are saved, and their Checker (nil
+// for types the engine runs), which has the secrets opened. Errors are
+// meant for people.
 func Parse(env *Env, typ string, raw json.RawMessage) (json.RawMessage, Checker, error) {
-	t, ok := Types[typ]
-	if !ok {
-		return nil, nil, fmt.Errorf("unknown monitor type %q", typ)
-	}
-	s := t.settings()
-	if len(bytes.TrimSpace(raw)) == 0 || string(bytes.TrimSpace(raw)) == "null" {
-		raw = json.RawMessage(`{}`)
-	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(s); err != nil {
-		return nil, nil, fmt.Errorf("the %s settings are not right: %w", t.Label, err)
+	t, s, err := decode(typ, raw)
+	if err != nil {
+		return nil, nil, err
 	}
 	if err := s.normalize(); err != nil {
 		return nil, nil, err
@@ -148,6 +199,9 @@ func Parse(env *Env, typ string, raw json.RawMessage) (json.RawMessage, Checker,
 	}
 	if !t.Scheduled {
 		return out, nil, nil
+	}
+	if err := open(env, s); err != nil {
+		return nil, nil, err
 	}
 	return out, s.checker(env), nil
 }

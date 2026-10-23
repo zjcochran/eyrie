@@ -246,6 +246,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
   "upside_down": false,
   "description": "",
   "settings": { "url": "https://example.com", "method": "GET", "...": "the type's settings, defaults filled in" },
+  "secrets_set": [],
   "channels": [2],
   "tags": [{ "id": 1, "name": "prod", "color": "#1f5fbf", "value": "eu" }],
   "push_url": "https://eyrie.example.com/api/push/<token>?status=up&msg=OK&ping=",
@@ -270,18 +271,21 @@ Times are in seconds (`interval`, `retry_interval`, `timeout`) or
 milliseconds (`latency_ms`). `status.status` is `unknown` (never checked),
 `up`, `pending`, `down` or `maintenance` (with the window's title in
 `status.maintenance`, `""` otherwise); a paused monitor keeps its last
-status with `active` false. `tags` are by tag name. `push_url` is only on push monitors, only for admins, and uses
+status with `active` false. `settings` never include secret settings
+(passwords, keys, tokens; they are `""`): `secrets_set` names those that are
+set. `tags` are by tag name. `push_url` is only on push monitors, only for admins, and uses
 `EYRIE_BASE_URL` or the request's address. Uptime shares are from 0 to 1,
 `null` without checks in the period. `beats` is only there with `?beats=`.
 
 #### Monitor settings
 
-`{"name","type","parent_id","active","interval","retry_interval","retries","resend_every","timeout","upside_down","description","settings","reset_push_token"}`.
+`{"name","type","parent_id","active","interval","retry_interval","retries","resend_every","timeout","upside_down","description","settings","reset_push_token","clear_secrets"}`.
 Missing numbers take their defaults (interval 60, retry interval the
 interval, timeout 80% of the interval up to 48, the rest 0) and `active`
 defaults to true. The limits and each type's `settings` are in
 [Monitors](../user/monitors.md); unknown `settings` keys are refused.
-`reset_push_token: true` gives a push monitor a new URL. `channels` lists
+A secret setting left empty (or out) keeps the saved one, unless its name
+is in `clear_secrets`. `reset_push_token: true` gives a push monitor a new URL. `channels` lists
 the notification channels to use; left out, a new monitor gets the default
 channels and a changed one keeps its own (`422` for an unknown channel).
 `tags`, `[{"id","value"}]`, are its tags with their values (`""` for none,

@@ -155,7 +155,7 @@ does not collide).
 | `timeout_ms` | `INTEGER` | Milliseconds |
 | `upside_down` | `BOOLEAN` | |
 | `description` | `TEXT` | |
-| `config` | `TEXT` | The type's settings as JSON, with defaults filled in (package `check`) |
+| `config` | `TEXT` | The type's settings as JSON, with defaults filled in and secret settings sealed (package `check`) |
 | `push_token` | `TEXT` | Push monitors: 18 random bytes, base64url |
 | `created_at`, `updated_at` | `BIGINT` | |
 

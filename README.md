@@ -6,7 +6,12 @@ and publishes status pages. It is a single Go binary with its web app built
 in, and keeps its data in SQLite or, for large installations, PostgreSQL.
 
 **Status: early development.** This version monitors websites (HTTP(S),
-keywords, JSON), TCP ports, ping and DNS, takes pushes from jobs, and has
+keywords, JSON, or in a real browser), TCP ports, ping, DNS, WebSockets,
+mail (SMTP), time (NTP), RADIUS, SNMP, SIP, SFTP, gRPC, Docker containers,
+game servers, Tailscale nodes, system services, PM2 processes, probes
+around the world (Globalping), databases (PostgreSQL, MySQL and MariaDB,
+SQL Server, Oracle, MongoDB, Redis) and message brokers (MQTT, RabbitMQ,
+Kafka), takes pushes from jobs, and has
 manual monitors and groups, a live dashboard, uptime history and Prometheus
 metrics, and notifies ntfy, Gotify, Pushover, Telegram, Discord, email and
 signed webhooks, with accounts, two-factor sign-in and single sign-on.
@@ -16,7 +21,7 @@ your Claude subscription) or a model on your own server, such as Ollama
 monthly, every N days or by cron) silence the monitors they cover. Public
 status pages, built from tags and monitors, show uptime, incidents with a
 timeline and maintenance, and their monitors have status badges.
-More monitor types follow; see [the plan](#roadmap).
+Backup and restore follow; see [the plan](#roadmap).
 
 ## Quick start
 
@@ -47,8 +52,9 @@ model, testing and CI, development.
 4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks
 5. Alert analysis: down alerts carry an analysis by Claude (an Anthropic API key, or a Claude subscription through Claude Code) or a model on your own server (Ollama, LM Studio, llama.cpp, vLLM)
 6. Tags and maintenance windows
-7. Status pages, incidents and status badges (this version)
-8. and 9. The remaining monitor types (every type Uptime Kuma and Peekaping have)
+7. Status pages, incidents and status badges
+8. Network and system monitor types: WebSocket, SMTP, NTP, RADIUS, SNMP, Docker, SIP, Tailscale, system services, PM2, Globalping, SFTP, game servers, gRPC, a real browser
+9. Database and message broker monitor types: PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, Redis, MQTT, RabbitMQ, Kafka (this version, with 8)
 10. Backup and restore
 11. Documentation pass and compatibility promises
 
