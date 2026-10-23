@@ -193,6 +193,8 @@ func (c *ClaudeCode) download(ctx context.Context, v, platform, path string) err
 	if n != want.Size || hex.EncodeToString(h.Sum(nil)) != want.Checksum {
 		return fmt.Errorf("the download of Claude Code %s for %s does not match its manifest's size and SHA-256", v, platform)
 	}
+	// A program must be executable; 0700 is Eyrie's user only.
+	// nosemgrep
 	if err := os.Chmod(f.Name(), 0o700); err != nil { //nolint:gosec // G302: a program must be executable, by Eyrie's user only
 		return err
 	}
