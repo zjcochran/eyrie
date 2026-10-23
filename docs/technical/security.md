@@ -137,6 +137,17 @@ stored as is, since the monitor's page shows the URL to admins. **Make a new
 URL** replaces it. Push requests are
 exempt from cross-origin protection, as the token is not a cookie.
 
+## Status pages and badges
+
+Published status pages, their logos and the badges of their monitors are
+public. They give only what a page is meant to show: monitors' names,
+statuses, uptime, and, if the page says so, tags and certificate expiry;
+incidents without who wrote them; maintenance windows' titles and
+descriptions. Never check messages, URLs, hosts or other settings, which
+can be internal. An unpublished page is `404` to anyone not signed in, and
+its monitors have no badges. Incident messages and page texts are shown as
+plain text, never as HTML.
+
 ## Metrics endpoint
 
 Off (`404`) unless `EYRIE_METRICS_TOKEN` is set. With a token, it requires

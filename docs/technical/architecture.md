@@ -17,6 +17,7 @@ app, and runs the monitor engine. It runs as a single instance.
 | `internal/engine` | Runs the monitors, below. |
 | `internal/notify` | Notification channels (ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks), the messages for status changes and certificate warnings, and a background queue with retries. See [Notifications](../user/notifications.md). |
 | `internal/analysis` | Alert analysis: builds the prompt from a monitor, its safe settings (`check.Describe`) and recent checks, and asks Claude through the Messages API with an API key, Claude through Claude Code (which `ClaudeCode` downloads from Anthropic and keeps current when `EYRIE_CLAUDE_CODE` is true), or a model on an OpenAI-compatible server through `/chat/completions`. See [Alert analysis](../user/alert-analysis.md). |
+| `internal/badge` | Draws status badges as SVG, with text widths estimated from Verdana 11 px, so no font is needed. |
 | `internal/totp` | Time-based one-time passwords (RFC 6238) for two-factor sign-in. |
 | `internal/sso` | OpenID Connect sign-in: discovery, the authorization code flow with PKCE, ID-token checks, group rules. `internal/sso/ssotest` is a fake provider for tests. |
 | `internal/api` | HTTP routes: setup, sign-in, sessions and CSRF, accounts, users, single sign-on, API tokens, the health check, security headers. See the [HTTP interface](http-interface.md) and [Security](security.md). |

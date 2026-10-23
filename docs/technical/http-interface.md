@@ -371,6 +371,102 @@ An idle stream gets a `: keepalive` comment every 25 seconds. A listener
 that cannot keep up (64 events behind) misses events rather than slowing
 the others; the app reloads the list when it reconnects.
 
+### Status pages and incidents
+
+See [Status pages, incidents and badges](../user/status-pages.md).
+
+| Method and path | Access | Body | Answer |
+| --- | --- | --- | --- |
+| `GET /api/v1/status-pages` | read | | `200` list of pages, by title |
+| `GET /api/v1/status-pages/{id}` | read | | `200` page |
+| `POST /api/v1/status-pages` | admin | page settings, below | `201` page. `422` for a bad setting, a taken address, an unknown tag or monitor. |
+| `PUT /api/v1/status-pages/{id}` | admin | page settings | `200` page; its sections are replaced |
+| `DELETE /api/v1/status-pages/{id}` | admin | | `204`, with its logo and incidents |
+| `PUT /api/v1/status-pages/{id}/logo` | admin | the image itself (PNG, JPEG, GIF or WebP, at most 1 MB) | `200` page. `422` for anything else. |
+| `DELETE /api/v1/status-pages/{id}/logo` | admin | | `200` page |
+| `GET /api/v1/status-pages/{id}/incidents` | read | | `200` every incident of the page, newest first |
+| `POST /api/v1/status-pages/{id}/incidents` | admin | `{"title","status","message"}` | `201` incident, with its first update. `422` for a title not 1 to 200 characters, an unknown status, a message not 1 to 5000. |
+| `POST /api/v1/incidents/{id}/updates` | admin | `{"status","message"}` | `200` incident; its status becomes the update's, and `resolved_at` is set (`resolved`) or cleared |
+| `PUT /api/v1/incidents/{id}` | admin | `{"title"}` | `200` incident |
+| `DELETE /api/v1/incidents/{id}` | admin | | `204`, with its timeline |
+
+A page, and its settings (the same without `id`, `logo_url`, `created_at`,
+`updated_at`; `theme` left out is `auto`):
+
+```json
+{
+  "id": 1, "slug": "shop", "title": "Shop status", "description": "", "footer": "",
+  "published": true, "theme": "auto", "accent": "", "show_tags": false, "show_cert_expiry": false,
+  "sections": [{ "title": "Website", "tag_id": 2, "monitors": [3, 4] }],
+  "logo_url": "/api/v1/status/shop/logo?v=1800000000000",
+  "created_at": "2027-01-15T08:00:00Z", "updated_at": "2027-01-15T08:00:00Z"
+}
+```
+
+`slug` is 1 to 64 lower-case letters, digits and single dashes; `theme` is
+`auto`, `light` or `dark`; `accent` is `#rrggbb` or `""`; at most 50
+sections, each title up to 100 characters; `tag_id` is `null` for none.
+`logo_url` is `""` without a logo.
+
+An incident:
+
+```json
+{
+  "id": 7, "title": "Checkout errors", "status": "monitoring",
+  "updates": [{ "status": "monitoring", "message": "A fix is out.", "author": "alice", "created_at": "2027-01-15T09:10:00Z" }],
+  "created_at": "2027-01-15T08:40:00Z", "updated_at": "2027-01-15T09:10:00Z", "resolved_at": null
+}
+```
+
+`status` is `investigating`, `identified`, `monitoring` or `resolved`;
+`updates` are newest first.
+
+#### The public page
+
+| Method and path | Access | Answer |
+| --- | --- | --- |
+| `GET /api/v1/status/{slug}` | public (an unpublished page: signed in) | `200` the page as anyone sees it, `Cache-Control: no-store`; `404` otherwise |
+| `GET /api/v1/status/{slug}/logo` | as above | `200` the image, cached a day (the URL changes with the logo); `404` without one |
+
+```json
+{
+  "slug": "shop", "title": "Shop status", "description": "", "footer": "", "published": true,
+  "theme": "auto", "accent": "", "logo_url": "", "show_cert_expiry": false,
+  "status": "up",
+  "sections": [{ "title": "Website", "monitors": [{
+    "id": 3, "name": "Shop website", "status": "up",
+    "uptime": { "24h": 1, "30d": 0.9996, "90d": 0.9998 },
+    "days": [{ "date": "2026-10-18", "uptime": null }, "… 90 days, oldest first"],
+    "tags": [{ "name": "prod", "color": "#1f5fbf", "value": "eu" }]
+  }] }],
+  "incidents": [], "maintenance": [{ "title": "Upgrade", "description": "", "state": "scheduled", "change": "2027-01-17T22:00:00Z" }],
+  "generated_at": "2027-01-15T09:30:00Z"
+}
+```
+
+`status` (the page's) is `up`, `partial`, `down`, `maintenance` or
+`unknown`; a monitor's is `up` (pending included), `down`, `maintenance`,
+`paused` or `unknown`. `tags` only with `show_tags`, `cert_expires` only
+with `show_cert_expiry`. `incidents` are the open ones and those resolved
+in the last 14 days, without `author`; `maintenance` the windows covering a
+monitor on the page that are on or start within 7 days. Nothing else about
+monitors is given.
+
+#### Badges
+
+`GET /api/badge/{id}/{kind}`, public: an SVG image (`image/svg+xml`,
+`Cache-Control: public, max-age=60`) for a monitor on a published status
+page; `404` for any other monitor, an unknown `kind` or a bad `period`.
+
+| `kind` | Label | Message |
+| --- | --- | --- |
+| `status` | the monitor's name | its status, as on a status page |
+| `uptime` | `uptime 24h` (`?period=` `24h`, `30d` or `1y`) | the share up, never rounded up to 100%, or `no data` |
+| `response` | `response` | the last response time in milliseconds, or `no data` |
+| `cert` | `certificate` | days until the certificate expires, `expired` or `none` |
+
+`?label=` replaces the label (at most 50 characters).
+
 ### Metrics
 
 `GET /metrics` serves Prometheus' text format (`text/plain; version=0.0.4`)

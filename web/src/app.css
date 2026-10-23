@@ -24,8 +24,10 @@
   color: var(--fg);
 }
 
+/* Dark: the system's choice, unless a status page sets a theme
+   (data-theme on the root). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --bg: #0f1115;
     --surface: #181b21;
     --fg: #e6e8eb;
@@ -43,6 +45,28 @@
     --unknown: #667085;
     --maintenance: #9b8afb;
   }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --surface: #181b21;
+  --fg: #e6e8eb;
+  --muted: #9aa3ae;
+  --border: #2c313a;
+  --accent: #6ea8fe;
+  --accent-fg: #0f1115;
+  --error: #f97066;
+  --error-bg: #2a1514;
+  --ok: #47cd89;
+  --ok-bg: #0f2419;
+  --up: #32d583;
+  --down: #f97066;
+  --pending: #fdb022;
+  --unknown: #667085;
+  --maintenance: #9b8afb;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 body {

@@ -145,6 +145,15 @@ func isUnique(err error) bool {
 	return strings.Contains(msg, "UNIQUE constraint") || strings.Contains(msg, "SQLSTATE 23505")
 }
 
+// isForeignKey says whether err is a reference to a row that does not exist.
+func isForeignKey(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "FOREIGN KEY constraint") || strings.Contains(msg, "SQLSTATE 23503")
+}
+
 // CountUsers returns the number of users; 0 means setup has not run.
 func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	var n int

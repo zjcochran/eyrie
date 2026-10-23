@@ -13,8 +13,10 @@ signed webhooks, with accounts, two-factor sign-in and single sign-on.
 Down alerts can carry an analysis of the failure by Claude (an API key or
 your Claude subscription) or a model on your own server, such as Ollama
 (off by default). Monitors have tags, and maintenance windows (once, weekly,
-monthly, every N days or by cron) silence the monitors they cover.
-Status pages follow; see [the plan](#roadmap).
+monthly, every N days or by cron) silence the monitors they cover. Public
+status pages, built from tags and monitors, show uptime, incidents with a
+timeline and maintenance, and their monitors have status badges.
+More monitor types follow; see [the plan](#roadmap).
 
 ## Quick start
 
@@ -33,7 +35,7 @@ See [Installation](docs/user/installation.md), including PostgreSQL.
 
 ## Documentation
 
-Everything is in [docs/](docs/README.md): installation, monitors, maintenance windows, notifications, alert analysis, using the web app,
+Everything is in [docs/](docs/README.md): installation, monitors, maintenance windows, status pages, notifications, alert analysis, using the web app,
 single sign-on, configuration, the HTTP interface, security, the data
 model, testing and CI, development.
 
@@ -44,8 +46,8 @@ model, testing and CI, development.
 3. The monitor engine, the first monitor types, Prometheus metrics
 4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks
 5. Alert analysis: down alerts carry an analysis by Claude (an Anthropic API key, or a Claude subscription through Claude Code) or a model on your own server (Ollama, LM Studio, llama.cpp, vLLM)
-6. Tags and maintenance windows (this version)
-7. Status pages, incidents and status badges
+6. Tags and maintenance windows
+7. Status pages, incidents and status badges (this version)
 8. and 9. The remaining monitor types (every type Uptime Kuma and Peekaping have)
 10. Backup and restore
 11. Documentation pass and compatibility promises

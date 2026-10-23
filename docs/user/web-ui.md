@@ -36,6 +36,13 @@ If you opened a page while signed out, you land on it after signing in.
 The start page is the dashboard of monitors; see [Monitors](monitors.md)
 for the dashboard, each monitor's page, adding monitors and every type.
 
+## Status pages
+
+**Status pages**, at the top, lists the status pages; each opens on its
+settings, sections, logo, incidents and badges (admins change them; viewers
+see the incidents). A published page is public at `/status/<address>`. See
+[Status pages, incidents and badges](status-pages.md).
+
 ## Maintenance
 
 **Maintenance**, at the top, lists the maintenance windows, when each is on
