@@ -100,7 +100,7 @@ func seed(t *testing.T, a *Analyzer) store.Monitor {
 	}
 	m, err := a.Store.CreateMonitor(ctx, store.Monitor{Name: "Shop website", Type: "http", ParentID: g.ID, Active: true,
 		Interval: time.Minute, RetryInterval: 30 * time.Second, Retries: 2, Timeout: 48 * time.Second, Description: "the shop",
-		Config: json.RawMessage(`{"url":"https://bob:`+"pw"+`@shop.example.com/health?key=k3y","method":"GET","headers":{"Authorization":"Bearer t0ken"},` +
+		Config: json.RawMessage(`{"url":"https://bob:` + "pw" + `@shop.example.com/health?key=k3y","method":"GET","headers":{"Authorization":"Bearer t0ken"},` +
 			`"accepted_status_codes":["200-299"],"max_redirects":10}`)}, t0)
 	if err != nil {
 		t.Fatal(err)
