@@ -167,7 +167,7 @@ Written with every heartbeat.
 | Column | Type | Notes |
 | --- | --- | --- |
 | `monitor_id` | `BIGINT` | Primary key, `monitors.id`, `ON DELETE CASCADE` |
-| `status` | `TEXT` | `up`, `pending` or `down` |
+| `status` | `TEXT` | `up`, `pending`, `down` or `maintenance` |
 | `since` | `BIGINT` | When the status began |
 | `message` | `TEXT` | Of the last check |
 | `last_check` | `BIGINT` | |
@@ -176,6 +176,7 @@ Written with every heartbeat.
 | `failures` | `INTEGER` | Failed checks in a row while pending |
 | `down_checks` | `INTEGER` | Checks since the last down notification, for "notify again every" |
 | `cert_notified` | `INTEGER` | The certificate warning last sent for `cert_expires`, as its threshold in days; `0` for none. Migration `00004_notifications`. |
+| `before_status`, `before_since` | `TEXT`, `BIGINT` | In maintenance, the status the monitor had before it began and since when, which come back when it ends; `''` and `0` otherwise. Migration `00005_tags_maintenance`. |
 
 ### heartbeats
 
@@ -188,7 +189,7 @@ setting are deleted daily.
 | `id` | `INTEGER` / `BIGINT` | Primary key |
 | `monitor_id` | `BIGINT` | `monitors.id`, `ON DELETE CASCADE` |
 | `at` | `BIGINT` | When the check ended |
-| `status` | `TEXT` | `up`, `pending` or `down` |
+| `status` | `TEXT` | `up`, `pending`, `down` or `maintenance` |
 | `latency_ms` | `INTEGER` | `-1` for none |
 | `message` | `TEXT` | |
 | `important` | `BOOLEAN` | The status changed |
@@ -206,7 +207,7 @@ Check counts per monitor and hour (`bucket`: the hour's start) or day
 | --- | --- | --- |
 | `monitor_id` | `BIGINT` | |
 | `bucket` | `BIGINT` | |
-| `up` | `INTEGER` | Up and pending checks |
+| `up` | `INTEGER` | Up and pending checks (checks in maintenance are not counted at all) |
 | `down` | `INTEGER` | Down checks |
 | `latency_sum` | `BIGINT` | Milliseconds, over checks with a response time |
 | `latency_count` | `INTEGER` | Checks with a response time |
@@ -236,3 +237,48 @@ Migration `00004_notifications`.
 Which channels each monitor notifies. Primary key
 `(monitor_id, channel_id)`, both `ON DELETE CASCADE`; index
 `monitor_channels_channel` on `channel_id`.
+
+### tags
+
+Migration `00005_tags_maintenance`. Unique index `tags_name` on
+`LOWER(name)`: names are unique whatever the case.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `name` | `TEXT` | 1 to 50 characters |
+| `color` | `TEXT` | `#rrggbb`, lower case |
+| `created_at`, `updated_at` | `BIGINT` | |
+
+### monitor_tags
+
+The tags of each monitor. Primary key `(monitor_id, tag_id)`, both
+`ON DELETE CASCADE`; index `monitor_tags_tag` on `tag_id`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `monitor_id`, `tag_id` | `BIGINT` | |
+| `value` | `TEXT` | The monitor's value for the tag, up to 100 characters; `''` for none |
+
+### maintenance_windows
+
+Migration `00005_tags_maintenance`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `title` | `TEXT` | 1 to 100 characters |
+| `description` | `TEXT` | Up to 2000 characters |
+| `enabled` | `BOOLEAN` | False: turned off, never on |
+| `schedule` | `TEXT` | JSON, read by package `maintenance`: `strategy` (`manual`, `once`, `interval`, `weekdays`, `monthdays`, `cron`), `time_zone`, and the strategy's fields (`start`, `end`, `from`, `to`, `every_days`, `weekdays`, `month_days`, `cron`, `duration_minutes`, `first_day`, `last_day`); see [HTTP interface](http-interface.md#maintenance-windows) |
+| `all_monitors` | `BOOLEAN` | It covers every monitor; the two tables below are then empty |
+| `created_at`, `updated_at` | `BIGINT` | |
+
+### maintenance_monitors, maintenance_tags
+
+The monitors and the tags a window covers (with the members of the groups
+among the monitors, and the monitors with the tags). Primary keys
+`(window_id, monitor_id)` and `(window_id, tag_id)`, all `ON DELETE
+CASCADE`, so deleting a monitor or a tag takes it out of windows; indexes
+`maintenance_monitors_monitor` on `monitor_id` and `maintenance_tags_tag`
+on `tag_id`.

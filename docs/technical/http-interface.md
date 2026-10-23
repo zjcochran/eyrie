@@ -247,6 +247,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
   "description": "",
   "settings": { "url": "https://example.com", "method": "GET", "...": "the type's settings, defaults filled in" },
   "channels": [2],
+  "tags": [{ "id": 1, "name": "prod", "color": "#1f5fbf", "value": "eu" }],
   "push_url": "https://eyrie.example.com/api/push/<token>?status=up&msg=OK&ping=",
   "created_at": "2027-01-15T08:00:00Z",
   "updated_at": "2027-01-15T08:00:00Z",
@@ -257,7 +258,8 @@ The keys themselves are never returned. `claude_code` is `null` unless
     "last_check": "2027-01-15T09:30:12Z",
     "latency_ms": 123.45,
     "cert_expires": "2027-03-01T00:00:00Z",
-    "checking": false
+    "checking": false,
+    "maintenance": ""
   },
   "uptime": { "24h": 0.9993, "30d": 0.9998, "1y": null, "avg_latency_24h_ms": 130.2 },
   "beats": []
@@ -266,8 +268,9 @@ The keys themselves are never returned. `claude_code` is `null` unless
 
 Times are in seconds (`interval`, `retry_interval`, `timeout`) or
 milliseconds (`latency_ms`). `status.status` is `unknown` (never checked),
-`up`, `pending` or `down`; a paused monitor keeps its last status with
-`active` false. `push_url` is only on push monitors, only for admins, and uses
+`up`, `pending`, `down` or `maintenance` (with the window's title in
+`status.maintenance`, `""` otherwise); a paused monitor keeps its last
+status with `active` false. `tags` are by tag name. `push_url` is only on push monitors, only for admins, and uses
 `EYRIE_BASE_URL` or the request's address. Uptime shares are from 0 to 1,
 `null` without checks in the period. `beats` is only there with `?beats=`.
 
@@ -281,6 +284,68 @@ defaults to true. The limits and each type's `settings` are in
 `reset_push_token: true` gives a push monitor a new URL. `channels` lists
 the notification channels to use; left out, a new monitor gets the default
 channels and a changed one keeps its own (`422` for an unknown channel).
+`tags`, `[{"id","value"}]`, are its tags with their values (`""` for none,
+up to 100 characters); left out, a changed monitor keeps its own (`422` for
+an unknown tag or one given twice).
+
+### Tags
+
+| Method and path | Access | Body | Answer |
+| --- | --- | --- | --- |
+| `GET /api/v1/tags` | read | | `200` `[{"id","name","color","monitors","created_at"}]`, by name; `monitors` counts the monitors with it |
+| `POST /api/v1/tags` | admin | `{"name","color"}` | `201` the tag. `422` for a name not 1 to 50 characters or already taken (whatever the case), or a colour not `#rrggbb`. |
+| `PUT /api/v1/tags/{id}` | admin | `{"name","color"}` | `200` the tag; as for `POST` |
+| `DELETE /api/v1/tags/{id}` | admin | | `204`; it comes off every monitor and maintenance window |
+
+### Maintenance windows
+
+See [Maintenance windows](../user/maintenance.md).
+
+| Method and path | Access | Body | Answer |
+| --- | --- | --- | --- |
+| `GET /api/v1/maintenance` | read | | `200` list of windows, by title |
+| `GET /api/v1/maintenance/{id}` | read | | `200` window |
+| `POST /api/v1/maintenance` | admin | `{"title","description","enabled","schedule","all_monitors","monitors","tags"}` | `201` window; it applies at once. `422` for a title not 1 to 100 characters, a description over 2000, covering nothing (no `all_monitors`, `monitors` or `tags`), an unknown monitor or tag, or a bad schedule. `enabled` left out is true. |
+| `PUT /api/v1/maintenance/{id}` | admin | the same | `200` window |
+| `DELETE /api/v1/maintenance/{id}` | admin | | `204`; its monitors come out of maintenance at once |
+
+```json
+{
+  "id": 1,
+  "title": "Database upgrade",
+  "description": "",
+  "enabled": true,
+  "schedule": { "strategy": "weekdays", "time_zone": "Etc/UTC", "weekdays": [0], "from": "22:00", "to": "02:00" },
+  "all_monitors": false,
+  "monitors": [3],
+  "tags": [1],
+  "state": "scheduled",
+  "change": "2027-01-17T22:00:00Z",
+  "created_at": "2027-01-15T08:00:00Z",
+  "updated_at": "2027-01-15T08:00:00Z"
+}
+```
+
+`state` is `on`, `scheduled` (`change`: when it starts), `ended` (it will
+not be on again) or `paused` (turned off); for `on`, `change` is when it
+ends, `null` if it does not (a manual window).
+
+`schedule` has a `strategy` and a `time_zone` (IANA; `""` is `Etc/UTC`),
+and the strategy's fields:
+
+| `strategy` | Fields |
+| --- | --- |
+| `manual` | none: on while `enabled` |
+| `once` | `start`, `end`: local times such as `2027-01-15T22:00`; the end after the start |
+| `interval` | `every_days` (1 to 3650), `first_day` (required), `from`, `to` |
+| `weekdays` | `weekdays` (0 Sunday to 6 Saturday, at least one), `from`, `to` |
+| `monthdays` | `month_days` (1 to 31, or -1 for the last day, at least one), `from`, `to` |
+| `cron` | `cron` (five fields), `duration_minutes` (1 to 44640) |
+
+`from` and `to` are times of day such as `22:00`; a `to` at or before `from`
+is the next day. `interval`, `weekdays`, `monthdays` and `cron` take
+`first_day` and `last_day` (dates such as `2027-01-15`, both included; `""`
+for no limit).
 
 #### Heartbeat
 
@@ -288,7 +353,8 @@ channels and a changed one keeps its own (`422` for an unknown channel).
 { "monitor_id": 3, "at": "2027-01-15T09:30:12Z", "status": "up", "latency_ms": 123.45, "message": "200 OK", "important": false }
 ```
 
-`important` is true when the status changed. `latency_ms` is `null` when
+`status` is `up`, `pending`, `down` or `maintenance`. `important` is true
+when the status changed. `latency_ms` is `null` when
 there was none (a failed connection, a push without `ping`).
 
 #### Events
@@ -315,11 +381,11 @@ compared in constant time). Without the setting it is `404`.
 | Metric | Type | Labels | Value |
 | --- | --- | --- | --- |
 | `eyrie_build_info` | gauge | `version` | 1 |
-| `eyrie_monitor_status` | gauge | `id`, `monitor`, `type` | 1 up, 0 down, 2 pending, -1 not checked yet |
+| `eyrie_monitor_status` | gauge | `id`, `monitor`, `type` | 1 up, 0 down, 2 pending, 3 maintenance, -1 not checked yet |
 | `eyrie_monitor_active` | gauge | same | 1 running, 0 paused |
 | `eyrie_monitor_response_seconds` | gauge | same | the last check's response time; absent when it had none |
 | `eyrie_monitor_cert_days_remaining` | gauge | same | days until the certificate seen by an HTTPS check expires |
-| `eyrie_monitor_checks_total` | counter | same, `result` (`up`, `down`) | checks since Eyrie started; pending counts as up |
+| `eyrie_monitor_checks_total` | counter | same, `result` (`up`, `down`) | checks since Eyrie started; pending counts as up, maintenance not at all |
 | `eyrie_checks_running` | gauge | | checks in progress |
 | `eyrie_notifications_total` | counter | `result` (`sent`, `failed`) | notifications since Eyrie started, per channel; failed after every retry |
 | `eyrie_alert_analyses_total` | counter | `result` (`ok`, `failed`) | alert analyses since Eyrie started; failed: an error, no answer in time, or more than four at once |

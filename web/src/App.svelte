@@ -10,12 +10,14 @@
   import Analysis from './pages/Analysis.svelte';
   import Home from './pages/Home.svelte';
   import Login from './pages/Login.svelte';
+  import Maintenance from './pages/Maintenance.svelte';
   import MonitorForm from './pages/MonitorForm.svelte';
   import MonitorPage from './pages/MonitorPage.svelte';
   import Notifications from './pages/Notifications.svelte';
   import Retention from './pages/Retention.svelte';
   import SSO from './pages/SSO.svelte';
   import Setup from './pages/Setup.svelte';
+  import Tags from './pages/Tags.svelte';
   import Tokens from './pages/Tokens.svelte';
   import Users from './pages/Users.svelte';
 
@@ -72,7 +74,8 @@
   <header>
     <a class="brand" href="/" onclick={link}>Eyrie</a>
     <nav>
-      <a href="/" onclick={link} aria-current={!inSettings ? 'page' : undefined}>Monitors</a>
+      <a href="/" onclick={link} aria-current={!inSettings && page !== 'maintenance' ? 'page' : undefined}>Monitors</a>
+      <a href="/maintenance" onclick={link} aria-current={page === 'maintenance' ? 'page' : undefined}>Maintenance</a>
       <a href="/settings/account" onclick={link} aria-current={inSettings ? 'page' : undefined}>Settings</a>
     </nav>
     <div class="me">
@@ -86,6 +89,8 @@
       <Home />
     {:else if page === 'monitor'}
       <MonitorPage id={route.id} />
+    {:else if page === 'maintenance'}
+      <Maintenance />
     {:else if (page === 'new-monitor' || page === 'edit-monitor') && user.role === 'admin'}
       {#key route.id}<MonitorForm id={route.id} />{/key}
     {:else if page === 'not-found' || !tabs.some((t) => t.page === page)}
@@ -110,6 +115,8 @@
         <Retention />
       {:else if page === 'notifications'}
         <Notifications />
+      {:else if page === 'tags'}
+        <Tags />
       {:else if page === 'analysis'}
         <Analysis />
       {/if}

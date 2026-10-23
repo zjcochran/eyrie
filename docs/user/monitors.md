@@ -10,20 +10,27 @@ in sees them.
 The start page lists every monitor. Groups come first, each followed by its
 members (indented). Each row shows:
 
-- the status: green **up**, red **down**, amber **pending**, grey **unknown**
-  (not checked yet) or **paused**;
+- the status: green **up**, red **down**, amber **pending**, violet
+  **maintenance** (in a [maintenance window](maintenance.md)), grey
+  **unknown** (not checked yet) or **paused**;
+- its type and [tags](#tags);
 - the last 50 checks as a bar, oldest on the left (hover a check for its
   time, response time and message);
 - the uptime over the last 24 hours and the last response time.
 
-The counts above the list add up the statuses. Everything updates live: the
-page listens to Eyrie's event stream and needs no reload.
+The counts above the list add up the statuses. When monitors have tags, a
+row of them above the list filters it: click a tag to see only the monitors
+with it (without groups' nesting), **All** or the tag again for every
+monitor. Everything updates live: the page listens to Eyrie's event stream
+and needs no reload.
 
 ## A monitor's page
 
 Click a monitor for its page:
 
-- its status and since when, the last check and its message;
+- its tags;
+- its status and since when (in maintenance, the window's title), the last
+  check and its message;
 - the last and the 24-hour average response time;
 - uptime over 24 hours, 30 days and 1 year;
 - for HTTPS monitors, how many days the server's certificate has left;
@@ -50,6 +57,7 @@ cannot change later.
 | Retry every | the interval | How soon a pending monitor is checked again. |
 | Notify again every | 0 (never) | While down, notify again every this many checks. |
 | Notify | the default channels | The [notification channels](notifications.md) it sends to. |
+| Tags | none | Its [tags](#tags), each with an optional value. |
 | Group | none | The group the monitor is in. |
 | Description | | Shown on the monitor's page. |
 | Upside down | off | A failed check counts as up and a successful one as down: for things that must *not* answer. |
@@ -64,9 +72,25 @@ cannot change later.
   notification.
 - Only changes between up and down are [notified](notifications.md), and
   while down again every "Notify again every" checks.
+- In a [maintenance window](maintenance.md), checks go on but are recorded
+  as **maintenance**: they change nothing and notify nobody. Afterwards the
+  monitor takes back its status and is checked at once.
 - The next check starts one interval after the last one started, so checks
   do not drift. After a restart, first checks are spread over each
   monitor's interval, and every monitor keeps the status it had.
+
+## Tags
+
+Tags label monitors, such as `prod` or `database`, each with a colour.
+Admins make them in **Settings → Tags** (a name of 1 to 50 characters,
+unique whatever the case, and a colour) and give them to monitors in the
+monitor's settings, each with an optional value of up to 100 characters
+(`env: prod`, `region: eu`). Renaming or recolouring a tag changes it on
+every monitor; deleting it takes it off every monitor and maintenance
+window.
+
+Tags show on the dashboard and a monitor's page, filter the dashboard, and
+choose the monitors a [maintenance window](maintenance.md) covers.
 
 ## Types
 
@@ -191,7 +215,8 @@ any group.
 - Every check is a heartbeat: time, status, response time, message.
 - Uptime is the share of checks that were up. **Pending checks count as up**:
   a monitor is not down until its retries run out. Paused periods have no
-  checks and do not count.
+  checks and do not count, and checks in maintenance count neither way (nor
+  towards the average response time).
 - The 24-hour and 30-day figures come from hourly totals, the 1-year figure
   from daily totals (days in UTC), so they never read every heartbeat.
 - Heartbeats are kept for 90 days by default: **Settings → History**
@@ -205,3 +230,5 @@ any group.
 | See monitors, their pages and history | yes | yes | yes, through the API |
 | Add, change, pause, check, delete | | yes | |
 | Set a manual monitor | | yes | |
+| See tags and maintenance windows | yes | yes | yes, through the API |
+| Add, change and delete tags and maintenance windows | | yes | |

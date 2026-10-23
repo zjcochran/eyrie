@@ -1,7 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { type Channel, type Monitor, type MonitorChange, message } from '../lib/api.ts';
+  import TagChip from '../components/TagChip.svelte';
+  import { type Channel, type Monitor, type MonitorChange, type Tag, message } from '../lib/api.ts';
   import { go, link } from '../lib/nav.svelte.ts';
   import { api } from '../lib/session.svelte.ts';
   import { fields, toSettings, toValues } from '../lib/settings.ts';
@@ -14,6 +15,10 @@
   let allChannels = $state<Channel[]>([]);
   // The channels ticked; for a new monitor, the default ones.
   let channels = $state<number[]>([]);
+  let allTags = $state<Tag[]>([]);
+  // The tags ticked, and each one's value.
+  let tagIDs = $state<number[]>([]);
+  let tagValues = $state<Record<number, string>>({});
   let existing = $state<Monitor | null>(null);
   let error = $state('');
   let busy = $state(false);
@@ -39,6 +44,7 @@
       const all = await api.monitors();
       groups = all.filter((m) => m.type === 'group' && m.id !== id);
       allChannels = await api.channels();
+      allTags = await api.tags();
       channels = allChannels.filter((c) => c.default).map((c) => c.id);
       if (id) {
         const m = await api.monitor(id);
@@ -56,6 +62,8 @@
         upsideDown = m.upside_down;
         values = toValues(m.type, m.settings);
         channels = [...m.channels];
+        tagIDs = m.tags.map((t) => t.id);
+        tagValues = Object.fromEntries(m.tags.map((t) => [t.id, t.value]));
       }
     } catch (e) {
       error = message(e);
@@ -84,6 +92,7 @@
       settings: toSettings(type, values),
       reset_push_token: resetToken,
       channels,
+      tags: tagIDs.map((t) => ({ id: t, value: tagValues[t] ?? '' })),
     };
     try {
       const m = id ? await api.updateMonitor(id, change) : await api.createMonitor(change);
@@ -174,6 +183,22 @@
     <p class="muted">No notification channels yet: add them in Settings → Notifications.</p>
   {/if}
 
+  {#if allTags.length}
+    <fieldset>
+      <legend>Tags</legend>
+      {#each allTags as t (t.id)}
+        <div class="tag row">
+          <label class="check"><input type="checkbox" bind:group={tagIDs} value={t.id} /> <TagChip name={t.name} color={t.color} /></label>
+          {#if tagIDs.includes(t.id)}
+            <input bind:value={tagValues[t.id]} maxlength="100" placeholder="Value (optional)" aria-label="Value of {t.name}" />
+          {/if}
+        </div>
+      {/each}
+    </fieldset>
+  {:else}
+    <p class="muted">No tags yet: add them in Settings → Tags.</p>
+  {/if}
+
   <label
     >Group
     <select bind:value={parent}>
@@ -208,6 +233,13 @@
     border-radius: 6px;
     background: var(--bg);
     color: var(--fg);
+  }
+  .tag {
+    gap: 0.75rem;
+  }
+  .tag input:not([type]) {
+    flex: 1;
+    min-width: 0;
   }
   .help {
     margin-top: -0.5rem;

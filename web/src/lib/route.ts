@@ -13,6 +13,8 @@ export type Page =
   | 'retention'
   | 'notifications'
   | 'analysis'
+  | 'tags'
+  | 'maintenance'
   | 'not-found';
 
 /** A page, with the monitor ID of monitor pages. */
@@ -27,6 +29,7 @@ export const settingsTabs: { page: Page; path: string; label: string; admin: boo
   { page: 'users', path: '/settings/users', label: 'Users', admin: true },
   { page: 'sso', path: '/settings/sso', label: 'Single sign-on', admin: true },
   { page: 'tokens', path: '/settings/api-tokens', label: 'API tokens', admin: true },
+  { page: 'tags', path: '/settings/tags', label: 'Tags', admin: true },
   { page: 'notifications', path: '/settings/notifications', label: 'Notifications', admin: true },
   { page: 'analysis', path: '/settings/alert-analysis', label: 'Alert analysis', admin: true },
   { page: 'retention', path: '/settings/history', label: 'History', admin: true },
@@ -38,6 +41,7 @@ export function routeFor(path: string): Route {
   if (p === '/') return { page: 'home', id: 0 };
   if (p === '/settings') return { page: 'account', id: 0 };
   if (p === '/monitors/new') return { page: 'new-monitor', id: 0 };
+  if (p === '/maintenance') return { page: 'maintenance', id: 0 };
   const m = /^\/monitors\/([1-9][0-9]*)(\/edit)?$/.exec(p);
   if (m) return { page: m[2] ? 'edit-monitor' : 'monitor', id: Number(m[1]) };
   return { page: settingsTabs.find((t) => t.path === p)?.page ?? 'not-found', id: 0 };

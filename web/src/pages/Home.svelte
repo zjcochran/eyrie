@@ -2,17 +2,31 @@
 <script lang="ts">
   import BeatBar from '../components/BeatBar.svelte';
   import StatusDot from '../components/StatusDot.svelte';
-  import type { Monitor } from '../lib/api.ts';
+  import TagChip from '../components/TagChip.svelte';
+  import type { Monitor, MonitorTag } from '../lib/api.ts';
   import { millis, percent } from '../lib/format.ts';
   import { live } from '../lib/live.svelte.ts';
   import { link } from '../lib/nav.svelte.ts';
   import { app } from '../lib/session.svelte.ts';
 
   const admin = $derived(app.session?.user?.role === 'admin');
+  // The tag the list is filtered by; 0 for none.
+  let tagFilter = $state(0);
+
+  // Every tag on some monitor, by name.
+  const allTags = $derived.by(() => {
+    const byID = new Map<number, MonitorTag>();
+    for (const m of live.monitors) for (const t of m.tags) byID.set(t.id, t);
+    return [...byID.values()].sort((a, b) => a.name.localeCompare(b.name));
+  });
 
   // Groups first, each followed by its members; then monitors outside any group.
+  // Filtered by a tag, only the monitors with it, without nesting.
   const rows = $derived.by(() => {
     const out: { m: Monitor; depth: number }[] = [];
+    if (tagFilter) {
+      return live.monitors.filter((m) => m.tags.some((t) => t.id === tagFilter)).map((m) => ({ m, depth: 0 }));
+    }
     const byParent = new Map<number, Monitor[]>();
     for (const m of live.monitors) {
       const p = m.parent_id ?? 0;
@@ -32,9 +46,10 @@
   });
 
   const counts = $derived.by(() => {
-    const c = { up: 0, down: 0, pending: 0, paused: 0 };
+    const c = { up: 0, down: 0, pending: 0, maintenance: 0, paused: 0 };
     for (const m of live.monitors) {
       if (!m.active) c.paused++;
+      else if (m.status.status === 'maintenance') c.maintenance++;
       else if (m.status.status === 'up') c.up++;
       else if (m.status.status === 'down') c.down++;
       else if (m.status.status === 'pending') c.pending++;
@@ -61,8 +76,19 @@
     <span><StatusDot status="up" /> {counts.up} up</span>
     <span><StatusDot status="down" /> {counts.down} down</span>
     <span><StatusDot status="pending" /> {counts.pending} pending</span>
+    {#if counts.maintenance}<span><StatusDot status="maintenance" /> {counts.maintenance} in maintenance</span>{/if}
     <span><StatusDot status="unknown" active={false} /> {counts.paused} paused</span>
   </p>
+  {#if allTags.length}
+    <div class="filter row" role="group" aria-label="Filter by tag">
+      <button class:primary={!tagFilter} onclick={() => (tagFilter = 0)}>All</button>
+      {#each allTags as t (t.id)}
+        <button class:primary={tagFilter === t.id} onclick={() => (tagFilter = tagFilter === t.id ? 0 : t.id)}
+          ><TagChip name={t.name} color={t.color} /></button
+        >
+      {/each}
+    </div>
+  {/if}
   <div class="card list">
     {#each rows as { m, depth } (m.id)}
       <a class="monitor" href="/monitors/{m.id}" onclick={link} style:padding-left="{0.75 + depth * 1.25}rem">
@@ -70,6 +96,7 @@
           <StatusDot status={m.status.status} active={m.active} />
           <span>{m.name}</span>
           <span class="muted type">{m.type}</span>
+          {#each m.tags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} />{/each}
         </span>
         <span class="bar"><BeatBar beats={m.beats} /></span>
         <span class="figures">
@@ -88,6 +115,14 @@
   }
   .head h1 {
     margin: 0;
+  }
+  .filter {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+  }
+  .filter button {
+    padding: 0.2rem 0.5rem;
   }
   .summary {
     display: flex;

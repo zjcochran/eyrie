@@ -12,6 +12,7 @@ app, and runs the monitor engine. It runs as a single instance.
 | `internal/store` | All saved data, in SQLite or PostgreSQL, with migrations for each. See the [data model](data-model.md). |
 | `internal/secrets` | AES-256-GCM sealing of secrets the store keeps (sealed values start with `v1:`). |
 | `internal/state` | The status of a monitor from its check results: a pure state machine (up, pending, down; retries, notifications, upside-down). |
+| `internal/maintenance` | When maintenance windows are on: a pure function of a schedule (manual, once, every N days, weekdays, days of the month, cron) and the time, in the schedule's time zone, with Eyrie's own cron parser. See [Maintenance windows](../user/maintenance.md). |
 | `internal/check` | The monitor types: their settings, defaults and validation, and the checks themselves. Every check reaches the network through an `Env` (dialer, HTTP transport, resolver, pinger) that tests replace. Includes Eyrie's own DNS client, ICMP echo and JSON path. |
 | `internal/engine` | Runs the monitors, below. |
 | `internal/notify` | Notification channels (ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks), the messages for status changes and certificate warnings, and a background queue with retries. See [Notifications](../user/notifications.md). |
@@ -63,6 +64,16 @@ Node.js is never installed on a developer's machine. It runs only:
 - Push monitors have a deadline instead of a check; manual monitors only
   change when set; groups are evaluated at their interval and when a
   member's status changes.
+- Maintenance: the engine keeps the windows (their schedules compiled by
+  `internal/maintenance`) and every monitor's tags, read at start and again
+  when the API changes a window, a tag or a monitor's tags. It also wakes
+  when a window next starts or ends. A monitor covered by a window that is
+  on (directly, by a tag, or through a group it is in) enters maintenance:
+  its state is kept aside (and saved, in `monitor_state.before_status`),
+  and its checks are recorded as `maintenance` without going through
+  `internal/state`, so they change nothing and notify nobody. When no
+  window covers it any more, the kept state comes back as a heartbeat
+  (`Maintenance ended`) and it is checked at once.
 - The current statuses are kept in a copy that the API reads without
   waiting for the engine.
 

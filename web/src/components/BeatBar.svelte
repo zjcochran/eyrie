@@ -40,4 +40,7 @@
   .pending {
     background: var(--pending);
   }
+  .maintenance {
+    background: var(--maintenance);
+  }
 </style>

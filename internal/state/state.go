@@ -20,6 +20,9 @@ const (
 	Up      Status = "up"
 	Pending Status = "pending" // failed, retrying before it counts as down
 	Down    Status = "down"
+	// Maintenance: in a maintenance window. Package engine sets it; checks
+	// go on but change nothing and notify nobody.
+	Maintenance Status = "maintenance"
 )
 
 // Rules are a monitor's settings that the state machine follows.

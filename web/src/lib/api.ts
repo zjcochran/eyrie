@@ -108,7 +108,7 @@ export interface Token {
   last_used: string | null;
 }
 
-export type Status = 'unknown' | 'up' | 'pending' | 'down';
+export type Status = 'unknown' | 'up' | 'pending' | 'down' | 'maintenance';
 
 export interface Beat {
   monitor_id: number;
@@ -136,11 +136,31 @@ export interface MonitorChange {
   reset_push_token?: boolean;
   /** Notification channels; left out, a new monitor gets the default ones. */
   channels?: number[];
+  /** Tags, each with a value ('' for none); left out, a changed monitor keeps its own. */
+  tags?: { id: number; value: string }[];
 }
 
-export interface Monitor extends Omit<MonitorChange, 'type' | 'channels'> {
+export interface Tag {
+  id: number;
+  name: string;
+  /** Such as #1f5fbf. */
+  color: string;
+  monitors: number;
+  created_at: string;
+}
+
+/** A tag on a monitor, with the monitor's value for it. */
+export interface MonitorTag {
+  id: number;
+  name: string;
+  color: string;
+  value: string;
+}
+
+export interface Monitor extends Omit<MonitorChange, 'type' | 'channels' | 'tags'> {
   id: number;
   channels: number[];
+  tags: MonitorTag[];
   type: string;
   push_url?: string;
   created_at: string;
@@ -153,9 +173,48 @@ export interface Monitor extends Omit<MonitorChange, 'type' | 'channels'> {
     latency_ms: number | null;
     cert_expires: string | null;
     checking: boolean;
+    /** The maintenance window it is in; '' for none. */
+    maintenance: string;
   };
   uptime: { '24h': number | null; '30d': number | null; '1y': number | null; avg_latency_24h_ms: number | null };
   beats?: Beat[];
+}
+
+/** When a maintenance window is on; docs/user/maintenance.md. */
+export interface Schedule {
+  strategy: 'manual' | 'once' | 'interval' | 'weekdays' | 'monthdays' | 'cron';
+  time_zone: string;
+  start?: string;
+  end?: string;
+  from?: string;
+  to?: string;
+  every_days?: number;
+  weekdays?: number[];
+  month_days?: number[];
+  cron?: string;
+  duration_minutes?: number;
+  first_day?: string;
+  last_day?: string;
+}
+
+export interface WindowChange {
+  title: string;
+  description: string;
+  enabled: boolean;
+  schedule: Schedule;
+  all_monitors: boolean;
+  monitors: number[];
+  tags: number[];
+}
+
+export interface Window extends WindowChange {
+  id: number;
+  /** on; scheduled (change: when it starts); ended; paused (turned off). */
+  state: 'on' | 'scheduled' | 'ended' | 'paused';
+  /** When it starts (scheduled) or ends (on); null for never. */
+  change: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface HourStats {
@@ -318,6 +377,15 @@ export class Client {
   checkMonitor = (id: number) => this.request<void>('POST', `/api/v1/monitors/${id}/check`);
   setManualStatus = (id: number, status: 'up' | 'down', message: string) =>
     this.request<Monitor>('POST', `/api/v1/monitors/${id}/status`, { status, message });
+  tags = () => this.request<Tag[]>('GET', '/api/v1/tags');
+  createTag = (name: string, color: string) => this.request<Tag>('POST', '/api/v1/tags', { name, color });
+  updateTag = (id: number, name: string, color: string) =>
+    this.request<Tag>('PUT', `/api/v1/tags/${id}`, { name, color });
+  deleteTag = (id: number) => this.request<void>('DELETE', `/api/v1/tags/${id}`);
+  windows = () => this.request<Window[]>('GET', '/api/v1/maintenance');
+  createWindow = (w: WindowChange) => this.request<Window>('POST', '/api/v1/maintenance', w);
+  updateWindow = (id: number, w: WindowChange) => this.request<Window>('PUT', `/api/v1/maintenance/${id}`, w);
+  deleteWindow = (id: number) => this.request<void>('DELETE', `/api/v1/maintenance/${id}`);
   channelKinds = () => this.request<{ id: string; name: string }[]>('GET', '/api/v1/channel-kinds');
   channels = () => this.request<Channel[]>('GET', '/api/v1/channels');
   createChannel = (c: ChannelChange) => this.request<Channel>('POST', '/api/v1/channels', c);

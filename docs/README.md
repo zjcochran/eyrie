@@ -9,7 +9,8 @@ are updated in the same change as the behaviour they describe.
 | Guide | What it covers |
 | --- | --- |
 | [Installation](user/installation.md) | Building the image, Docker Compose with SQLite or PostgreSQL, the data folder, upgrading |
-| [Monitors](user/monitors.md) | The dashboard, a monitor's page, adding monitors, every type and setting, push URLs, uptime and history |
+| [Monitors](user/monitors.md) | The dashboard, a monitor's page, adding monitors, every type and setting, tags, push URLs, uptime and history |
+| [Maintenance windows](user/maintenance.md) | Schedules (once, weekly, monthly, every N days, cron), time zones, what a window covers (monitors, tags, groups), what happens during and after it |
 | [Notifications](user/notifications.md) | Channels (ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks), what is sent, certificate warnings, delivery |
 | [Alert analysis](user/alert-analysis.md) | Claude with an API key or your subscription (Claude Code), or a model on your own server (Ollama and other OpenAI-compatible servers), what is sent, timeouts |
 | [Using the web app](user/web-ui.md) | Setup, signing in, your account, two-factor sign-in, users, API tokens |

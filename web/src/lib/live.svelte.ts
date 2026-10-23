@@ -56,6 +56,10 @@ export function onBeat(f: (b: Beat) => void): () => void {
 function apply(b: Beat) {
   const m = live.monitors.find((x) => x.id === b.monitor_id);
   if (m) {
+    // A maintenance window started or ended: its title comes with the
+    // monitor.
+    if (b.important && (b.status === 'maintenance') !== (m.status.status === 'maintenance')) loadMonitors();
+    if (b.status !== 'maintenance') m.status.maintenance = '';
     m.beats = [...(m.beats ?? []), b].slice(-recent);
     m.status.status = b.status;
     m.status.message = b.message;
