@@ -113,7 +113,7 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 
 	env := check.DefaultEnv("Eyrie/" + version)
 	eng := engine.New(st, env, log)
-	analyzer := &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: version, Command: cfg.ClaudeCommand}
+	analyzer := &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: version}
 	if a, err := analysis.LoadSettings(ctx, st); err != nil {
 		log.Error("cannot read the alert analysis settings", "err", err)
 	} else {

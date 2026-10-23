@@ -155,7 +155,7 @@ func mailMessage(from *mail.Address, to []*mail.Address, m Message) []byte {
 	qp := quotedprintable.NewWriter(&b)
 	fmt.Fprintf(qp, "%s\r\n\r\n", m.Text)
 	if m.Analysis != "" {
-		fmt.Fprintf(qp, "Claude's analysis:\r\n%s\r\n\r\n", strings.ReplaceAll(m.Analysis, "\n", "\r\n"))
+		fmt.Fprintf(qp, "Analysis:\r\n%s\r\n\r\n", strings.ReplaceAll(m.Analysis, "\n", "\r\n"))
 	}
 	if m.URL != "" {
 		fmt.Fprintf(qp, "%s\r\n\r\n", m.URL)

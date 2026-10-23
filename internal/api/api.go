@@ -54,7 +54,7 @@ type Server struct {
 	// Notifier sends notifications; the API manages its channels and tests
 	// them.
 	Notifier *notify.Notifier
-	// Analyzer asks Claude about down alerts; the API manages its settings.
+	// Analyzer asks a model about down alerts; the API manages its settings.
 	Analyzer *analysis.Analyzer
 
 	now     func() time.Time

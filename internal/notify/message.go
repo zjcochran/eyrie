@@ -31,8 +31,8 @@ type Message struct {
 	Heartbeat *BeatInfo    `json:"heartbeat,omitempty"`
 	// CertExpires is when the certificate expires (certificate warnings).
 	CertExpires *time.Time `json:"cert_expires,omitempty"`
-	// Analysis is Claude's explanation of a down alert, when alert
-	// analysis is on and Claude answered in time.
+	// Analysis is the model's explanation of a down alert, when alert
+	// analysis is on and the model answered in time.
 	Analysis string `json:"analysis,omitempty"`
 }
 

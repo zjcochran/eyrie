@@ -9,6 +9,7 @@
     enabled: false,
     provider: 'api',
     model: '',
+    base_url: '',
     timeout_s: 60,
     api_key: '',
     clear_api_key: false,
@@ -23,6 +24,7 @@
       enabled: s.enabled,
       provider: s.provider,
       model: s.model,
+      base_url: s.base_url,
       timeout_s: s.timeout_s,
       api_key: '',
       clear_api_key: false,
@@ -32,6 +34,8 @@
   onMount(() => {
     api.analysisSettings().then(fill, (e) => (notice = { ok: false, text: message(e) }));
   });
+
+  let hasKey = $derived(saved ? (form.provider === 'api' ? saved.has_api_key : saved.has_local_api_key) : false);
 
   async function save(event: SubmitEvent) {
     event.preventDefault();
@@ -65,54 +69,59 @@
 {#if saved}
   <section class="card">
     <p>
-      When a monitor goes down, Eyrie can ask Claude what most likely went wrong, and put the answer in the alert. Eyrie
-      sends Claude the monitor's name, description and settings (never header values, request bodies or a URL's
-      password and query) and its recent checks. Alerts wait at most the timeout, and go out without an analysis if
-      Claude has not answered by then.
+      When a monitor goes down, Eyrie can ask a language model what most likely went wrong, and put the answer in the
+      alert: Claude with an Anthropic API key, or a model on your own server, such as Ollama. Eyrie sends the monitor's
+      name, description and settings (never header values, request bodies or a URL's password and query) and its
+      recent checks. Alerts wait at most the timeout, and go out without an analysis if the model has not answered by
+      then.
     </p>
     <form onsubmit={save}>
-      <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Analyse down alerts with Claude</label>
+      <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Analyse down alerts</label>
       <fieldset>
-        <legend>Connect with</legend>
+        <legend>Model</legend>
         <label class="check"
-          ><input type="radio" bind:group={form.provider} value="api" /> An Anthropic API key (billed to the key's Claude
-          Console account)</label
+          ><input type="radio" bind:group={form.provider} value="api" /> Claude, with an Anthropic API key (billed to the
+          key's Claude Console account)</label
         >
         <label class="check"
-          ><input type="radio" bind:group={form.provider} value="claude-code" /> Claude Code, signed in with your Claude subscription</label
+          ><input type="radio" bind:group={form.provider} value="local" /> A model on your own server (Ollama, LM Studio,
+          llama.cpp, vLLM or another OpenAI-compatible API)</label
         >
       </fieldset>
-      {#if form.provider === 'api'}
+      {#if form.provider === 'local'}
         <label
-          >API key
+          >Server URL
           <input
-            type="password"
-            bind:value={form.api_key}
-            autocomplete="off"
-            placeholder={saved.has_api_key ? 'Saved; leave blank to keep it' : 'sk-ant-api03-…'}
+            type="url"
+            bind:value={form.base_url}
+            required={form.enabled}
+            placeholder="http://192.0.2.20:11434/v1"
           /></label
         >
-        {#if saved.has_api_key}<label class="check"
-            ><input type="checkbox" bind:checked={form.clear_api_key} /> Remove the saved API key</label
-          >{/if}
-      {:else}
         <p class="muted">
-          {#if saved.claude_code}
-            Claude Code found at <code>{saved.claude_code}</code>. Sign it in as the user Eyrie runs as, with
-            <code>claude auth login</code> or a <code>CLAUDE_CODE_OAUTH_TOKEN</code> from <code>claude setup-token</code>;
-            Eyrie never sees your sign-in.
-          {:else}
-            {saved.claude_code_error} Install Claude Code where Eyrie runs, or point <code>EYRIE_CLAUDE_COMMAND</code> at
-            it.
-          {/if}
+          The server's OpenAI-compatible API, ending in <code>/v1</code>. Ollama listens on port 11434, LM Studio on
+          1234, llama.cpp on 8080 and vLLM on 8000.
         </p>
       {/if}
       <label
-        >Model
+        >{form.provider === 'api' ? 'API key' : 'API key (if the server needs one)'}
+        <input
+          type="password"
+          bind:value={form.api_key}
+          autocomplete="off"
+          placeholder={hasKey ? 'Saved; leave blank to keep it' : form.provider === 'api' ? 'sk-ant-api03-…' : ''}
+        /></label
+      >
+      {#if hasKey}<label class="check"
+          ><input type="checkbox" bind:checked={form.clear_api_key} /> Remove the saved API key</label
+        >{/if}
+      <label
+        >Model name
         <input
           bind:value={form.model}
           maxlength="100"
-          placeholder={form.provider === 'api' ? saved.default_model : 'Your account’s default'}
+          required={form.enabled && form.provider === 'local'}
+          placeholder={form.provider === 'api' ? saved.default_model : 'llama3.2'}
         /></label
       >
       <label>Timeout (seconds) <input type="number" min="5" max="300" bind:value={form.timeout_s} /></label>

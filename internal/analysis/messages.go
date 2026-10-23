@@ -54,43 +54,26 @@ func (a *Analyzer) messages(ctx context.Context, s Settings, key, prompt string)
 	if slices.Contains(fallbackModels, model) {
 		body.Fallbacks = "default"
 	}
-	b, _ := json.Marshal(body)
 	base := a.APIURL
 	if base == "" {
 		base = "https://api.anthropic.com"
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(base, "/")+"/v1/messages", bytes.NewReader(b))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Api-Key", key)
-	req.Header.Set("Anthropic-Version", "2023-06-01")
-	req.Header.Set("User-Agent", "Eyrie/"+a.Version)
+	h := http.Header{"X-Api-Key": {key}, "Anthropic-Version": {"2023-06-01"}}
 	if body.Fallbacks != "" {
-		req.Header.Set("Anthropic-Beta", "server-side-fallback-2026-07-01")
+		h.Set("Anthropic-Beta", "server-side-fallback-2026-07-01")
 	}
-	client := a.Client
-	if client == nil {
-		client = http.DefaultClient
-	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	resp, err := a.post(ctx, base+"/v1/messages", h, body)
 	if err != nil {
 		return "", err
 	}
 	var r messagesResponse
-	if err := json.Unmarshal(raw, &r); err != nil {
+	if err := json.Unmarshal(resp.Body, &r); err != nil {
 		return "", fmt.Errorf("the Claude API answered %s", resp.Status)
 	}
 	if r.Error != nil {
 		return "", fmt.Errorf("the Claude API answered %s: %s", resp.Status, r.Error.Message)
 	}
-	if resp.StatusCode >= 300 {
+	if resp.Code >= 300 {
 		return "", fmt.Errorf("the Claude API answered %s", resp.Status)
 	}
 	if r.StopReason == "refusal" {
@@ -103,4 +86,34 @@ func (a *Analyzer) messages(ctx context.Context, s Settings, key, prompt string)
 		}
 	}
 	return strings.Join(text, "\n"), nil
+}
+
+// answer is an HTTP answer: its status and at most 1 MiB of its body.
+type answer struct {
+	Status string
+	Code   int
+	Body   []byte
+}
+
+// post sends body as JSON with headers h.
+func (a *Analyzer) post(ctx context.Context, url string, h http.Header, body any) (answer, error) {
+	b, _ := json.Marshal(body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
+	if err != nil {
+		return answer{}, err
+	}
+	req.Header = h
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Eyrie/"+a.Version)
+	client := a.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return answer{}, err
+	}
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	return answer{resp.Status, resp.StatusCode, raw}, err
 }

@@ -18,7 +18,7 @@ type Fact struct {
 }
 
 // Describe lists the settings of a monitor that may be shown outside
-// Eyrie, to Claude for alert analysis. It leaves out anything that can be a
+// Eyrie, to the model for alert analysis. It leaves out anything that can be a
 // credential: header values, request bodies, a URL's user, password, query
 // and fragment. Saved settings that do not parse give nothing.
 func Describe(typ string, raw json.RawMessage) []Fact {

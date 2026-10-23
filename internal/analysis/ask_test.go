@@ -4,9 +4,11 @@ package analysis
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
-	"slices"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -123,12 +125,14 @@ func TestAnalyzeAtMostFourAtOnce(t *testing.T) {
 	release := make(chan struct{})
 	var started sync.WaitGroup
 	started.Add(maxRunning)
-	a.Run = func(context.Context, string, []byte, string, ...string) ([]byte, error) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		started.Done()
 		<-release
-		return []byte(`{"is_error":false,"result":"ok"}`), nil
-	}
-	a.SetSettings(Settings{Enabled: true, Provider: ProviderClaudeCode, TimeoutS: 60})
+		io.WriteString(w, reply("ok"))
+	}))
+	defer srv.Close()
+	a.APIURL = srv.URL
+	a.SetSettings(apiSettings())
 	results := make(chan string, maxRunning)
 	for range maxRunning {
 		go func() { results <- a.Analyze(m, store.Beat{At: t0}) }()
@@ -145,66 +149,78 @@ func TestAnalyzeAtMostFourAtOnce(t *testing.T) {
 	}
 }
 
-func TestClaudeCode(t *testing.T) {
+// fakeServer is an OpenAI-compatible server answering with status and
+// body, and recording the last request.
+func fakeServer(t *testing.T, status int, body string) (*httptest.Server, *chatRequest, *http.Request) {
+	var got chatRequest
+	var req http.Request
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		req = *r
+		w.WriteHeader(status)
+		io.WriteString(w, body)
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &got, &req
+}
+
+func chatReply(content, finish string) string {
+	b, _ := json.Marshal(map[string]any{"choices": []map[string]any{
+		{"message": map[string]string{"role": "assistant", "content": content}, "finish_reason": finish}}})
+	return string(b)
+}
+
+func TestLocal(t *testing.T) {
 	a := newAnalyzer(t)
-	var gotDir, gotName string
-	var gotArgs []string
-	var gotStdin []byte
-	a.Command = "/opt/claude/bin/claude"
-	a.Run = func(_ context.Context, dir string, stdin []byte, name string, args ...string) ([]byte, error) {
-		gotDir, gotStdin, gotName, gotArgs = dir, stdin, name, args
-		return []byte(`{"type":"result","subtype":"success","is_error":false,"result":"Check the proxy."}` + "\n"), nil
+	m := seed(t, a)
+	srv, got, req := fakeServer(t, http.StatusOK, chatReply("<think>\nThe proxy...\n</think>\n\nCheck the proxy.", "stop"))
+	a.SetSettings(Settings{Enabled: true, Provider: ProviderLocal, BaseURL: srv.URL + "/v1", Model: "llama3.2",
+		LocalKey: "sealed:l0cal", TimeoutS: 5})
+	if text := a.Analyze(m, store.Beat{At: t0, Status: "down", Message: "Status 502"}); text != "Check the proxy." {
+		t.Fatalf("%q", text)
 	}
-	text, err := a.Test(context.Background(), Settings{Provider: ProviderClaudeCode, Model: "opus", TimeoutS: 5})
-	if err != nil || text != "Check the proxy." {
-		t.Fatalf("%q %v", text, err)
+	if req.URL.Path != "/v1/chat/completions" || req.Header.Get("Authorization") != "Bearer l0cal" ||
+		req.Header.Get("User-Agent") != "Eyrie/test" {
+		t.Errorf("request %s %v", req.URL, req.Header)
 	}
-	if gotName != "/opt/claude/bin/claude" || gotDir == "" || !strings.Contains(string(gotStdin), "Status 502 Bad Gateway") {
-		t.Errorf("ran %s in %q with %q", gotName, gotDir, gotStdin)
+	if got.Model != "llama3.2" || got.Stream || len(got.Messages) != 2 || got.Messages[0].Role != "system" ||
+		got.Messages[0].Content != system || !strings.Contains(got.Messages[1].Content, "Status 502") {
+		t.Errorf("body %+v", got)
 	}
-	want := []string{"-p", "--output-format", "json", "--max-turns", "1", "--tools", "", "--strict-mcp-config",
-		"--disable-slash-commands", "--no-session-persistence", "--system-prompt", system, "--model", "opus"}
-	if !slices.Equal(gotArgs, want) {
-		t.Errorf("args %q", gotArgs)
+	// Without a key, no Authorization header.
+	text, err := a.Test(context.Background(), Settings{Provider: ProviderLocal, BaseURL: srv.URL, Model: "llama3.2", TimeoutS: 5})
+	if err != nil || text != "Check the proxy." || req.Header.Get("Authorization") != "" ||
+		!strings.Contains(got.Messages[1].Content, "Status 502 Bad Gateway") {
+		t.Errorf("test %q %v %v", text, err, req.Header)
 	}
 }
 
-func TestClaudeCodeErrors(t *testing.T) {
+func TestLocalErrors(t *testing.T) {
 	cases := []struct {
-		out  string
-		err  error
-		want string
+		status int
+		body   string
+		want   string
 	}{
-		{`{"is_error":true,"result":"Not logged in · Please run /login"}`, errors.New("exit status 1"), "Not logged in"},
-		{``, errors.New(`exec: "claude": executable file not found in $PATH`), "not found"},
-		{`not json`, nil, "did not answer in JSON"},
-		{`{"is_error":false,"result":""}`, errors.New("exit status 2"), "exit status 2"},
-		{`{"is_error":false,"result":""}`, nil, "empty"},
+		{http.StatusNotFound, `{"error":{"message":"model \"llama3.2\" not found, try pulling it first","type":"api_error"}}`,
+			`answered 404 Not Found: model "llama3.2" not found`},
+		{http.StatusInternalServerError, `{"error":"out of memory"}`, "answered 500 Internal Server Error: out of memory"},
+		{http.StatusBadGateway, `<html>`, "answered 502 Bad Gateway"},
+		{http.StatusOK, `{"choices":[]}`, "answered 200 OK"},
+		{http.StatusOK, chatReply("", "content_filter"), "declined"},
+		{http.StatusOK, chatReply("<think>hmm</think>  ", "stop"), "empty"},
 	}
 	for _, c := range cases {
 		a := newAnalyzer(t)
-		a.Run = func(context.Context, string, []byte, string, ...string) ([]byte, error) { return []byte(c.out), c.err }
-		if _, err := a.Test(context.Background(), Settings{Provider: ProviderClaudeCode, TimeoutS: 5}); err == nil ||
+		srv, _, _ := fakeServer(t, c.status, c.body)
+		if _, err := a.Test(context.Background(), Settings{Provider: ProviderLocal, BaseURL: srv.URL, Model: "m", TimeoutS: 5}); err == nil ||
 			!strings.Contains(err.Error(), c.want) {
-			t.Errorf("%q %v: %v", c.out, c.err, err)
+			t.Errorf("%d %s: %v", c.status, c.body, err)
 		}
 	}
-}
-
-func TestRunCommand(t *testing.T) {
-	out, err := runCommand(context.Background(), t.TempDir(), []byte("hello"), "cat")
-	if err != nil || string(out) != "hello" {
-		t.Errorf("%q %v", out, err)
-	}
-	if _, err := runCommand(context.Background(), t.TempDir(), nil, "sh", "-c", "echo oops >&2; exit 3"); err == nil ||
-		!strings.Contains(err.Error(), "oops") {
-		t.Errorf("stderr: %v", err)
-	}
-	a := &Analyzer{Command: "sh"}
-	if p, err := a.ClaudeCode(); err != nil || !strings.HasSuffix(p, "/sh") {
-		t.Errorf("look up %q %v", p, err)
-	}
-	if (&Analyzer{}).command() != "claude" {
-		t.Error("default command")
+	a := newAnalyzer(t)
+	a.Client = &http.Client{Transport: failing{}}
+	if _, err := a.Test(context.Background(), Settings{Provider: ProviderLocal, BaseURL: "http://192.0.2.20:11434/v1", Model: "m", TimeoutS: 5}); err == nil ||
+		!strings.Contains(err.Error(), "192.0.2.20:11434/v1/chat/completions") {
+		t.Errorf("offline: %v", err)
 	}
 }

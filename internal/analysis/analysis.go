@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package analysis asks Claude why a monitor went down, so its down alert
-// can carry the answer. It is off until an admin turns it on, and reaches
-// Claude in one of two ways:
+// Package analysis asks a language model why a monitor went down, so its
+// down alert can carry the answer. It is off until an admin turns it on,
+// and uses one of:
 //
-//   - the Claude API with an Anthropic API key, stored sealed like other
-//     secrets;
-//   - Claude Code, the unmodified binary installed where Eyrie runs and
-//     signed in by the admin with their own Claude subscription. Eyrie
-//     never sees or stores that sign-in: Anthropic's terms allow
-//     subscription credentials only in its own apps.
+//   - Claude, through the Claude API with an Anthropic API key;
+//   - a model on a server the admin runs (Ollama, LM Studio, llama.cpp,
+//     vLLM), through the OpenAI-compatible chat completions API at its
+//     URL, with an optional API key.
+//
+// API keys are stored sealed like other secrets.
 //
 // An alert never waits longer than the timeout: without an answer by then
 // it goes out without one.
@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -29,10 +30,10 @@ import (
 	"github.com/zjcochran/eyrie/internal/store"
 )
 
-// Providers: how Eyrie reaches Claude.
+// Providers: which model answers.
 const (
-	ProviderAPI        = "api"
-	ProviderClaudeCode = "claude-code"
+	ProviderAPI   = "api"   // Claude, through the Claude API
+	ProviderLocal = "local" // an OpenAI-compatible server
 )
 
 // DefaultModel is the Claude API model used when none is set.
@@ -42,18 +43,21 @@ const DefaultModel = "claude-opus-5-5"
 const SettingKey = "analysis"
 
 // MaxLength is the longest analysis, in characters, put in a message;
-// Claude is asked for less.
+// the model is asked for less.
 const MaxLength = 800
 
 // Settings are the alert analysis settings.
 type Settings struct {
 	Enabled  bool   `json:"enabled"`
 	Provider string `json:"provider"`
-	// Model is a model ID or, for Claude Code, an alias such as opus; ""
-	// is DefaultModel for the API and the account's default for Claude
-	// Code.
-	Model    string `json:"model"`
-	APIKey   string `json:"api_key"` // sealed
+	// Model is a model name; "" is DefaultModel for the Claude API, and
+	// required for a local server.
+	Model  string `json:"model"`
+	APIKey string `json:"api_key"` // sealed; the Anthropic API key
+	// BaseURL is the local server's OpenAI-compatible API, such as
+	// http://192.0.2.20:11434/v1, without a trailing slash.
+	BaseURL  string `json:"base_url"`
+	LocalKey string `json:"local_api_key"` // sealed; "" when the server needs none
 	TimeoutS int    `json:"timeout_s"`
 }
 
@@ -63,7 +67,8 @@ func DefaultSettings() Settings { return Settings{Provider: ProviderAPI, Timeout
 // Normalize checks the settings. Errors are meant for people.
 func (s *Settings) Normalize() error {
 	s.Model = strings.TrimSpace(s.Model)
-	if s.Provider != ProviderAPI && s.Provider != ProviderClaudeCode {
+	s.BaseURL = strings.TrimRight(strings.TrimSpace(s.BaseURL), "/")
+	if s.Provider != ProviderAPI && s.Provider != ProviderLocal {
 		return fmt.Errorf("unknown provider %q", s.Provider)
 	}
 	if s.TimeoutS < 5 || s.TimeoutS > 300 {
@@ -72,17 +77,39 @@ func (s *Settings) Normalize() error {
 	if strings.ContainsAny(s.Model, " \t\r\n") || strings.HasPrefix(s.Model, "-") || len(s.Model) > 100 {
 		return fmt.Errorf("%q is not a model name", s.Model)
 	}
+	if s.BaseURL != "" && !serverURL(s.BaseURL) {
+		return fmt.Errorf("%q is not a server URL such as http://192.0.2.20:11434/v1", s.BaseURL)
+	}
 	if s.Enabled && s.Provider == ProviderAPI && s.APIKey == "" {
 		return errors.New("the Claude API needs an API key")
 	}
+	if s.Enabled && s.Provider == ProviderLocal && (s.BaseURL == "" || s.Model == "") {
+		return errors.New("a local model needs the server URL and the model name")
+	}
 	return nil
+}
+
+// serverURL says whether u is an http or https URL with a host, and
+// nothing that does not belong in a base URL.
+func serverURL(u string) bool {
+	p, err := url.Parse(u)
+	return err == nil && (p.Scheme == "http" || p.Scheme == "https") && p.Host != "" && p.User == nil &&
+		p.RawQuery == "" && p.Fragment == ""
+}
+
+// Key is the sealed API key of the settings' provider.
+func (s *Settings) Key() *string {
+	if s.Provider == ProviderLocal {
+		return &s.LocalKey
+	}
+	return &s.APIKey
 }
 
 // CheckKey refuses what is not an API key. Errors are meant for people.
 func CheckKey(key string) error {
 	if strings.HasPrefix(key, "sk-ant-oat") {
 		return errors.New("that is a Claude subscription token, which Anthropic allows only in its own apps; " +
-			"choose Claude Code to use your subscription, or create an API key in the Claude Console")
+			"create an API key in the Claude Console")
 	}
 	if strings.ContainsAny(key, " \t\r\n") {
 		return errors.New("the API key cannot contain spaces")
@@ -103,10 +130,7 @@ func LoadSettings(ctx context.Context, st *store.Store) (Settings, error) {
 	return s, err
 }
 
-// Runner runs a command with stdin in dir and returns its standard output.
-type Runner func(ctx context.Context, dir string, stdin []byte, name string, args ...string) ([]byte, error)
-
-// Analyzer asks Claude about alerts. Set its fields, then SetSettings.
+// Analyzer asks a model about alerts. Set its fields, then SetSettings.
 type Analyzer struct {
 	Store   *store.Store
 	Secrets Sealer
@@ -114,10 +138,6 @@ type Analyzer struct {
 	Client  *http.Client // nil: http.DefaultClient; the timeout comes from the settings
 	APIURL  string       // "": https://api.anthropic.com
 	Version string       // sent in the User-Agent
-	// Command is the Claude Code binary: EYRIE_CLAUDE_COMMAND, "claude"
-	// by default.
-	Command string
-	Run     Runner // nil: os/exec
 	// Now is the clock; nil is time.Now.
 	Now func() time.Time
 	// second is how long a second of the timeout lasts: shorter in tests.
@@ -161,7 +181,7 @@ func (a *Analyzer) now() time.Time {
 	return time.Now()
 }
 
-// Analyze asks Claude about a monitor that went down with beat b. It
+// Analyze asks the model about a monitor that went down with beat b. It
 // returns "" when analysis is off, busy, fails or takes longer than the
 // timeout; failures are logged.
 func (a *Analyzer) Analyze(m store.Monitor, b store.Beat) string {
@@ -194,12 +214,12 @@ func (a *Analyzer) Analyze(m store.Monitor, b store.Beat) string {
 	return ""
 }
 
-// Test asks Claude about a made-up alert with settings s, whose APIKey is
-// in clear, and returns the answer.
+// Test asks the model about a made-up alert with settings s, whose API
+// keys are in clear, and returns the answer.
 func (a *Analyzer) Test(ctx context.Context, s Settings) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, a.timeout(s))
 	defer cancel()
-	text, err := a.askKey(ctx, s, s.APIKey, testPrompt)
+	text, err := a.askKey(ctx, s, *s.Key(), testPrompt)
 	if ctx.Err() != nil {
 		return "", fmt.Errorf("no answer within %d s", s.TimeoutS)
 	}
@@ -208,10 +228,10 @@ func (a *Analyzer) Test(ctx context.Context, s Settings) (string, error) {
 
 // ask sends the prompt with the saved settings.
 func (a *Analyzer) ask(ctx context.Context, s Settings, prompt string) (string, error) {
-	key := ""
-	if s.Provider == ProviderAPI {
+	key := *s.Key()
+	if key != "" {
 		var err error
-		if key, err = a.Secrets.Open(s.APIKey); err != nil {
+		if key, err = a.Secrets.Open(key); err != nil {
 			return "", err
 		}
 	}
@@ -221,8 +241,8 @@ func (a *Analyzer) ask(ctx context.Context, s Settings, prompt string) (string, 
 func (a *Analyzer) askKey(ctx context.Context, s Settings, key, prompt string) (string, error) {
 	var text string
 	var err error
-	if s.Provider == ProviderClaudeCode {
-		text, err = a.claudeCode(ctx, s, prompt)
+	if s.Provider == ProviderLocal {
+		text, err = a.chat(ctx, s, key, prompt)
 	} else {
 		text, err = a.messages(ctx, s, key, prompt)
 	}

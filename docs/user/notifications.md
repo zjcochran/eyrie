@@ -63,7 +63,7 @@ channel removes it from every monitor.
 | `test` | **Send test** | `Test notification` | `Notifications from Eyrie reach this channel.` | 3 |
 
 With [alert analysis](alert-analysis.md) on, a `monitor_down` message
-also carries Claude's explanation of the failure.
+also carries the model's explanation of the failure.
 
 A monitor that goes pending and recovers before its retries run out sends
 nothing. Paused monitors send nothing. When `EYRIE_BASE_URL` is set, every
@@ -86,8 +86,8 @@ restarts.
 
 ## Message formats
 
-With an analysis, every kind gets it after the message as `Claude's
-analysis: …` (email: as its own paragraph; webhooks: the `analysis`
+With an analysis, every kind gets it after the message as `Analysis: …`
+(email: as its own paragraph; webhooks: the `analysis`
 field). Messages are cut to fit Pushover (1024 characters), Discord (2000)
 and Telegram (4096), ending in `…`.
 
@@ -124,7 +124,7 @@ Every HTTP request has the `User-Agent` `Eyrie/<version>`.
 
 Certificate warnings have `cert_expires` instead of `heartbeat`. `url` is
 left out without `EYRIE_BASE_URL`. A down alert with an
-[analysis](alert-analysis.md) has `"analysis": "<Claude's explanation>"`.
+[analysis](alert-analysis.md) has `"analysis": "<the model's explanation>"`.
 
 With a **signing secret**, each request has the header
 `X-Hub-Signature-256: sha256=<hex>`: the HMAC-SHA256 of the request body

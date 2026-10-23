@@ -76,18 +76,18 @@ func TestAnalysisInMessages(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	want := "connection refused\n\nClaude's analysis: Port 5432 refuses connections: the database is likely stopped.\nhttps://eyrie.example.com/monitors/3"
+	want := "connection refused\n\nAnalysis: Port 5432 refuses connections: the database is likely stopped.\nhttps://eyrie.example.com/monitors/3"
 	hits := r.got()
 	if hits[0].body != want {
 		t.Errorf("ntfy %q", hits[0].body)
 	}
 	for _, h := range hits[1:] {
-		if !strings.Contains(h.body, "Claude's analysis: Port 5432") {
+		if !strings.Contains(h.body, "Analysis: Port 5432") {
 			t.Errorf("%s %s", h.path, h.body)
 		}
 	}
 	mail := string(mailMessage(mustAddr("eyrie@example.com"), nil, analysed()))
-	if !strings.Contains(mail, "Claude's analysis:\r\nPort 5432 refuses connections: the database is likely stopped.") {
+	if !strings.Contains(mail, "Analysis:\r\nPort 5432 refuses connections: the database is likely stopped.") {
 		t.Errorf("mail %s", mail)
 	}
 }

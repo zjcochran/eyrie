@@ -46,8 +46,10 @@ type env struct {
 
 	notifier *notify.Notifier
 	analyzer *analysis.Analyzer
-	// claude is what the fake Claude Code prints; prompts gets what it was asked.
-	claude  atomic.Value
+	// model is a fake OpenAI-compatible server: it answers with the body in
+	// answer, and prompts gets what it was asked.
+	model   *httptest.Server
+	answer  atomic.Value
 	prompts chan string
 }
 
@@ -96,13 +98,20 @@ func newEnv(t *testing.T) *env {
 	}
 	log := slog.New(slog.NewTextHandler(e.log, nil))
 	eng := engine.New(st, checkEnv, log)
-	e.claude.Store(`{"is_error":false,"result":"The port is closed: the database is likely stopped."}`)
+	e.answer.Store(`{"choices":[{"message":{"content":"The port is closed: the database is likely stopped."}}]}`)
 	e.prompts = make(chan string, 10)
-	e.analyzer = &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: "v1.2.3", Command: "/opt/claude/bin/claude",
-		Run: func(_ context.Context, _ string, stdin []byte, _ string, _ ...string) ([]byte, error) {
-			e.prompts <- string(stdin)
-			return []byte(e.claude.Load().(string)), nil
-		}}
+	e.model = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Messages []struct{ Content string } `json:"messages"`
+		}
+		json.NewDecoder(r.Body).Decode(&body)
+		if len(body.Messages) == 2 {
+			e.prompts <- body.Messages[1].Content
+		}
+		io.WriteString(w, e.answer.Load().(string))
+	}))
+	t.Cleanup(e.model.Close)
+	e.analyzer = &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: "v1.2.3"}
 	e.notifier = &notify.Notifier{Store: st, Secrets: box, Log: log, Version: "v1.2.3", BaseURL: "https://eyrie.example.com",
 		Retry: []time.Duration{time.Millisecond}, Analyst: e.analyzer}
 	eng.OnNotify, eng.OnCert, eng.CertDays = e.notifier.Monitor, e.notifier.CertExpiring, e.notifier.CertDays

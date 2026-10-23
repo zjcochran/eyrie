@@ -150,23 +150,39 @@ func TestPrompt(t *testing.T) {
 }
 
 func TestSettingsNormalize(t *testing.T) {
-	ok := []Settings{DefaultSettings(), {Enabled: true, Provider: ProviderClaudeCode, Model: " opus ", TimeoutS: 5},
-		{Enabled: true, Provider: ProviderAPI, APIKey: "sealed:k", TimeoutS: 300}}
+	ok := []Settings{DefaultSettings(), {Enabled: true, Provider: ProviderAPI, APIKey: "sealed:k", TimeoutS: 300},
+		{Enabled: true, Provider: ProviderLocal, Model: " llama3.2 ", BaseURL: " https://llm.example.com/v1/ ", TimeoutS: 5}}
 	for _, s := range ok {
 		if err := s.Normalize(); err != nil {
 			t.Errorf("%+v: %v", s, err)
 		}
 	}
+	if s := ok[2]; s.Normalize() != nil || s.Model != "llama3.2" || s.BaseURL != "https://llm.example.com/v1" {
+		t.Errorf("trimmed %+v", s)
+	}
 	bad := map[string]Settings{
 		"unknown provider": {Provider: "x", TimeoutS: 60},
 		"from 5 to 300":    {Provider: ProviderAPI, TimeoutS: 4},
-		"not a model name": {Provider: ProviderClaudeCode, TimeoutS: 60, Model: "--dangerously-skip-permissions"},
+		"not a model name": {Provider: ProviderLocal, TimeoutS: 60, Model: "-x"},
 		"needs an API key": {Enabled: true, Provider: ProviderAPI, TimeoutS: 60},
+		"server URL and the model": {Enabled: true, Provider: ProviderLocal, BaseURL: "http://192.0.2.20:11434/v1",
+			TimeoutS: 60},
+		"not a server URL": {Provider: ProviderLocal, BaseURL: "192.0.2.20:11434", TimeoutS: 60},
+	}
+	for _, u := range []string{"ftp://192.0.2.20/v1", "http:///v1", "http://bob:x@192.0.2.20/v1", "http://192.0.2.20/v1?k=1", "http://192.0.2.20/v1#x", "http://[::1"} {
+		s := Settings{Provider: ProviderLocal, BaseURL: u, TimeoutS: 60}
+		if err := s.Normalize(); err == nil {
+			t.Errorf("%s accepted", u)
+		}
 	}
 	for want, s := range bad {
 		if err := s.Normalize(); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%+v: %v", s, err)
 		}
+	}
+	s := Settings{Provider: ProviderLocal}
+	if s.Key() != &s.LocalKey {
+		t.Error("local key")
 	}
 	if CheckKey("sk-ant-oat01-abc") == nil || CheckKey("a b") == nil || CheckKey("sk-ant-api03-abc") != nil {
 		t.Error("CheckKey")
@@ -175,9 +191,9 @@ func TestSettingsNormalize(t *testing.T) {
 	if s := a.Settings(); s.Enabled || s.Provider != ProviderAPI {
 		t.Errorf("default %+v", s)
 	}
-	s, err := LoadSettings(context.Background(), a.Store)
-	if err != nil || s != DefaultSettings() {
-		t.Errorf("load %+v %v", s, err)
+	loaded, err := LoadSettings(context.Background(), a.Store)
+	if err != nil || loaded != DefaultSettings() {
+		t.Errorf("load %+v %v", loaded, err)
 	}
 }
 

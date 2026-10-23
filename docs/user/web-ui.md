@@ -41,7 +41,7 @@ for the dashboard, each monitor's page, adding monitors and every type.
 **Settings**, at the top, has tabs. Everyone has **Your account**; admins
 also have **Users**, **Single sign-on**, **API tokens**,
 **Notifications** (see [Notifications](notifications.md)), **Alert
-analysis** (see [Alert analysis with Claude](alert-analysis.md)) and **History**
+analysis** (see [Alert analysis](alert-analysis.md)) and **History**
 (how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history)).
 
 ### Your account

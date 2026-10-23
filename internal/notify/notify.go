@@ -465,12 +465,12 @@ func request(ctx context.Context, c Channel, m Message) (*http.Request, error) {
 	}
 }
 
-// withAnalysis is the message's text followed by Claude's analysis.
+// withAnalysis is the message's text followed by the analysis.
 func withAnalysis(m Message) string {
 	if m.Analysis == "" {
 		return m.Text
 	}
-	return m.Text + "\n\nClaude's analysis: " + m.Analysis
+	return m.Text + "\n\nAnalysis: " + m.Analysis
 }
 
 // shorten cuts s to at most n characters (Telegram and Discord limits),
