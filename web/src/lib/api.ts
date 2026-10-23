@@ -108,10 +108,13 @@ export interface MonitorChange {
   description: string;
   settings: Record<string, unknown>;
   reset_push_token?: boolean;
+  /** Notification channels; left out, a new monitor gets the default ones. */
+  channels?: number[];
 }
 
-export interface Monitor extends Omit<MonitorChange, 'type'> {
+export interface Monitor extends Omit<MonitorChange, 'type' | 'channels'> {
   id: number;
+  channels: number[];
   type: string;
   push_url?: string;
   created_at: string;
@@ -134,6 +137,40 @@ export interface HourStats {
   up: number;
   down: number;
   avg_latency_ms: number | null;
+}
+
+export interface Channel {
+  id: number;
+  name: string;
+  kind: string;
+  url_host: string;
+  has_url: boolean;
+  has_token: boolean;
+  has_user: boolean;
+  to: string;
+  from: string;
+  enabled: boolean;
+  default: boolean;
+  monitors: number;
+  last: { at: string; error: string } | null;
+}
+
+/** A channel as saved or tested. Empty secrets keep the saved ones. */
+export interface ChannelChange {
+  id?: number;
+  name: string;
+  kind: string;
+  url: string;
+  token: string;
+  user: string;
+  to: string;
+  from: string;
+  enabled: boolean;
+  default: boolean;
+  apply_to_all?: boolean;
+  clear_url?: boolean;
+  clear_token?: boolean;
+  clear_user?: boolean;
 }
 
 /** An error the server answered, with its message for people. */
@@ -255,6 +292,16 @@ export class Client {
   checkMonitor = (id: number) => this.request<void>('POST', `/api/v1/monitors/${id}/check`);
   setManualStatus = (id: number, status: 'up' | 'down', message: string) =>
     this.request<Monitor>('POST', `/api/v1/monitors/${id}/status`, { status, message });
+  channelKinds = () => this.request<{ id: string; name: string }[]>('GET', '/api/v1/channel-kinds');
+  channels = () => this.request<Channel[]>('GET', '/api/v1/channels');
+  createChannel = (c: ChannelChange) => this.request<Channel>('POST', '/api/v1/channels', c);
+  updateChannel = (id: number, c: ChannelChange) => this.request<Channel>('PUT', `/api/v1/channels/${id}`, c);
+  deleteChannel = (id: number) => this.request<void>('DELETE', `/api/v1/channels/${id}`);
+  testChannel = (c: ChannelChange) =>
+    this.request<{ ok: boolean; message: string }>('POST', '/api/v1/channels/test', c);
+  notifySettings = () => this.request<{ cert_expiry_days: number[] }>('GET', '/api/v1/settings/notifications');
+  saveNotifySettings = (days: number[]) =>
+    this.request<{ cert_expiry_days: number[] }>('PUT', '/api/v1/settings/notifications', { cert_expiry_days: days });
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });

@@ -29,6 +29,9 @@ type MonitorState struct {
 	CertExpires time.Time     // zero: no certificate seen
 	Failures    int
 	DownChecks  int
+	// CertNotified is the certificate expiry warning last sent for
+	// CertExpires, as its threshold in days; 0 for none.
+	CertNotified int
 }
 
 // Record is a heartbeat with the state it left the monitor in.
@@ -102,13 +105,14 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 	// Parameterized: every value is a bound argument, not SQL text.
 	// nosemgrep
 	if _, err := tx.ExecContext(ctx, s.q(`
-		INSERT INTO monitor_state (monitor_id, status, since, message, last_check, latency_ms, cert_expires, failures, down_checks)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO monitor_state (monitor_id, status, since, message, last_check, latency_ms, cert_expires, failures, down_checks,
+			cert_notified)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (monitor_id) DO UPDATE SET status = excluded.status, since = excluded.since, message = excluded.message,
 			last_check = excluded.last_check, latency_ms = excluded.latency_ms, cert_expires = excluded.cert_expires,
-			failures = excluded.failures, down_checks = excluded.down_checks`),
+			failures = excluded.failures, down_checks = excluded.down_checks, cert_notified = excluded.cert_notified`),
 		st.MonitorID, st.Status, st.Since.UnixMilli(), st.Message, st.LastCheck.UnixMilli(), latencyMS(st.Latency), cert,
-		st.Failures, st.DownChecks); err != nil {
+		st.Failures, st.DownChecks, st.CertNotified); err != nil {
 		return err
 	}
 	up, down := 1, 0
@@ -141,7 +145,7 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 // States returns every monitor's saved state, by monitor ID.
 func (s *Store) States(ctx context.Context) (map[int64]MonitorState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT monitor_id, status, since, message, last_check, latency_ms, cert_expires,
-		failures, down_checks FROM monitor_state`)
+		failures, down_checks, cert_notified FROM monitor_state`)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +154,8 @@ func (s *Store) States(ctx context.Context) (map[int64]MonitorState, error) {
 	for rows.Next() {
 		var st MonitorState
 		var since, last, latency, cert int64
-		if err := rows.Scan(&st.MonitorID, &st.Status, &since, &st.Message, &last, &latency, &cert, &st.Failures, &st.DownChecks); err != nil {
+		if err := rows.Scan(&st.MonitorID, &st.Status, &since, &st.Message, &last, &latency, &cert, &st.Failures, &st.DownChecks,
+			&st.CertNotified); err != nil {
 			return nil, err
 		}
 		st.Since, st.LastCheck, st.Latency, st.CertExpires = fromMillis(since), fromMillis(last), fromLatency(latency), fromMillis(cert)

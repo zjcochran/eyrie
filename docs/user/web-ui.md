@@ -39,7 +39,8 @@ for the dashboard, each monitor's page, adding monitors and every type.
 ## Settings
 
 **Settings**, at the top, has tabs. Everyone has **Your account**; admins
-also have **Users**, **Single sign-on**, **API tokens** and **History**
+also have **Users**, **Single sign-on**, **API tokens**,
+**Notifications** (see [Notifications](notifications.md)) and **History**
 (how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history)).
 
 ### Your account

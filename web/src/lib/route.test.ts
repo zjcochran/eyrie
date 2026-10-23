@@ -13,6 +13,7 @@ describe('pageFor', () => {
     assert.equal(pageFor('/settings/sso'), 'sso');
     assert.equal(pageFor('/settings/api-tokens'), 'tokens');
     assert.equal(pageFor('/settings/history'), 'retention');
+    assert.equal(pageFor('/settings/notifications'), 'notifications');
     assert.equal(pageFor('/nothing'), 'not-found');
   });
   it('reads monitor pages and their IDs', () => {

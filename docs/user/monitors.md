@@ -48,7 +48,8 @@ cannot change later.
 | Timeout | 80% of the interval, at most 48 s | How long a check may take, from 0.1 seconds to the interval. Not used by push, manual and group monitors. |
 | Retries before down | 0 | Failed checks in a row that leave the monitor **pending** before it goes **down**. 0: down at the first failure. |
 | Retry every | the interval | How soon a pending monitor is checked again. |
-| Notify again every | 0 (never) | While down, notify again every this many checks. Notifications come in the next version. |
+| Notify again every | 0 (never) | While down, notify again every this many checks. |
+| Notify | the default channels | The [notification channels](notifications.md) it sends to. |
 | Group | none | The group the monitor is in. |
 | Description | | Shown on the monitor's page. |
 | Upside down | off | A failed check counts as up and a successful one as down: for things that must *not* answer. |
@@ -61,8 +62,8 @@ cannot change later.
   the retry interval, until the retries run out; then it is **down**.
 - A check that succeeds while pending makes it up again, with no
   notification.
-- Only changes between up and down are notified (from the next version),
-  and while down again every "Notify again every" checks.
+- Only changes between up and down are [notified](notifications.md), and
+  while down again every "Notify again every" checks.
 - The next check starts one interval after the last one started, so checks
   do not drift. After a restart, first checks are spread over each
   monitor's interval, and every monitor keeps the status it had.
@@ -82,6 +83,7 @@ Requests a URL; up when the answer's status code is accepted.
 | Accepted status codes | `200-299` | Codes or ranges, separated by commas, such as `200-299, 301` |
 | Maximum redirects | 10 | From 0 to 20. Redirects beyond it fail the check ("more than N redirects"). |
 | Ignore TLS certificate errors | off | Accept expired, self-signed or wrongly named certificates |
+| Warn before the certificate expires | off | Notify at the days set in Settings → Notifications; see [Certificate warnings](notifications.md#certificate-warnings) |
 
 The request has `User-Agent: Eyrie/<version>`. Every check opens a new
 connection. The response time is from sending the request to the end of

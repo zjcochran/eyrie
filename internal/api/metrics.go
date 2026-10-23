@@ -86,6 +86,9 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 	}
 	metric("eyrie_checks_running", "Checks in progress.", "gauge")
 	fmt.Fprintf(&b, "eyrie_checks_running %d\n", running)
+	sent, failed := s.Notifier.Counts()
+	metric("eyrie_notifications_total", "Notifications sent since Eyrie started, by result (failed: after every retry).", "counter")
+	fmt.Fprintf(&b, "eyrie_notifications_total{result=\"sent\"} %d\neyrie_notifications_total{result=\"failed\"} %d\n", sent, failed)
 
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
