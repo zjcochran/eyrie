@@ -173,7 +173,8 @@ A pipeline schedule on the default branch runs only `deps` and `deps-fix`:
   (govulncheck), npm vulnerabilities in the lock file (osv-scanner), and
   newer versions of direct Go modules, Go (patch releases; a new minor
   version only when the one in use is unsupported), Node.js (within its
-  major version), the Alpine base image and the npm packages. An npm
+  major version) and the npm packages; the base image, `alpine:3`, takes
+  each new Alpine release on its own. An npm
   version counts only once it has been published for 14 days; new major
   versions are listed but never taken. Vulnerabilities fail the job;
   newer versions exit 3, a warning.
