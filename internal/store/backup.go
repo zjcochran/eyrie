@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -190,6 +191,12 @@ func (s *Store) dump(ctx context.Context, q querier, table, timeColumn string, s
 		query += ` WHERE ` + timeColumn + ` >= ?`
 		args = append(args, since)
 	}
+	// In one order whatever the database: by every column, the key first.
+	order := make([]string, len(cols))
+	for i := range order {
+		order[i] = strconv.Itoa(i + 1)
+	}
+	query += ` ORDER BY ` + strings.Join(order, ", ")
 	// The table and column names are from the fixed lists above.
 	// nosemgrep
 	rows, err := q.QueryContext(ctx, s.q(query), args...)
