@@ -52,13 +52,16 @@ func viewBeat(b store.Beat) beatView {
 }
 
 type statusView struct {
-	Status      string     `json:"status"` // unknown, up, pending or down
+	Status      string     `json:"status"` // unknown, up, pending, down or maintenance
 	Since       *time.Time `json:"since"`
 	Message     string     `json:"message"`
 	LastCheck   *time.Time `json:"last_check"`
 	LatencyMS   *float64   `json:"latency_ms"`
 	CertExpires *time.Time `json:"cert_expires"`
 	Checking    bool       `json:"checking"`
+	// Maintenance is the title of the maintenance window it is in; "" when
+	// it is not in one.
+	Maintenance string `json:"maintenance"`
 }
 
 func timeOrNil(t time.Time) *time.Time {
@@ -86,33 +89,44 @@ func share(t store.Totals) *float64 {
 
 // monitorView is a monitor as the API shows it.
 type monitorView struct {
-	ID            int64           `json:"id"`
-	Name          string          `json:"name"`
-	Type          string          `json:"type"`
-	ParentID      *int64          `json:"parent_id"`
-	Active        bool            `json:"active"`
-	Interval      float64         `json:"interval"` // seconds
-	RetryInterval float64         `json:"retry_interval"`
-	Retries       int             `json:"retries"`
-	ResendEvery   int             `json:"resend_every"`
-	Timeout       float64         `json:"timeout"`
-	UpsideDown    bool            `json:"upside_down"`
-	Description   string          `json:"description"`
-	Settings      json.RawMessage `json:"settings"`
-	PushURL       string          `json:"push_url,omitempty"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
-	Channels      []int64         `json:"channels"` // the notification channels it uses
-	Status        statusView      `json:"status"`
-	Uptime        uptimeView      `json:"uptime"`
-	Beats         []beatView      `json:"beats,omitempty"`
+	ID            int64            `json:"id"`
+	Name          string           `json:"name"`
+	Type          string           `json:"type"`
+	ParentID      *int64           `json:"parent_id"`
+	Active        bool             `json:"active"`
+	Interval      float64          `json:"interval"` // seconds
+	RetryInterval float64          `json:"retry_interval"`
+	Retries       int              `json:"retries"`
+	ResendEvery   int              `json:"resend_every"`
+	Timeout       float64          `json:"timeout"`
+	UpsideDown    bool             `json:"upside_down"`
+	Description   string           `json:"description"`
+	Settings      json.RawMessage  `json:"settings"`
+	PushURL       string           `json:"push_url,omitempty"`
+	CreatedAt     time.Time        `json:"created_at"`
+	UpdatedAt     time.Time        `json:"updated_at"`
+	Channels      []int64          `json:"channels"` // the notification channels it uses
+	Tags          []monitorTagView `json:"tags"`
+	Status        statusView       `json:"status"`
+	Uptime        uptimeView       `json:"uptime"`
+	Beats         []beatView       `json:"beats,omitempty"`
 }
 
-// stats are the uptime figures and channels of every monitor, read once
-// per request.
+// monitorTagView is a tag on a monitor, with the monitor's value for it.
+type monitorTagView struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
+	Value string `json:"value"`
+}
+
+// stats are the uptime figures, channels and tags of every monitor, read
+// once per request.
 type stats struct {
 	day, month, year map[int64]store.Totals
 	channels         map[int64][]int64
+	tags             map[int64][]store.MonitorTag
+	tagByID          map[int64]store.Tag
 }
 
 func (s *Server) stats(ctx context.Context) (stats, error) {
@@ -128,7 +142,17 @@ func (s *Server) stats(ctx context.Context) (stats, error) {
 	if st.year, err = s.Store.DailyTotals(ctx, now.Add(-365*24*time.Hour)); err != nil {
 		return st, err
 	}
-	st.channels, err = s.Store.MonitorChannels(ctx)
+	if st.channels, err = s.Store.MonitorChannels(ctx); err != nil {
+		return st, err
+	}
+	if st.tags, err = s.Store.MonitorTags(ctx); err != nil {
+		return st, err
+	}
+	tags, err := s.Store.Tags(ctx)
+	st.tagByID = map[int64]store.Tag{}
+	for _, t := range tags {
+		st.tagByID[t.ID] = t
+	}
 	return st, err
 }
 
@@ -139,6 +163,11 @@ func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt, Channels: st.channels[m.ID]}
 	if v.Channels == nil {
 		v.Channels = []int64{}
+	}
+	v.Tags = []monitorTagView{}
+	for _, mt := range st.tags[m.ID] {
+		t := st.tagByID[mt.TagID]
+		v.Tags = append(v.Tags, monitorTagView{ID: t.ID, Name: t.Name, Color: t.Color, Value: mt.Value})
 	}
 	if m.ParentID != 0 {
 		p := m.ParentID
@@ -153,7 +182,7 @@ func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status,
 		status = string(state.Unknown)
 	}
 	v.Status = statusView{Status: status, Since: timeOrNil(es.Since), Message: es.Message, LastCheck: timeOrNil(es.LastCheck),
-		LatencyMS: ms(es.Latency), CertExpires: timeOrNil(es.CertExpires), Checking: es.Running}
+		LatencyMS: ms(es.Latency), CertExpires: timeOrNil(es.CertExpires), Checking: es.Running, Maintenance: es.Maintenance}
 	if es.LastCheck.IsZero() {
 		v.Status.LatencyMS = nil
 	}
@@ -245,6 +274,28 @@ type monitorBody struct {
 	// Channels are the notification channels to use; left out, a new
 	// monitor gets the default channels and a changed one keeps its own.
 	Channels *[]int64 `json:"channels"`
+	// Tags are its tags, each with a value ("" for none); left out, a
+	// changed monitor keeps its own.
+	Tags *[]struct {
+		ID    int64  `json:"id"`
+		Value string `json:"value"`
+	} `json:"tags"`
+}
+
+// setTags saves a body's tags for a monitor, if it has any, and tells the
+// engine: tags decide which maintenance windows cover it.
+func (s *Server) setTags(r *http.Request, id int64, b monitorBody) error {
+	if b.Tags == nil {
+		return nil
+	}
+	tags := []store.MonitorTag{}
+	for _, t := range *b.Tags {
+		tags = append(tags, store.MonitorTag{TagID: t.ID, Value: t.Value})
+	}
+	if err := s.Store.SetMonitorTags(r.Context(), id, tags); err != nil {
+		return err
+	}
+	return s.Engine.ReloadMaintenance(r.Context())
 }
 
 func seconds(f float64) time.Duration { return time.Duration(f * float64(time.Second)) }
@@ -348,7 +399,11 @@ func (s *Server) createMonitor(w http.ResponseWriter, r *http.Request) {
 		}
 		channels = &ids
 	}
-	if err := s.Store.SetMonitorChannels(r.Context(), m.ID, *channels); err != nil {
+	err = s.Store.SetMonitorChannels(r.Context(), m.ID, *channels)
+	if err == nil {
+		err = s.setTags(r, m.ID, b)
+	}
+	if err != nil {
 		s.Store.DeleteMonitor(r.Context(), m.ID) //nolint:errcheck,gosec // undoing the create; the error below is what matters
 		s.storeError(w, r, err)
 		return
@@ -394,6 +449,10 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 			s.storeError(w, r, err)
 			return
 		}
+	}
+	if err := s.setTags(r, m.ID, b); err != nil {
+		s.storeError(w, r, err)
+		return
 	}
 	s.Log.Info("monitor changed", "monitor", m.Name, "by", sessionFrom(r).User.Username)
 	s.engineChanged(w, r, http.StatusOK, m)

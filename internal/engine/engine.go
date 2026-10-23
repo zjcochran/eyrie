@@ -8,6 +8,11 @@
 // on a bounded pool of workers, and a check never overlaps itself. The next
 // check starts an interval after the last one started, so the schedule does
 // not drift. Heartbeats are written in batches about once a second.
+//
+// Monitors covered by a maintenance window that is on are in maintenance:
+// they are still checked, but their checks are recorded as maintenance and
+// notify nobody. When the window ends, the status they had before comes
+// back and they are checked at once.
 package engine
 
 import (
@@ -22,6 +27,7 @@ import (
 	"time"
 
 	"github.com/zjcochran/eyrie/internal/check"
+	"github.com/zjcochran/eyrie/internal/maintenance"
 	"github.com/zjcochran/eyrie/internal/state"
 	"github.com/zjcochran/eyrie/internal/store"
 )
@@ -61,6 +67,9 @@ type Status struct {
 	CertExpires time.Time
 	Up, Down    int64 // checks counted up and down since Eyrie started
 	Running     bool  // a check is in progress
+	// Maintenance is the title of the maintenance window the monitor is in;
+	// "" when it is not in one.
+	Maintenance string
 }
 
 // Engine runs the monitors. Set its fields, then call Run.
@@ -86,6 +95,11 @@ type Engine struct {
 	mons    map[int64]*entry
 	sem     chan struct{}
 	ready   chan struct{}
+	// windows are the maintenance windows, tags each monitor's tag IDs, and
+	// maintNext when a window next starts or ends (zero: never).
+	windows   []window
+	tags      map[int64][]int64
+	maintNext time.Time
 
 	mu   sync.RWMutex
 	snap map[int64]Status
@@ -105,6 +119,14 @@ type entry struct {
 	// certificate (0: none).
 	wantsCert    bool
 	certNotified int
+	// before is, in maintenance, the state the monitor had before it began.
+	before state.State
+}
+
+// window is a maintenance window with its schedule compiled.
+type window struct {
+	store.Window
+	plan maintenance.Plan
 }
 
 type result struct {
@@ -125,6 +147,7 @@ func (e *Engine) init() {
 	e.sem = make(chan struct{}, Workers)
 	e.snap = map[int64]Status{}
 	e.ready = make(chan struct{})
+	e.tags = map[int64][]int64{}
 }
 
 // New returns an engine, ready for Run.
@@ -157,6 +180,9 @@ func (e *Engine) Run(ctx context.Context) error {
 				wake = en.next
 			}
 		}
+		if !e.maintNext.IsZero() && e.maintNext.Before(wake) {
+			wake = e.maintNext
+		}
 		select {
 		case <-ctx.Done():
 			return nil
@@ -187,6 +213,11 @@ func (e *Engine) load(ctx context.Context) error {
 			en.status = Status{MonitorID: m.ID, Status: en.st.Status, Since: s.Since, Message: s.Message,
 				LastCheck: s.LastCheck, Latency: s.Latency, CertExpires: s.CertExpires}
 			en.certNotified = s.CertNotified
+			if en.st.Status == state.Maintenance {
+				// Which window it is in is known once they are read.
+				en.before = state.State{Status: state.Status(s.BeforeStatus), Since: s.BeforeSince}
+				en.status.Maintenance = "…"
+			}
 		} else {
 			en.st.Status = state.Unknown
 		}
@@ -202,6 +233,12 @@ func (e *Engine) load(ctx context.Context) error {
 			en.next = now.Add(spread(m.ID, m.Interval))
 		}
 	}
+	windows, tags, err := e.readMaintenance(ctx)
+	if err != nil {
+		return err
+	}
+	e.windows, e.tags = windows, tags
+	e.evaluate()
 	e.publishAll()
 	return nil
 }
@@ -239,9 +276,13 @@ func (e *Engine) configure(en *entry, m store.Monitor) error {
 	return nil
 }
 
-// runDue starts every check that is due.
+// runDue starts or ends the maintenance windows that are due, then starts
+// every check that is due.
 func (e *Engine) runDue() {
 	now := e.Clock.Now()
+	if !e.maintNext.IsZero() && !e.maintNext.After(now) {
+		e.evaluate()
+	}
 	for id, en := range e.mons {
 		if en.next.IsZero() || en.running || en.next.After(now) {
 			continue
@@ -278,8 +319,19 @@ func (e *Engine) apply(r result) {
 	e.record(en, r.started, r.res)
 }
 
-// record applies a result to a monitor checked at started.
+// record applies a result to a monitor checked at started. In maintenance,
+// it is recorded and changes nothing.
 func (e *Engine) record(en *entry, started time.Time, res check.Result) {
+	if en.status.Maintenance != "" {
+		if en.m.Active {
+			en.next = started.Add(en.m.Interval)
+		}
+		if !res.CertExpires.IsZero() {
+			e.checkCert(en, res.CertExpires)
+		}
+		e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: res.Message}, res.Latency)
+		return
+	}
 	o := state.Next(en.rules, en.st, state.Result{OK: res.OK, Message: res.Message}, e.Clock.Now())
 	interval := en.m.Interval
 	if o.Retry {
@@ -324,9 +376,11 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
 	en.st = o.State
 	s := &en.status
 	s.Status, s.Since, s.Message, s.LastCheck, s.Latency = o.Status, o.State.Since, o.Message, now, latency
-	if o.Status == state.Down {
+	switch o.Status {
+	case state.Maintenance:
+	case state.Down:
 		s.Down++
-	} else {
+	default:
 		s.Up++
 	}
 	b := store.Beat{MonitorID: en.m.ID, At: now, Status: string(o.Status), Latency: latency, Message: o.Message,
@@ -334,6 +388,9 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
 	rec := store.Record{Beat: b, State: store.MonitorState{MonitorID: en.m.ID, Status: string(o.Status), Since: o.State.Since,
 		Message: o.Message, LastCheck: now, Latency: latency, CertExpires: s.CertExpires, Failures: o.State.Failures,
 		DownChecks: o.State.DownChecks, CertNotified: en.certNotified}}
+	if o.Status == state.Maintenance {
+		rec.State.BeforeStatus, rec.State.BeforeSince = string(en.before.Status), en.before.Since
+	}
 	select {
 	case e.writes <- rec:
 	default:
@@ -482,6 +539,7 @@ func (e *Engine) Upsert(ctx context.Context, m store.Monitor) error {
 		}
 		en.running = false
 		err := e.configure(en, m)
+		e.evaluate() // its group may have changed
 		e.setSnap(en)
 		return err
 	})
@@ -554,11 +612,17 @@ func (e *Engine) SetManual(ctx context.Context, id int64, status state.Status, m
 		if status != state.Up && status != state.Down {
 			return errors.New("the status must be up or down")
 		}
+		if msg == "" {
+			msg = "Set to " + string(status)
+		}
+		if en.status.Maintenance != "" {
+			// It takes this status when the maintenance ends.
+			en.before = state.Set(en.before, status, e.Clock.Now()).State
+			e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: msg + " (after the maintenance)"}, -1)
+			return nil
+		}
 		o := state.Set(en.st, status, e.Clock.Now())
 		o.Message = msg
-		if o.Message == "" {
-			o.Message = "Set to " + string(status)
-		}
 		e.beat(en, o, -1)
 		return nil
 	})

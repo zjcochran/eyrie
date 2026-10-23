@@ -36,11 +36,18 @@ If you opened a page while signed out, you land on it after signing in.
 The start page is the dashboard of monitors; see [Monitors](monitors.md)
 for the dashboard, each monitor's page, adding monitors and every type.
 
+## Maintenance
+
+**Maintenance**, at the top, lists the maintenance windows, when each is on
+and what it covers; admins add, change, turn off and delete them there. See
+[Maintenance windows](maintenance.md).
+
 ## Settings
 
 **Settings**, at the top, has tabs. Everyone has **Your account**; admins
-also have **Users**, **Single sign-on**, **API tokens**,
-**Notifications** (see [Notifications](notifications.md)), **Alert
+also have **Users**, **Single sign-on**, **API tokens**, **Tags** (see
+[Tags](monitors.md#tags)), **Notifications** (see
+[Notifications](notifications.md)), **Alert
 analysis** (see [Alert analysis](alert-analysis.md)) and **History**
 (how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history)).
 

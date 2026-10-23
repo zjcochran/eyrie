@@ -16,6 +16,7 @@
   --down: #d92d20;
   --pending: #dc8a04;
   --unknown: #98a2b3;
+  --maintenance: #7a5af8;
   --radius: 8px;
   font-family: system-ui, sans-serif;
   line-height: 1.5;
@@ -40,6 +41,7 @@
     --down: #f97066;
     --pending: #fdb022;
     --unknown: #667085;
+    --maintenance: #9b8afb;
   }
 }
 

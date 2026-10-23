@@ -32,6 +32,10 @@ type MonitorState struct {
 	// CertNotified is the certificate expiry warning last sent for
 	// CertExpires, as its threshold in days; 0 for none.
 	CertNotified int
+	// BeforeStatus and BeforeSince are, during maintenance, the status the
+	// monitor had before it began; "" outside maintenance.
+	BeforeStatus string
+	BeforeSince  time.Time
 }
 
 // Record is a heartbeat with the state it left the monitor in.
@@ -45,6 +49,14 @@ const (
 	hour = int64(time.Hour / time.Millisecond)
 	day  = int64(24 * time.Hour / time.Millisecond)
 )
+
+// millisOrZero is t in milliseconds, or 0 for the zero time.
+func millisOrZero(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+	return t.UnixMilli()
+}
 
 func latencyMS(d time.Duration) int64 {
 	if d < 0 {
@@ -62,8 +74,9 @@ func fromLatency(ms int64) time.Duration {
 
 // Save writes heartbeats and states in one transaction, and adds each beat
 // to the hourly and daily stats. Pending checks count as up in the stats:
-// a monitor is not down until its retries run out. Beats of monitors that
-// were deleted meanwhile are skipped.
+// a monitor is not down until its retries run out. Checks during
+// maintenance are left out of the stats. Beats of monitors that were
+// deleted meanwhile are skipped.
 func (s *Store) Save(ctx context.Context, recs []Record) error {
 	if len(recs) == 0 {
 		return nil
@@ -106,14 +119,18 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 	// nosemgrep
 	if _, err := tx.ExecContext(ctx, s.q(`
 		INSERT INTO monitor_state (monitor_id, status, since, message, last_check, latency_ms, cert_expires, failures, down_checks,
-			cert_notified)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			cert_notified, before_status, before_since)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (monitor_id) DO UPDATE SET status = excluded.status, since = excluded.since, message = excluded.message,
 			last_check = excluded.last_check, latency_ms = excluded.latency_ms, cert_expires = excluded.cert_expires,
-			failures = excluded.failures, down_checks = excluded.down_checks, cert_notified = excluded.cert_notified`),
+			failures = excluded.failures, down_checks = excluded.down_checks, cert_notified = excluded.cert_notified,
+			before_status = excluded.before_status, before_since = excluded.before_since`),
 		st.MonitorID, st.Status, st.Since.UnixMilli(), st.Message, st.LastCheck.UnixMilli(), latencyMS(st.Latency), cert,
-		st.Failures, st.DownChecks, st.CertNotified); err != nil {
+		st.Failures, st.DownChecks, st.CertNotified, st.BeforeStatus, millisOrZero(st.BeforeSince)); err != nil {
 		return err
+	}
+	if b.Status == "maintenance" {
+		return nil
 	}
 	up, down := 1, 0
 	if b.Status == "down" {
@@ -145,7 +162,7 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 // States returns every monitor's saved state, by monitor ID.
 func (s *Store) States(ctx context.Context) (map[int64]MonitorState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT monitor_id, status, since, message, last_check, latency_ms, cert_expires,
-		failures, down_checks, cert_notified FROM monitor_state`)
+		failures, down_checks, cert_notified, before_status, before_since FROM monitor_state`)
 	if err != nil {
 		return nil, err
 	}
@@ -153,12 +170,13 @@ func (s *Store) States(ctx context.Context) (map[int64]MonitorState, error) {
 	out := map[int64]MonitorState{}
 	for rows.Next() {
 		var st MonitorState
-		var since, last, latency, cert int64
+		var since, last, latency, cert, before int64
 		if err := rows.Scan(&st.MonitorID, &st.Status, &since, &st.Message, &last, &latency, &cert, &st.Failures, &st.DownChecks,
-			&st.CertNotified); err != nil {
+			&st.CertNotified, &st.BeforeStatus, &before); err != nil {
 			return nil, err
 		}
 		st.Since, st.LastCheck, st.Latency, st.CertExpires = fromMillis(since), fromMillis(last), fromLatency(latency), fromMillis(cert)
+		st.BeforeSince = fromMillis(before)
 		out[st.MonitorID] = st
 	}
 	return out, rows.Err()

@@ -2,6 +2,7 @@
 <script lang="ts">
   import Chart from '../components/Chart.svelte';
   import StatusDot from '../components/StatusDot.svelte';
+  import TagChip from '../components/TagChip.svelte';
   import { type Beat, type Monitor, message } from '../lib/api.ts';
   import { ago, daysUntil, duration, millis, percent, type Point } from '../lib/format.ts';
   import { onBeat } from '../lib/live.svelte.ts';
@@ -57,6 +58,9 @@
     onBeat((b) => {
       if (b.monitor_id !== id || !monitor) return;
       beats = [b, ...beats];
+      if (b.important && (b.status === 'maintenance') !== (monitor.status.status === 'maintenance')) {
+        api.monitor(id).then((m) => (monitor = m), () => {});
+      }
       monitor.status = {
         ...monitor.status,
         status: b.status,
@@ -117,6 +121,9 @@
         {#if !m.active}· paused{/if}
         {#if m.description}· {m.description}{/if}
       </p>
+      {#if m.tags.length}
+        <p class="tags">{#each m.tags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} />{/each}</p>
+      {/if}
     </div>
     {#if admin}
       <div class="row">
@@ -140,6 +147,7 @@
     <div>
       <div class="big"><StatusDot status={m.status.status} active={m.active} label /></div>
       <div class="muted">{m.status.since ? `since ${new Date(m.status.since).toLocaleString()}` : 'not checked yet'}</div>
+      {#if m.status.maintenance}<div class="muted">{m.status.maintenance}</div>{/if}
     </div>
     <div>
       <div class="muted">Last check</div>
@@ -254,6 +262,12 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
     gap: 1rem;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin: 0.25rem 0 0;
   }
   .big {
     font-size: 1.3rem;

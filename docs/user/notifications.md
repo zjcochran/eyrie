@@ -66,8 +66,11 @@ With [alert analysis](alert-analysis.md) on, a `monitor_down` message
 also carries the model's explanation of the failure.
 
 A monitor that goes pending and recovers before its retries run out sends
-nothing. Paused monitors send nothing. When `EYRIE_BASE_URL` is set, every
-message links to the monitor's page.
+nothing. Paused monitors send nothing, nor do monitors in a
+[maintenance window](maintenance.md), whose status changes neither start
+nor end: when the window ends, they take back the status they had, without
+a message. Certificate warnings are still sent during maintenance. When
+`EYRIE_BASE_URL` is set, every message links to the monitor's page.
 
 Priorities are on ntfy's 1 to 5 scale. Gotify gets them as 8 and 5;
 Pushover as 1 and 0 (Pushover's emergency priority, which repeats until

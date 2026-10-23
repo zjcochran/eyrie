@@ -49,11 +49,11 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 	for i, m := range mons {
 		labels[i] = fmt.Sprintf("id=\"%d\",monitor=%q,type=%q", m.ID, label(m.Name), m.Type)
 	}
-	metric("eyrie_monitor_status", "1 up, 0 down, 2 pending, -1 not checked yet.", "gauge")
+	metric("eyrie_monitor_status", "1 up, 0 down, 2 pending, 3 maintenance, -1 not checked yet.", "gauge")
 	running := 0
 	for i, m := range mons {
 		st := statuses[m.ID]
-		v := map[state.Status]int{state.Up: 1, state.Down: 0, state.Pending: 2}[st.Status]
+		v := map[state.Status]int{state.Up: 1, state.Down: 0, state.Pending: 2, state.Maintenance: 3}[st.Status]
 		if st.Status == state.Unknown || st.Status == "" {
 			v = -1
 		}

@@ -50,3 +50,16 @@ export interface Point {
   v: number | null;
   down: boolean;
 }
+
+/** Black or white, whichever reads better on a background such as #1f5fbf. */
+export function textOn(color: string): string {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color);
+  if (!m) return '#000000';
+  const [r, g, b] = m.slice(1).map((h) => {
+    const c = parseInt(h, 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  const light = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // The text with the higher contrast ratio against the background.
+  return (light + 0.05) / 0.05 > 1.05 / (light + 0.05) ? '#000000' : '#ffffff';
+}

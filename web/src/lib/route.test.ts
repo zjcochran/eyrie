@@ -15,6 +15,8 @@ describe('pageFor', () => {
     assert.equal(pageFor('/settings/history'), 'retention');
     assert.equal(pageFor('/settings/notifications'), 'notifications');
     assert.equal(pageFor('/settings/alert-analysis'), 'analysis');
+    assert.equal(pageFor('/settings/tags'), 'tags');
+    assert.equal(pageFor('/maintenance/'), 'maintenance');
     assert.equal(pageFor('/nothing'), 'not-found');
   });
   it('reads monitor pages and their IDs', () => {

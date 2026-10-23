@@ -27,6 +27,9 @@
   .pending {
     background: var(--pending);
   }
+  .maintenance {
+    background: var(--maintenance);
+  }
   .label {
     margin-left: 0.4rem;
     text-transform: capitalize;
