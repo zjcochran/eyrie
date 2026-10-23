@@ -113,7 +113,7 @@ layer 2.
 | Role | Can |
 | --- | --- |
 | viewer | Read the app: monitors, their history; change their own password, two-factor sign-in, picture and single sign-on link |
-| admin | Everything: monitors, users, single sign-on settings, history retention and API tokens |
+| admin | Everything: monitors, notification channels, users, single sign-on settings, history retention and API tokens |
 
 Checked for each route on the server, not only by hiding controls. Admins
 cannot disable, delete or change the role of themselves, and the last
@@ -204,10 +204,26 @@ proxy saw.
 - `next` must start with `/`, must not start with `//` and must not contain
   `\`; anything else becomes `/`.
 
+## Notifications
+
+- Requests go only to the URLs admins configure (Pushover's and Telegram's
+  own APIs for those kinds). Messages carry the monitor's name, type,
+  description, status and check message, never settings or secrets.
+- Webhooks with a signing secret carry `X-Hub-Signature-256`, the
+  HMAC-SHA256 of the body, so a receiver can reject forged calls.
+- Email is only sent encrypted: STARTTLS is required on `smtp://`, `smtps://`
+  uses TLS from the start, certificates are verified (TLS 1.2 or newer), and
+  the password is sent only after that.
+- Errors show only the scheme and host of a URL, never a path that may hold
+  a token. Answers are read only for the status code and the first 300
+  bytes of an error.
+- Test messages use the form's URL, so only admins can send them.
+
 ## Stored secrets
 
-Two-factor secrets and the single sign-on client secret are sealed with
-AES-256-GCM (`internal/secrets`):
+Two-factor secrets, the single sign-on client secret and notification
+channels' URLs, tokens and users are sealed with AES-256-GCM
+(`internal/secrets`):
 
 - Key: SHA-256 of `EYRIE_SECRET_KEY`, or of the contents of
   `EYRIE_DATA_DIR/secret.key`, made (32 random bytes, mode 0600) at the

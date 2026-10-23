@@ -22,6 +22,12 @@ const http: Field[] = [
   },
   { key: 'max_redirects', label: 'Maximum redirects', kind: 'number', min: 0, max: 20, placeholder: '10' },
   { key: 'ignore_tls', label: 'Ignore TLS certificate errors', kind: 'check' },
+  {
+    key: 'notify_cert_expiry',
+    label: 'Warn before the certificate expires',
+    kind: 'check',
+    help: 'At the days set in Settings → Notifications',
+  },
 ];
 
 /** The fields of each type that has settings. */

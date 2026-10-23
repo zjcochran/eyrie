@@ -146,6 +146,44 @@ A token is sent as `Authorization: Bearer eyt_…`. Tokens can only read
 (`GET` and `HEAD`): they are accepted on the read routes below; every other
 route answers a request that has only a token with `401`.
 
+### Notification channels
+
+All admin routes. See [Notifications](../user/notifications.md).
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `GET /api/v1/channel-kinds` | | `200` `[{"id":"ntfy","name":"ntfy"},…]`, in menu order |
+| `GET /api/v1/channels` | | `200` [channels](#channel), by name |
+| `POST /api/v1/channels` | [channel settings](#channel-settings) | `201` channel. `422` for a field the kind needs. |
+| `PUT /api/v1/channels/{id}` | channel settings | `200` channel |
+| `DELETE /api/v1/channels/{id}` | | `204`; its monitors stop using it |
+| `POST /api/v1/channels/test` | channel settings, with `id` to fill in a saved channel's secrets | `200` `{"ok":true,"message":"Sent."}` or `{"ok":false,"message":"<why>"}`; no retries. For a saved channel the result becomes its last delivery. |
+| `GET /api/v1/settings/notifications` | | `200` `{"cert_expiry_days":[21,14,7]}` |
+| `PUT /api/v1/settings/notifications` | `{"cert_expiry_days"}`: up to 10 days from 1 to 365 | `200` the saved setting, sorted largest first without repeats; applies at once |
+
+#### Channel
+
+```json
+{
+  "id": 2, "name": "Phone", "kind": "ntfy", "url_host": "https://ntfy.example.com",
+  "has_url": true, "has_token": false, "has_user": false, "to": "", "from": "",
+  "enabled": true, "default": true, "monitors": 4,
+  "last": { "at": "2027-01-15T08:30:01Z", "error": "" }
+}
+```
+
+Secrets never leave Eyrie: of the URL only its scheme and host are shown,
+of the token and user only whether they are set. `last` is the last
+delivery since Eyrie started (`error` empty when it worked), `null` before
+the first.
+
+#### Channel settings
+
+`{"name","kind","url","token","user","to","from","enabled","default","apply_to_all","clear_url","clear_token","clear_user"}`.
+On a saved channel, an empty `url`, `token` or `user` keeps the saved one
+unless its `clear_` flag is set. `apply_to_all` adds the channel to every
+monitor.
+
 ### Monitors
 
 | Method and path | Access | Body | Answer |
@@ -184,6 +222,7 @@ route answers a request that has only a token with `401`.
   "upside_down": false,
   "description": "",
   "settings": { "url": "https://example.com", "method": "GET", "...": "the type's settings, defaults filled in" },
+  "channels": [2],
   "push_url": "https://eyrie.example.com/api/push/<token>?status=up&msg=OK&ping=",
   "created_at": "2027-01-15T08:00:00Z",
   "updated_at": "2027-01-15T08:00:00Z",
@@ -215,7 +254,9 @@ Missing numbers take their defaults (interval 60, retry interval the
 interval, timeout 80% of the interval up to 48, the rest 0) and `active`
 defaults to true. The limits and each type's `settings` are in
 [Monitors](../user/monitors.md); unknown `settings` keys are refused.
-`reset_push_token: true` gives a push monitor a new URL.
+`reset_push_token: true` gives a push monitor a new URL. `channels` lists
+the notification channels to use; left out, a new monitor gets the default
+channels and a changed one keeps its own (`422` for an unknown channel).
 
 #### Heartbeat
 
@@ -256,6 +297,7 @@ compared in constant time). Without the setting it is `404`.
 | `eyrie_monitor_cert_days_remaining` | gauge | same | days until the certificate seen by an HTTPS check expires |
 | `eyrie_monitor_checks_total` | counter | same, `result` (`up`, `down`) | checks since Eyrie started; pending counts as up |
 | `eyrie_checks_running` | gauge | | checks in progress |
+| `eyrie_notifications_total` | counter | `result` (`sent`, `failed`) | notifications since Eyrie started, per channel; failed after every retry |
 | `go_goroutines`, `go_memstats_alloc_bytes`, `go_memstats_sys_bytes` | gauge | | Go runtime |
 | `process_start_time_seconds` | gauge | | when Eyrie started, Unix seconds |
 
@@ -293,7 +335,8 @@ page saying it has no web interface.
 
 The app's pages: `/` (monitors), `/monitors/new`, `/monitors/{id}`,
 `/monitors/{id}/edit`, `/login`, `/settings/account`, `/settings/users`,
-`/settings/sso`, `/settings/api-tokens` and `/settings/history`. Before the
+`/settings/sso`, `/settings/api-tokens`, `/settings/notifications` and
+`/settings/history`. Before the
 first account exists every page shows the setup form.
 
 ## Response headers

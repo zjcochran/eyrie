@@ -11,6 +11,7 @@
   import Login from './pages/Login.svelte';
   import MonitorForm from './pages/MonitorForm.svelte';
   import MonitorPage from './pages/MonitorPage.svelte';
+  import Notifications from './pages/Notifications.svelte';
   import Retention from './pages/Retention.svelte';
   import SSO from './pages/SSO.svelte';
   import Setup from './pages/Setup.svelte';
@@ -106,6 +107,8 @@
         <Tokens />
       {:else if page === 'retention'}
         <Retention />
+      {:else if page === 'notifications'}
+        <Notifications />
       {/if}
     {/if}
   </main>

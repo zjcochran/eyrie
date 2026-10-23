@@ -2,7 +2,7 @@
 // Run with Node.js's test runner (npm test), which strips the types.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ApiError, Client, message, type MonitorChange, type Session } from './api.ts';
+import { ApiError, type ChannelChange, Client, message, type MonitorChange, type Session } from './api.ts';
 
 interface Call {
   path: string;
@@ -111,8 +111,19 @@ describe('Client', () => {
       description: '',
       settings: { host: 'db.example.com', port: 5432 },
     };
+    const channel: ChannelChange = {
+      name: 'Phone',
+      kind: 'ntfy',
+      url: 'https://ntfy.example.com/alerts',
+      token: '',
+      user: '',
+      to: '',
+      from: '',
+      enabled: true,
+      default: false,
+    };
     const routes: [() => Promise<unknown>, string, string][] = [];
-    const { calls, client } = fake(...Array.from({ length: 40 }, () => json({})));
+    const { calls, client } = fake(...Array.from({ length: 50 }, () => json({})));
     routes.push(
       [() => client.account(), 'GET', '/api/v1/account'],
       [() => client.changePassword('a', 'b'), 'PUT', '/api/v1/account/password'],
@@ -166,6 +177,14 @@ describe('Client', () => {
       [() => client.checkMonitor(4), 'POST', '/api/v1/monitors/4/check'],
       [() => client.setManualStatus(4, 'down', 'outage'), 'POST', '/api/v1/monitors/4/status'],
       [() => client.retention(), 'GET', '/api/v1/settings/retention'],
+      [() => client.channelKinds(), 'GET', '/api/v1/channel-kinds'],
+      [() => client.channels(), 'GET', '/api/v1/channels'],
+      [() => client.createChannel(channel), 'POST', '/api/v1/channels'],
+      [() => client.updateChannel(2, channel), 'PUT', '/api/v1/channels/2'],
+      [() => client.deleteChannel(2), 'DELETE', '/api/v1/channels/2'],
+      [() => client.testChannel(channel), 'POST', '/api/v1/channels/test'],
+      [() => client.notifySettings(), 'GET', '/api/v1/settings/notifications'],
+      [() => client.saveNotifySettings([21, 7]), 'PUT', '/api/v1/settings/notifications'],
       [() => client.saveRetention(30), 'PUT', '/api/v1/settings/retention'],
     );
     for (const [call, method, path] of routes) {

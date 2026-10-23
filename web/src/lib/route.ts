@@ -11,6 +11,7 @@ export type Page =
   | 'sso'
   | 'tokens'
   | 'retention'
+  | 'notifications'
   | 'not-found';
 
 /** A page, with the monitor ID of monitor pages. */
@@ -25,6 +26,7 @@ export const settingsTabs: { page: Page; path: string; label: string; admin: boo
   { page: 'users', path: '/settings/users', label: 'Users', admin: true },
   { page: 'sso', path: '/settings/sso', label: 'Single sign-on', admin: true },
   { page: 'tokens', path: '/settings/api-tokens', label: 'API tokens', admin: true },
+  { page: 'notifications', path: '/settings/notifications', label: 'Notifications', admin: true },
   { page: 'retention', path: '/settings/history', label: 'History', admin: true },
 ];
 

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { type Monitor, type MonitorChange, message } from '../lib/api.ts';
+  import { type Channel, type Monitor, type MonitorChange, message } from '../lib/api.ts';
   import { go, link } from '../lib/nav.svelte.ts';
   import { api } from '../lib/session.svelte.ts';
   import { fields, toSettings, toValues } from '../lib/settings.ts';
@@ -11,6 +11,9 @@
 
   let types = $state<{ name: string; label: string }[]>([]);
   let groups = $state<Monitor[]>([]);
+  let allChannels = $state<Channel[]>([]);
+  // The channels ticked; for a new monitor, the default ones.
+  let channels = $state<number[]>([]);
   let existing = $state<Monitor | null>(null);
   let error = $state('');
   let busy = $state(false);
@@ -35,6 +38,8 @@
       types = await api.monitorTypes();
       const all = await api.monitors();
       groups = all.filter((m) => m.type === 'group' && m.id !== id);
+      allChannels = await api.channels();
+      channels = allChannels.filter((c) => c.default).map((c) => c.id);
       if (id) {
         const m = await api.monitor(id);
         existing = m;
@@ -50,6 +55,7 @@
         timeout = m.timeout;
         upsideDown = m.upside_down;
         values = toValues(m.type, m.settings);
+        channels = [...m.channels];
       }
     } catch (e) {
       error = message(e);
@@ -77,6 +83,7 @@
       description,
       settings: toSettings(type, values),
       reset_push_token: resetToken,
+      channels,
     };
     try {
       const m = id ? await api.updateMonitor(id, change) : await api.createMonitor(change);
@@ -152,6 +159,20 @@
       <input type="number" bind:value={resendEvery} min="0" max="10000" /></label
     >
   </fieldset>
+
+  {#if allChannels.length}
+    <fieldset>
+      <legend>Notify</legend>
+      {#each allChannels as c (c.id)}
+        <label class="check">
+          <input type="checkbox" bind:group={channels} value={c.id} />
+          {c.name}{#if !c.enabled}<span class="muted"> (off)</span>{/if}
+        </label>
+      {/each}
+    </fieldset>
+  {:else}
+    <p class="muted">No notification channels yet: add them in Settings → Notifications.</p>
+  {/if}
 
   <label
     >Group

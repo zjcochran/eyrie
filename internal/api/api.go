@@ -16,6 +16,7 @@ import (
 
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/engine"
+	"github.com/zjcochran/eyrie/internal/notify"
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/sso"
 	"github.com/zjcochran/eyrie/internal/store"
@@ -49,6 +50,9 @@ type Server struct {
 	Env    *check.Env
 	// MetricsToken turns on /metrics behind this Bearer token.
 	MetricsToken string
+	// Notifier sends notifications; the API manages its channels and tests
+	// them.
+	Notifier *notify.Notifier
 
 	now     func() time.Time
 	limiter *limiter
@@ -126,6 +130,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/monitors/{id}/resume", s.admin(s.setActive(true)))
 	mux.Handle("POST /api/v1/monitors/{id}/check", s.admin(s.checkMonitor))
 	mux.Handle("POST /api/v1/monitors/{id}/status", s.admin(s.setManualStatus))
+	mux.Handle("GET /api/v1/channel-kinds", s.admin(s.channelKinds))
+	mux.Handle("GET /api/v1/channels", s.admin(s.listChannels))
+	mux.Handle("POST /api/v1/channels", s.admin(s.createChannel))
+	mux.Handle("PUT /api/v1/channels/{id}", s.admin(s.updateChannel))
+	mux.Handle("DELETE /api/v1/channels/{id}", s.admin(s.deleteChannel))
+	mux.Handle("POST /api/v1/channels/test", s.admin(s.testChannel))
+	mux.Handle("GET /api/v1/settings/notifications", s.admin(s.getNotifySettings))
+	mux.Handle("PUT /api/v1/settings/notifications", s.admin(s.saveNotifySettings))
 	mux.Handle("GET /api/v1/settings/retention", s.admin(s.getRetention))
 	mux.Handle("PUT /api/v1/settings/retention", s.admin(s.saveRetention))
 

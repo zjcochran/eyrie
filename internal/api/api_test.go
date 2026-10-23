@@ -23,6 +23,7 @@ import (
 
 	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/engine"
+	"github.com/zjcochran/eyrie/internal/notify"
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/store"
 )
@@ -41,6 +42,8 @@ type env struct {
 	mu  sync.Mutex
 	now time.Time
 	up  atomic.Bool // whether port checks connect
+
+	notifier *notify.Notifier
 }
 
 type syncBuffer struct {
@@ -88,8 +91,11 @@ func newEnv(t *testing.T) *env {
 	}
 	log := slog.New(slog.NewTextHandler(e.log, nil))
 	eng := engine.New(st, checkEnv, log)
+	e.notifier = &notify.Notifier{Store: st, Secrets: box, Log: log, Version: "v1.2.3", BaseURL: "https://eyrie.example.com",
+		Retry: []time.Duration{time.Millisecond}}
+	eng.OnNotify, eng.OnCert, eng.CertDays = e.notifier.Monitor, e.notifier.CertExpiring, e.notifier.CertDays
 	e.s = &Server{
-		Engine: eng, Env: checkEnv, MetricsToken: "m3trics",
+		Engine: eng, Env: checkEnv, MetricsToken: "m3trics", Notifier: e.notifier,
 		Store: st, Secrets: box, Version: "v1.2.3", SourceURL: "https://git.example.com/eyrie",
 		Log: log,
 		UI: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -103,6 +109,7 @@ func newEnv(t *testing.T) *env {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- eng.Run(ctx) }()
+	go e.notifier.Run(ctx)
 	t.Cleanup(func() { cancel(); <-done }) // before the store closes
 	return e
 }

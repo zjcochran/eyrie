@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -70,8 +71,14 @@ type Engine struct {
 	Clock   Clock       // nil: the real time
 	Publish func(Event) // called for every heartbeat; may be nil. It must not block.
 	// OnNotify is called when a status change is worth a notification; may
-	// be nil. Notifications come with package notify.
-	OnNotify func(m store.Monitor, b store.Beat)
+	// be nil. since is when the down status began, for a monitor back up or
+	// still down; zero for one that just went down.
+	OnNotify func(m store.Monitor, b store.Beat, since time.Time)
+	// CertDays are the days before a certificate expires when OnCert is
+	// called, once each; nil for none.
+	CertDays func() []int
+	// OnCert warns that a monitor's certificate expires in days whole days.
+	OnCert func(m store.Monitor, expires time.Time, days int)
 
 	cmds    chan func()
 	results chan result
@@ -93,6 +100,11 @@ type entry struct {
 	next    time.Time // zero: not scheduled
 	running bool
 	gen     int // bumped on every change of settings, to drop older results
+	// wantsCert: the monitor asks for certificate warnings; certNotified is
+	// the threshold, in days, of the last one sent for the current
+	// certificate (0: none).
+	wantsCert    bool
+	certNotified int
 }
 
 type result struct {
@@ -174,6 +186,7 @@ func (e *Engine) load(ctx context.Context) error {
 			en.st = state.State{Status: state.Status(s.Status), Since: s.Since, Failures: s.Failures, DownChecks: s.DownChecks}
 			en.status = Status{MonitorID: m.ID, Status: en.st.Status, Since: s.Since, Message: s.Message,
 				LastCheck: s.LastCheck, Latency: s.Latency, CertExpires: s.CertExpires}
+			en.certNotified = s.CertNotified
 		} else {
 			en.st.Status = state.Unknown
 		}
@@ -206,6 +219,7 @@ func (e *Engine) configure(en *entry, m store.Monitor) error {
 	en.m = m
 	en.gen++
 	en.rules = state.Rules{Retries: m.Retries, ResendEvery: m.ResendEvery, UpsideDown: m.UpsideDown}
+	en.wantsCert = check.NotifiesCertExpiry(m.Config)
 	en.status.Active = m.Active
 	en.next = time.Time{}
 	_, c, err := check.Parse(e.Env, m.Type, m.Config)
@@ -267,7 +281,6 @@ func (e *Engine) apply(r result) {
 // record applies a result to a monitor checked at started.
 func (e *Engine) record(en *entry, started time.Time, res check.Result) {
 	o := state.Next(en.rules, en.st, state.Result{OK: res.OK, Message: res.Message}, e.Clock.Now())
-	en.st = o.State
 	interval := en.m.Interval
 	if o.Retry {
 		interval = en.m.RetryInterval
@@ -276,14 +289,38 @@ func (e *Engine) record(en *entry, started time.Time, res check.Result) {
 		en.next = started.Add(interval)
 	}
 	if !res.CertExpires.IsZero() {
-		en.status.CertExpires = res.CertExpires
+		e.checkCert(en, res.CertExpires)
 	}
 	e.beat(en, o, res.Latency)
+}
+
+// checkCert warns once per threshold before a certificate expires. A new
+// certificate starts the warnings again.
+func (e *Engine) checkCert(en *entry, expires time.Time) {
+	if !expires.Equal(en.status.CertExpires) {
+		en.certNotified = 0
+	}
+	en.status.CertExpires = expires
+	if !en.wantsCert || e.CertDays == nil || e.OnCert == nil {
+		return
+	}
+	days := int(math.Floor(expires.Sub(e.Clock.Now()).Hours() / 24))
+	threshold := 0
+	for _, t := range e.CertDays() {
+		if days <= t && (threshold == 0 || t < threshold) {
+			threshold = t
+		}
+	}
+	if threshold != 0 && (en.certNotified == 0 || threshold < en.certNotified) {
+		en.certNotified = threshold
+		e.OnCert(en.m, expires, days)
+	}
 }
 
 // beat records a heartbeat for an outcome.
 func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
 	now := e.Clock.Now()
+	old := en.st
 	en.st = o.State
 	s := &en.status
 	s.Status, s.Since, s.Message, s.LastCheck, s.Latency = o.Status, o.State.Since, o.Message, now, latency
@@ -296,7 +333,7 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
 		Important: o.Important}
 	rec := store.Record{Beat: b, State: store.MonitorState{MonitorID: en.m.ID, Status: string(o.Status), Since: o.State.Since,
 		Message: o.Message, LastCheck: now, Latency: latency, CertExpires: s.CertExpires, Failures: o.State.Failures,
-		DownChecks: o.State.DownChecks}}
+		DownChecks: o.State.DownChecks, CertNotified: en.certNotified}}
 	select {
 	case e.writes <- rec:
 	default:
@@ -306,7 +343,14 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
 		e.Log.Info("monitor status", "monitor", en.m.Name, "status", o.Status, "message", o.Message)
 	}
 	if o.Notify && e.OnNotify != nil {
-		e.OnNotify(en.m, b)
+		var since time.Time
+		switch {
+		case o.Status == state.Up:
+			since = old.Since // when it went down
+		case !o.Important:
+			since = o.State.Since // still down since
+		}
+		e.OnNotify(en.m, b, since)
 	}
 	e.setSnap(en)
 	if e.Publish != nil {

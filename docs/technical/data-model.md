@@ -55,6 +55,7 @@ Settings saved from the web UI, one JSON document per key.
 
 | Key | Value |
 | --- | --- |
+| `notifications` | `{"cert_expiry_days":[21,14,7]}`: the days before a certificate expires when monitors that ask for it warn. Missing: 21, 14, 7. |
 | `retention` | `{"heartbeat_days":90}`: how many days heartbeats are kept, 1 to 3650. Missing: 90. |
 | `sso` | Single sign-on settings: `enabled`, `issuer`, `client_id`, `client_secret` (sealed with the instance key; `""` for none), `display_name`, `auto_provision`, `allowed_group`, `admin_group`, `sso_only`. Missing: off, with `auto_provision` on. |
 
@@ -173,6 +174,7 @@ Written with every heartbeat.
 | `cert_expires` | `BIGINT` | The last certificate an HTTPS check saw; `0` for none |
 | `failures` | `INTEGER` | Failed checks in a row while pending |
 | `down_checks` | `INTEGER` | Checks since the last down notification, for "notify again every" |
+| `cert_notified` | `INTEGER` | The certificate warning last sent for `cert_expires`, as its threshold in days; `0` for none. Migration `00004_notifications`. |
 
 ### heartbeats
 
@@ -211,3 +213,25 @@ Check counts per monitor and hour (`bucket`: the hour's start) or day
 Uptime is `up / (up + down)`. The 24-hour and 30-day figures add up the
 hourly rows from the hour that contains "24 hours (30 days) ago", the 1-year
 figure the daily rows from the day 365 days ago.
+
+### notification_channels
+
+Migration `00004_notifications`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `name` | `TEXT` | 1 to 100 characters |
+| `kind` | `TEXT` | `ntfy`, `gotify`, `pushover`, `telegram`, `discord`, `email` or `webhook` |
+| `url`, `token`, `username` | `TEXT` | Sealed with the instance key; `''` for none |
+| `recipients` | `TEXT` | Telegram chat ID, or email recipients separated by commas |
+| `sender` | `TEXT` | Email sender |
+| `enabled` | `BOOLEAN` | False: nothing is sent to it |
+| `is_default` | `BOOLEAN` | Given to new monitors |
+| `created_at`, `updated_at` | `BIGINT` | |
+
+### monitor_channels
+
+Which channels each monitor notifies. Primary key
+`(monitor_id, channel_id)`, both `ON DELETE CASCADE`; index
+`monitor_channels_channel` on `channel_id`.

@@ -60,6 +60,7 @@ describe('settings', () => {
       accepted_status_codes: ['200-299', '301'],
       max_redirects: 10,
       ignore_tls: true,
+      notify_cert_expiry: false,
       keyword: 'ok',
       invert_keyword: false,
     });
@@ -69,6 +70,10 @@ describe('settings', () => {
     assert.deepEqual(toSettings('push', {}), {});
     assert.deepEqual(toValues('group', {}), {});
     assert.deepEqual(toValues('ping', { host: 'a', count: 0 }), { host: 'a', count: '0', packet_size: '' });
-    assert.deepEqual(toSettings('http', { headers: 'no colon\nA: 1' }), { headers: { A: '1' }, ignore_tls: false });
+    assert.deepEqual(toSettings('http', { headers: 'no colon\nA: 1' }), {
+      headers: { A: '1' },
+      ignore_tls: false,
+      notify_cert_expiry: false,
+    });
   });
 });

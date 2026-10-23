@@ -5,6 +5,7 @@ package check
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +31,18 @@ type HTTP struct {
 	AcceptedStatusCodes []string          `json:"accepted_status_codes"`
 	MaxRedirects        *int              `json:"max_redirects"` // nil: 10
 	IgnoreTLS           bool              `json:"ignore_tls"`
+	// NotifyCertExpiry sends warnings before the server's certificate
+	// expires, at the days in the notification settings.
+	NotifyCertExpiry bool `json:"notify_cert_expiry"`
+}
+
+// NotifiesCertExpiry reports whether a monitor's settings ask for
+// certificate expiry warnings.
+func NotifiesCertExpiry(settings []byte) bool {
+	var s struct {
+		NotifyCertExpiry bool `json:"notify_cert_expiry"`
+	}
+	return json.Unmarshal(settings, &s) == nil && s.NotifyCertExpiry
 }
 
 var methods = []string{"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}

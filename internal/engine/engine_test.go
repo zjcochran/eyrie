@@ -4,6 +4,8 @@ package engine
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -76,6 +78,8 @@ type harness struct {
 	clock  *fakeClock
 	beats  chan store.Beat
 	notes  chan store.Beat
+	since  chan time.Time
+	cert   time.Time   // expiry of the certificate HTTP checks see
 	up     atomic.Bool // whether the fake port answers
 	cancel context.CancelFunc
 	done   chan error
@@ -103,7 +107,7 @@ func newHarness(t *testing.T) *harness {
 	}
 	t.Cleanup(func() { st.Close() })
 	h := &harness{t: t, st: st, clock: &fakeClock{now: t0}, beats: make(chan store.Beat, 100),
-		notes: make(chan store.Beat, 100), log: &strings.Builder{}}
+		notes: make(chan store.Beat, 100), since: make(chan time.Time, 100), log: &strings.Builder{}}
 	h.up.Store(true)
 	env := &check.Env{
 		Dial: func(context.Context, string, string) (net.Conn, error) {
@@ -121,8 +125,28 @@ func newHarness(t *testing.T) *harness {
 	h.e = New(st, env, slog.New(slog.NewTextHandler(h, nil)))
 	h.e.Clock = h.clock
 	h.e.Publish = func(ev Event) { h.beats <- ev.Beat }
-	h.e.OnNotify = func(_ store.Monitor, b store.Beat) { h.notes <- b }
+	h.e.Env.Transport = func(bool) http.RoundTripper { return h }
+	h.e.OnNotify = func(_ store.Monitor, b store.Beat, since time.Time) {
+		h.notes <- b
+		h.since <- since
+	}
 	return h
+}
+
+// RoundTrip answers HTTP checks with 200 and a certificate that expires
+// at h.cert.
+func (h *harness) RoundTrip(r *http.Request) (*http.Response, error) {
+	h.logMu.Lock()
+	exp := h.cert
+	h.logMu.Unlock()
+	return &http.Response{StatusCode: http.StatusOK, Status: "200 OK", Body: http.NoBody, Request: r,
+		TLS: &tls.ConnectionState{PeerCertificates: []*x509.Certificate{{NotAfter: exp}}}}, nil
+}
+
+func (h *harness) setCert(t time.Time) {
+	h.logMu.Lock()
+	h.cert = t
+	h.logMu.Unlock()
 }
 
 func (h *harness) start() {
@@ -208,10 +232,17 @@ func TestScheduleRetriesAndRecovery(t *testing.T) {
 	if n := <-h.notes; n.Status != "down" {
 		t.Errorf("notification %+v", n)
 	}
+	if since := <-h.since; !since.IsZero() {
+		t.Errorf("since of a new down %v", since)
+	}
+	downAt := h.clock.Now()
 	h.up.Store(true)
 	h.clock.Advance(time.Minute)
 	if b := h.next(); b.Status != "up" {
 		t.Fatalf("back up %+v", b)
+	}
+	if since := <-h.since; !since.Equal(downAt) {
+		t.Errorf("down since %v, want %v", since, downAt)
 	}
 	if n := <-h.notes; n.Status != "up" {
 		t.Errorf("notification %+v", n)
@@ -467,5 +498,57 @@ func TestWriteFails(t *testing.T) {
 	h.stop()
 	if !strings.Contains(h.logged(), "cannot save heartbeats") {
 		t.Errorf("log %s", h.logged())
+	}
+}
+
+func TestCertWarnings(t *testing.T) {
+	h := newHarness(t)
+	type warning struct {
+		id   int64
+		days int
+	}
+	warnings := make(chan warning, 10)
+	h.e.CertDays = func() []int { return []int{21, 14, 7} }
+	h.e.OnCert = func(m store.Monitor, _ time.Time, days int) { warnings <- warning{m.ID, days} }
+	h.setCert(t0.Add(20*24*time.Hour + time.Hour))
+	h.start()
+	watched := h.add(monitor("Shop", "http", `{"url":"https://shop.example.com","notify_cert_expiry":true}`))
+	h.add(monitor("Blog", "http", `{"url":"https://blog.example.com"}`)) // no warnings wanted
+	h.next()
+	h.next()
+	if w := <-warnings; w != (warning{watched.ID, 20}) {
+		t.Errorf("first warning %+v", w)
+	}
+	expect := func(want ...warning) {
+		t.Helper()
+		h.clock.Advance(time.Minute)
+		h.next()
+		h.next()
+		for _, w := range want {
+			if got := <-warnings; got != w {
+				t.Errorf("warning %+v, want %+v", got, w)
+			}
+		}
+		select {
+		case w := <-warnings:
+			t.Errorf("extra warning %+v", w)
+		default:
+		}
+	}
+	expect() // the 21-day warning was sent already
+	h.setCert(t0.Add(10 * 24 * time.Hour))
+	expect(warning{watched.ID, 9}) // 14 days
+	h.setCert(t0.Add(10*24*time.Hour + time.Second))
+	expect(warning{watched.ID, 9}) // a new certificate starts again: still within 14 days
+	h.setCert(t0.Add(3 * 24 * time.Hour))
+	expect(warning{watched.ID, 2}) // 7 days
+	expect()
+	if s := h.e.Statuses()[watched.ID]; !s.CertExpires.Equal(t0.Add(3 * 24 * time.Hour)) {
+		t.Errorf("status %+v", s)
+	}
+	h.stop()
+	states, _ := h.st.States(context.Background())
+	if states[watched.ID].CertNotified != 7 {
+		t.Errorf("saved %+v", states[watched.ID])
 	}
 }
