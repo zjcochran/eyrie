@@ -2,7 +2,7 @@
 // Run with Node.js's test runner (npm test), which strips the types.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ApiError, type ChannelChange, Client, message, type MonitorChange, type Session } from './api.ts';
+import { ApiError, type ChannelChange, Client, fileName, message, type MonitorChange, type Session } from './api.ts';
 
 interface Call {
   path: string;
@@ -102,6 +102,13 @@ describe('Client', () => {
     assert.equal(calls[2].headers['Content-Type'], undefined, 'the browser sets the multipart boundary');
     await client.setupRestore(new Blob(['x']), 'p');
     assert.equal(calls[3].path, '/api/v1/setup/restore');
+  });
+
+  it('reads a file name from Content-Disposition', () => {
+    assert.equal(fileName('attachment; filename="eyrie-backup-20270115-080000.json"'), 'eyrie-backup-20270115-080000.json');
+    assert.equal(fileName(null), 'eyrie-backup.json');
+    assert.equal(fileName('attachment; filename=""'), 'eyrie-backup.json');
+    assert.equal(fileName('attachment; filename="open'), 'eyrie-backup.json');
   });
 
   it('turns error answers into ApiError with the message', async () => {

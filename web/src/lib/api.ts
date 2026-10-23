@@ -367,6 +367,16 @@ export interface RestoreAnswer {
   restored: { app_version: string; created: string; history: string; database: string };
 }
 
+/** The file name of a Content-Disposition header, or a default. */
+export function fileName(disposition: string | null): string {
+  const d = disposition ?? '';
+  const start = d.indexOf('filename="');
+  if (start < 0) return 'eyrie-backup.json';
+  const rest = d.slice(start + 'filename="'.length);
+  const end = rest.indexOf('"');
+  return end > 0 ? rest.slice(0, end) : 'eyrie-backup.json';
+}
+
 function backupForm(file: Blob, passphrase: string): FormData {
   const f = new FormData();
   f.append('file', file);
@@ -405,8 +415,7 @@ export class Client {
     if (!resp.ok) {
       await this.answer(resp, 'POST', path); // throws the server's error
     }
-    const name = /filename="([^"]+)"/.exec(resp.headers.get('Content-Disposition') ?? '')?.[1] ?? 'eyrie-backup.json';
-    return { blob: await resp.blob(), name };
+    return { blob: await resp.blob(), name: fileName(resp.headers.get('Content-Disposition')) };
   }
 
   /** Reads a JSON answer, throwing the server's error for a failure. */
