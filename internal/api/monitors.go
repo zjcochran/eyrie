@@ -101,7 +101,8 @@ type monitorView struct {
 	Timeout       float64          `json:"timeout"`
 	UpsideDown    bool             `json:"upside_down"`
 	Description   string           `json:"description"`
-	Settings      json.RawMessage  `json:"settings"`
+	Settings      json.RawMessage  `json:"settings"`    // without secrets
+	SecretsSet    []string         `json:"secrets_set"` // the names of the secret settings that are set
 	PushURL       string           `json:"push_url,omitempty"`
 	CreatedAt     time.Time        `json:"created_at"`
 	UpdatedAt     time.Time        `json:"updated_at"`
@@ -159,11 +160,12 @@ func (s *Server) stats(ctx context.Context) (stats, error) {
 func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status, st stats) monitorView {
 	v := monitorView{ID: m.ID, Name: m.Name, Type: m.Type, Active: m.Active, Interval: m.Interval.Seconds(),
 		RetryInterval: m.RetryInterval.Seconds(), Retries: m.Retries, ResendEvery: m.ResendEvery,
-		Timeout: m.Timeout.Seconds(), UpsideDown: m.UpsideDown, Description: m.Description, Settings: m.Config,
+		Timeout: m.Timeout.Seconds(), UpsideDown: m.UpsideDown, Description: m.Description,
 		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt, Channels: st.channels[m.ID]}
 	if v.Channels == nil {
 		v.Channels = []int64{}
 	}
+	v.Settings, v.SecretsSet = check.Public(m.Type, m.Config)
 	v.Tags = []monitorTagView{}
 	for _, mt := range st.tags[m.ID] {
 		t := st.tagByID[mt.TagID]
@@ -271,6 +273,9 @@ type monitorBody struct {
 	Description    string          `json:"description"`
 	Settings       json.RawMessage `json:"settings"`
 	ResetPushToken bool            `json:"reset_push_token"`
+	// ClearSecrets are secret settings to remove; an empty secret
+	// otherwise keeps the saved one.
+	ClearSecrets []string `json:"clear_secrets"`
 	// Channels are the notification channels to use; left out, a new
 	// monitor gets the default channels and a changed one keeps its own.
 	Channels *[]int64 `json:"channels"`
@@ -326,7 +331,7 @@ func (s *Server) apply(b monitorBody, m *store.Monitor) error {
 	if b.ParentID != nil {
 		m.ParentID = *b.ParentID
 	}
-	cfg, _, err := check.Parse(s.Env, m.Type, b.Settings)
+	cfg, err := check.Prepare(s.Env, m.Type, b.Settings, m.Config, b.ClearSecrets)
 	if err != nil {
 		return err
 	}

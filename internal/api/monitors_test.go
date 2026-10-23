@@ -193,7 +193,7 @@ func TestMonitorAccess(t *testing.T) {
 		t.Errorf("signed out: %d", code)
 	}
 	var types []struct{ Name, Label string }
-	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 9 || types[0].Name != "dns" {
+	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 34 || types[0].Name != "dns" {
 		t.Errorf("types %+v", types)
 	}
 }
@@ -387,5 +387,35 @@ func TestRetention(t *testing.T) {
 	}
 	if admin.call("GET", "/api/v1/settings/retention", nil, &r); r.HeartbeatDays != 30 {
 		t.Errorf("saved %+v", r)
+	}
+}
+
+func TestMonitorSecrets(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	settings := map[string]any{"host": "radius.example.com", "username": "alice", "secret": "s3cret", "password": "pw"}
+	m := create(t, admin, map[string]any{"name": "RADIUS", "type": "radius", "settings": settings})
+	if strings.Contains(string(m.Settings), "s3cret") || strings.Contains(string(m.Settings), "pw\"") ||
+		strings.Join(m.SecretsSet, ",") != "password,secret" {
+		t.Errorf("shown %s %v", m.Settings, m.SecretsSet)
+	}
+	saved, _ := e.st.MonitorByID(t.Context(), m.ID)
+	if strings.Contains(string(saved.Config), "s3cret") || !strings.Contains(string(saved.Config), `"v1:`) {
+		t.Errorf("not sealed: %s", saved.Config)
+	}
+	// Saving the settings as shown keeps the secrets; clear_secrets drops one.
+	var got monitorView
+	path := fmt.Sprintf("/api/v1/monitors/%d", m.ID)
+	body := map[string]any{"name": "RADIUS", "settings": m.Settings}
+	if code := admin.call("PUT", path, body, &got); code != http.StatusOK || strings.Join(got.SecretsSet, ",") != "password,secret" {
+		t.Errorf("kept: %d %v", code, got.SecretsSet)
+	}
+	body["clear_secrets"] = []string{"password"}
+	if code := admin.call("PUT", path, body, &got); code != http.StatusOK || strings.Join(got.SecretsSet, ",") != "secret" {
+		t.Errorf("cleared: %d %v", code, got.SecretsSet)
+	}
+	body["clear_secrets"] = []string{"secret"}
+	if code, msg := admin.errorOf("PUT", path, body); code != http.StatusUnprocessableEntity || !strings.Contains(msg, "shared secret") {
+		t.Errorf("required: %d %s", code, msg)
 	}
 }

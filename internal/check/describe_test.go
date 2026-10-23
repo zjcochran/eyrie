@@ -49,6 +49,10 @@ func TestDescribeTypes(t *testing.T) {
 		{"ping", `{"host": "192.0.2.1"}`, "Host: 192.0.2.1\nPings per check: 1\nPacket size: 56 bytes"},
 		{"dns", `{"host": "example.com", "record_type": "MX", "expected": "mail"}`, "Record type: MX\nDNS server: 1.1.1.1:53\nExpected in a record: \"mail\""},
 		{"push", `{}`, ""},
+		{"ntp", `{"host": "time.example.com", "max_offset_ms": 250}`, "Server: time.example.com:123\nLargest offset: 250 ms"},
+		{"radius", `{"host": "radius.example.com", "secret": "x", "username": "alice"}`, "User name: alice\nNAS identifier: eyrie"},
+		{"sip-options", `{"host": "pbx.example.com", "transport": "tcp"}`, "Server: pbx.example.com:5060\nTransport: tcp"},
+		{"smtp", `{"host": "mail.example.com"}`, "Address: mail.example.com:25\nSecurity: starttls"},
 	}
 	for _, c := range cases {
 		if got := describe(t, c.typ, c.raw); !strings.Contains(got, c.want) {
@@ -60,5 +64,35 @@ func TestDescribeTypes(t *testing.T) {
 	}
 	if publicURL("%zz") != "" {
 		t.Error("unparsable URL")
+	}
+}
+
+// TestSecretsNeverDescribed checks that no type describes its secrets, and
+// that Public leaves them out.
+func TestSecretsNeverDescribed(t *testing.T) {
+	cases := map[string]string{
+		"radius":         `{"host": "r.example.com", "secret": "SECRET1", "username": "alice", "password": "SECRET2"}`,
+		"snmp":           `{"host": "r.example.com", "oid": "1.3.6", "community": "SECRET1"}`,
+		"globalping":     `{"target": "example.com", "token": "SECRET1"}`,
+		"sftp":           `{"host": "f.example.com", "username": "alice", "password": "SECRET1", "private_key": "SECRET2", "passphrase": "SECRET3"}`,
+		"real-browser":   `{"url": "https://example.com", "browser_url": "ws://c.example.com/?token=SECRET1"}`,
+		"postgres":       `{"connection_string": "postgres://alice:` + "SECRET1" + `@db.example.com/shop"}`,
+		"mongodb":        `{"connection_string": "mongodb://alice:` + "SECRET1" + `@db.example.com/shop"}`,
+		"redis":          `{"connection_string": "redis://:` + "SECRET1" + `@cache.example.com"}`,
+		"mqtt":           `{"host": "mq.example.com", "topic": "t", "password": "SECRET1"}`,
+		"rabbitmq":       `{"nodes": ["http://rabbit.example.com"], "username": "alice", "password": "SECRET1"}`,
+		"kafka-producer": `{"brokers": ["kafka.example.com:9092"], "topic": "t", "sasl": "plain", "username": "alice", "password": "SECRET1"}`,
+	}
+	for typ, raw := range cases {
+		if got := describe(t, typ, raw); strings.Contains(got, "SECRET") {
+			t.Errorf("%s describes a secret:\n%s", typ, got)
+		}
+		saved, err := Prepare(testEnv(), typ, json.RawMessage(raw), nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if pub, set := Public(typ, saved); strings.Contains(string(pub), "SECRET") || len(set) == 0 {
+			t.Errorf("%s public %s %v", typ, pub, set)
+		}
 	}
 }

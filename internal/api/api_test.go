@@ -95,6 +95,7 @@ func newEnv(t *testing.T) *env {
 		Transport: func(bool) http.RoundTripper { return http.DefaultTransport },
 		Resolve:   func(context.Context, string) ([]netip.Addr, error) { return nil, errors.New("none") },
 		Ping:      func(context.Context, netip.Addr, int, int) (time.Duration, error) { return 0, errors.New("none") },
+		Secrets:   box,
 	}
 	log := slog.New(slog.NewTextHandler(e.log, nil))
 	eng := engine.New(st, checkEnv, log)

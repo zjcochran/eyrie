@@ -5,7 +5,7 @@
   import { type Channel, type Monitor, type MonitorChange, type Tag, message } from '../lib/api.ts';
   import { go, link } from '../lib/nav.svelte.ts';
   import { api } from '../lib/session.svelte.ts';
-  import { fields, toSettings, toValues } from '../lib/settings.ts';
+  import { fields, shown, toSettings, toValues } from '../lib/settings.ts';
 
   /** The monitor to edit; 0 makes a new one. */
   let { id = 0 }: { id?: number } = $props();
@@ -36,7 +36,9 @@
   let upsideDown = $state(false);
   let resetToken = $state(false);
   // Each field's value: text, a number from a number input, or a box's state.
-  let values = $state<Record<string, any>>({});
+  let values = $state<Record<string, any>>(toValues('http', {}));
+  // The saved secrets to remove.
+  let clearSecrets = $state<string[]>([]);
 
   onMount(async () => {
     try {
@@ -91,6 +93,7 @@
       description,
       settings: toSettings(type, values),
       reset_push_token: resetToken,
+      clear_secrets: clearSecrets,
       channels,
       tags: tagIDs.map((t) => ({ id: t, value: tagValues[t] ?? '' })),
     };
@@ -111,32 +114,58 @@
 <form class="card" onsubmit={save}>
   <label
     >Type
-    <select bind:value={type} disabled={!!id}>
+    <select bind:value={type} disabled={!!id} onchange={() => (values = toValues(type, {}))}>
       {#each types as t (t.name)}<option value={t.name}>{t.label}</option>{/each}
     </select>
   </label>
   <label>Name <input bind:value={name} maxlength="100" required /></label>
 
   {#each typeFields as f (f.key)}
-    {#if f.kind === 'check'}
-      <label class="check"><input type="checkbox" bind:checked={values[f.key]} /> {f.label}</label>
-    {:else if f.kind === 'select'}
-      <label
-        >{f.label}
-        <select bind:value={values[f.key]}>
-          {#each f.options as o (o)}<option value={o}>{o}</option>{/each}
-        </select>
-      </label>
-    {:else if f.kind === 'textarea'}
-      <label>{f.label} <textarea bind:value={values[f.key]} placeholder={f.placeholder} rows="3"></textarea></label>
-    {:else if f.kind === 'number'}
-      <label>{f.label} <input type="number" bind:value={values[f.key]} min={f.min} max={f.max} placeholder={f.placeholder} /></label>
-    {:else if f.kind === 'url'}
-      <label>{f.label} <input type="url" bind:value={values[f.key]} placeholder={f.placeholder} /></label>
-    {:else}
-      <label>{f.label} <input bind:value={values[f.key]} placeholder={f.placeholder} /></label>
+    {#if shown(f, values)}
+      {#if f.kind === 'check'}
+        <label class="check"><input type="checkbox" bind:checked={values[f.key]} /> {f.label}</label>
+      {:else if f.kind === 'select'}
+        <label
+          >{f.label}
+          <select bind:value={values[f.key]}>
+            {#each f.options as o (o)}<option value={o}>{o}</option>{/each}
+          </select>
+        </label>
+      {:else if f.kind === 'secret'}
+        {@const saved = existing?.secrets_set.includes(f.key) && !clearSecrets.includes(f.key)}
+        <label
+          >{f.label}
+          {#if f.rows}
+            <textarea
+              bind:value={values[f.key]}
+              placeholder={saved ? 'Saved: leave empty to keep it' : f.placeholder}
+              rows={f.rows}
+              autocomplete="off"
+              spellcheck="false"></textarea>
+          {:else}
+            <input
+              type="password"
+              bind:value={values[f.key]}
+              placeholder={saved ? 'Saved: leave empty to keep it' : f.placeholder}
+              autocomplete="new-password" />
+          {/if}
+        </label>
+        {#if existing?.secrets_set.includes(f.key)}
+          <label class="check"
+            ><input type="checkbox" bind:group={clearSecrets} value={f.key} /> Remove the saved {f.label.toLowerCase()}</label
+          >
+        {/if}
+      {:else if f.kind === 'textarea'}
+        <label>{f.label} <textarea bind:value={values[f.key]} placeholder={f.placeholder} rows={f.rows ?? 3}></textarea></label>
+      {:else if f.kind === 'number'}
+        <label>{f.label} <input type="number" bind:value={values[f.key]} min={f.min} max={f.max} placeholder={f.placeholder} /></label>
+      {:else if f.kind === 'url'}
+        <label>{f.label} <input type="url" bind:value={values[f.key]} placeholder={f.placeholder} /></label>
+      {:else}
+        <label>{f.label} <input bind:value={values[f.key]} placeholder={f.placeholder} /></label>
+      {/if}
+      {#if f.help}<span class="muted help">{f.help}</span>{/if}
     {/if}
-    {#if f.help}<span class="muted help">{f.help}</span>{/if}
   {/each}
 
   {#if type === 'push'}

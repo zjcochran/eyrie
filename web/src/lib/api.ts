@@ -134,6 +134,8 @@ export interface MonitorChange {
   description: string;
   settings: Record<string, unknown>;
   reset_push_token?: boolean;
+  /** Secret settings to remove; an empty secret otherwise keeps the saved one. */
+  clear_secrets?: string[];
   /** Notification channels; left out, a new monitor gets the default ones. */
   channels?: number[];
   /** Tags, each with a value ('' for none); left out, a changed monitor keeps its own. */
@@ -163,6 +165,8 @@ export interface Monitor extends Omit<MonitorChange, 'type' | 'channels' | 'tags
   tags: MonitorTag[];
   type: string;
   push_url?: string;
+  /** The secret settings that are set; settings never include them. */
+  secrets_set: string[];
   created_at: string;
   updated_at: string;
   status: {
