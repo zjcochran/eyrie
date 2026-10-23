@@ -191,19 +191,22 @@ All admin routes. See [Alert analysis](../user/alert-analysis.md).
 | Method and path | Body | Answer |
 | --- | --- | --- |
 | `GET /api/v1/settings/analysis` | | `200` the settings, below |
-| `PUT /api/v1/settings/analysis` | `{"enabled","provider","model","base_url","timeout_s","api_key","clear_api_key"}` | `200` the settings; applies at once. `422` for an unknown `provider` (`api` or `local`), a timeout outside 5 to 300 seconds, a model name with spaces or starting with `-`, a `base_url` that is not an `http` or `https` URL with a host (or has a user, query or fragment), a subscription token (`sk-ant-oat…`) as `api_key`, turning on `api` without a key, or turning on `local` without `base_url` and `model`. `api_key` and `clear_api_key` are the chosen provider's key: an empty one keeps the saved key unless `clear_api_key` is set; the other provider's key is kept. |
+| `PUT /api/v1/settings/analysis` | `{"enabled","provider","model","base_url","timeout_s","api_key","clear_api_key"}` | `200` the settings; applies at once. `422` for an unknown `provider` (`api`, `claude-code` or `local`), `claude-code` without `EYRIE_CLAUDE_CODE=true`, a timeout outside 5 to 300 seconds, a model name with spaces or starting with `-`, a `base_url` that is not an `http` or `https` URL with a host (or has a user, query or fragment), a subscription token (`sk-ant-oat…`) as `api_key`, turning on `api` without a key, or turning on `local` without `base_url` and `model`. `api_key` and `clear_api_key` are the chosen provider's key: an empty one keeps the saved key unless `clear_api_key` is set; the other provider's key is kept. |
 | `POST /api/v1/settings/analysis/test` | the same, not saved | `200` `{"ok":true,"message":"<the analysis of a made-up alert>"}` or `{"ok":false,"message":"<why>"}`. `422` as for `PUT`. |
-| `POST /api/v1/settings/analysis/models` | the same, not saved | `200` `{"models":["<id>",…]}`: the provider's models (the Claude API's newest first, a server's by name), or `{"models":[],"error":"<why>"}`. Waits at most 10 seconds. `422` as for `PUT`. |
+| `POST /api/v1/settings/analysis/models` | the same, not saved | `200` `{"models":["<id>",…]}`: the provider's models (the Claude API's newest first, Claude Code's aliases `opus`, `sonnet`, `haiku`, a server's by name), or `{"models":[],"error":"<why>"}`. Waits at most 10 seconds. `422` as for `PUT`. |
 
 ```json
 {
   "enabled": true, "provider": "local", "model": "llama3.2", "has_api_key": false,
   "base_url": "http://192.0.2.20:11434/v1", "has_local_api_key": false, "timeout_s": 60,
-  "default_model": "claude-opus-5-5"
+  "default_model": "claude-opus-5-5",
+  "claude_code": {"state": "ready", "version": "2.1.308"}
 }
 ```
 
-The keys themselves are never returned.
+The keys themselves are never returned. `claude_code` is `null` unless
+`EYRIE_CLAUDE_CODE=true`; otherwise its `state` is `installing`, `ready`
+(with the `version`) or `failed` (with the `error`).
 
 ### Monitors
 

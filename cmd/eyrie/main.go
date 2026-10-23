@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -114,6 +115,10 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	env := check.DefaultEnv("Eyrie/" + version)
 	eng := engine.New(st, env, log)
 	analyzer := &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: version}
+	if cfg.ClaudeCode {
+		analyzer.Claude = &analysis.ClaudeCode{Dir: filepath.Join(cfg.DataDir, "claude-code"), Log: log}
+		go analyzer.Claude.Run(ctx)
+	}
 	if a, err := analysis.LoadSettings(ctx, st); err != nil {
 		log.Error("cannot read the alert analysis settings", "err", err)
 	} else {

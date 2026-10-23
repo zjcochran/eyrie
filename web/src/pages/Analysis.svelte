@@ -64,6 +64,7 @@
   });
 
   let hasKey = $derived(saved ? (form.provider === 'api' ? saved.has_api_key : saved.has_local_api_key) : false);
+  let needsKey = $derived(form.provider !== 'claude-code');
 
   async function save(event: SubmitEvent) {
     event.preventDefault();
@@ -106,11 +107,17 @@
     <form onsubmit={save}>
       <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Analyse down alerts</label>
       <fieldset>
-        <legend>Model</legend>
+        <legend>Analyse with</legend>
         <label class="check"
           ><input type="radio" bind:group={form.provider} value="api" onchange={loadModels} /> Claude, with an Anthropic API key (billed to the
           key's Claude Console account)</label
         >
+        {#if saved.claude_code}
+          <label class="check"
+            ><input type="radio" bind:group={form.provider} value="claude-code" onchange={loadModels} /> Claude, with
+            your Claude Pro or Max subscription (through Claude Code)</label
+          >
+        {/if}
         <label class="check"
           ><input type="radio" bind:group={form.provider} value="local" onchange={loadModels} /> A model on your own server (Ollama, LM Studio,
           llama.cpp, vLLM or another OpenAI-compatible API)</label
@@ -132,7 +139,19 @@
           1234, llama.cpp on 8080 and vLLM on 8000.
         </p>
       {/if}
-      <label
+      {#if form.provider === 'claude-code' && saved.claude_code}
+        <p class="muted">
+          {#if saved.claude_code.state === 'ready'}
+            Claude Code {saved.claude_code.version} is downloaded. It signs in with the
+            <code>CLAUDE_CODE_OAUTH_TOKEN</code> in Eyrie's environment (from <code>claude setup-token</code>).
+          {:else if saved.claude_code.state === 'failed'}
+            Claude Code could not be downloaded: {saved.claude_code.error} Eyrie tries again every hour.
+          {:else}
+            Claude Code is downloading from Anthropic (about 300 MB); reload this page in a minute.
+          {/if}
+        </p>
+      {/if}
+      {#if needsKey}<label
         >{form.provider === 'api' ? 'API key' : 'API key (if the server needs one)'}
         <input
           type="password"
@@ -141,8 +160,8 @@
           autocomplete="off"
           placeholder={hasKey ? 'Saved; leave blank to keep it' : form.provider === 'api' ? 'sk-ant-api03-…' : ''}
         /></label
-      >
-      {#if hasKey}<label class="check"
+      >{/if}
+      {#if needsKey && hasKey}<label class="check"
           ><input type="checkbox" bind:checked={form.clear_api_key} /> Remove the saved API key</label
         >{/if}
       {#if choices}
@@ -150,6 +169,7 @@
           >Model
           <select bind:value={form.model} required={form.enabled && form.provider === 'local'}>
             {#if form.provider === 'api'}<option value="">Default ({saved.default_model})</option>
+            {:else if form.provider === 'claude-code'}<option value="">Your account's default</option>
             {:else if !form.model}<option value="" disabled>Choose a model</option>{/if}
             {#each choices as id (id)}<option value={id}>{id}</option>{/each}
           </select></label
@@ -166,7 +186,7 @@
         >
       {/if}
       <p class="muted">
-        {#if choices}{choices.length} models listed by the {form.provider === 'api' ? 'Claude API' : 'server'}.
+        {#if choices}{choices.length} models listed by {form.provider === 'local' ? 'the server' : form.provider === 'api' ? 'the Claude API' : 'Claude Code'}.
         {:else if modelsError}Cannot list the models: {modelsError}
         {:else}Listing the models…{/if}
         <button type="button" onclick={loadModels}>List again</button>

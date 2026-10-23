@@ -10,8 +10,9 @@ keywords, JSON), TCP ports, ping and DNS, takes pushes from jobs, and has
 manual monitors and groups, a live dashboard, uptime history and Prometheus
 metrics, and notifies ntfy, Gotify, Pushover, Telegram, Discord, email and
 signed webhooks, with accounts, two-factor sign-in and single sign-on.
-Down alerts can carry an analysis of the failure by Claude or a model on
-your own server, such as Ollama (off by default).
+Down alerts can carry an analysis of the failure by Claude (an API key or
+your Claude subscription) or a model on your own server, such as Ollama
+(off by default).
 Tags, maintenance windows and status pages follow; see [the plan](#roadmap).
 
 ## Quick start
@@ -41,7 +42,7 @@ model, testing and CI, development.
 2. Users and sign-in: passwords, two-factor sign-in, single sign-on, API tokens
 3. The monitor engine, the first monitor types, Prometheus metrics
 4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks
-5. Alert analysis: down alerts carry an analysis by Claude (an Anthropic API key) or a model on your own server (Ollama, LM Studio, llama.cpp, vLLM) (this version)
+5. Alert analysis: down alerts carry an analysis by Claude (an Anthropic API key, or a Claude subscription through Claude Code) or a model on your own server (Ollama, LM Studio, llama.cpp, vLLM) (this version)
 6. Tags and maintenance windows
 7. Status pages, incidents and status badges
 8. and 9. The remaining monitor types (every type Uptime Kuma and Peekaping have)

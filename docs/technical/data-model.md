@@ -55,7 +55,7 @@ Settings saved from the web UI, one JSON document per key.
 
 | Key | Value |
 | --- | --- |
-| `analysis` | Alert analysis settings: `enabled`, `provider` (`api` or `local`), `model` (`""` for Claude's default), `api_key` (the Anthropic API key, sealed with the instance key; `""` for none), `base_url` (the local server's API), `local_api_key` (sealed; `""` for none), `timeout_s`. Missing: off, `api`, 60 seconds. |
+| `analysis` | Alert analysis settings: `enabled`, `provider` (`api`, `claude-code` or `local`), `model` (`""` for the default), `api_key` (the Anthropic API key, sealed with the instance key; `""` for none), `base_url` (the local server's API), `local_api_key` (sealed; `""` for none), `timeout_s`. Missing: off, `api`, 60 seconds. |
 | `notifications` | `{"cert_expiry_days":[21,14,7]}`: the days before a certificate expires when monitors that ask for it warn. Missing: 21, 14, 7. |
 | `retention` | `{"heartbeat_days":90}`: how many days heartbeats are kept, 1 to 3650. Missing: 90. |
 | `sso` | Single sign-on settings: `enabled`, `issuer`, `client_id`, `client_secret` (sealed with the instance key; `""` for none), `display_name`, `auto_provision`, `allowed_group`, `admin_group`, `sso_only`. Missing: off, with `auto_provision` on. |

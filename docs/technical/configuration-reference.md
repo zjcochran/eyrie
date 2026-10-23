@@ -16,6 +16,8 @@ variable.
 | `EYRIE_LOCAL_LOGIN` | empty | `force` (any case): password sign-in works even when single sign-on is set to be the only way in, for when the provider cannot be reached. Eyrie logs a warning at start while it is set. Any other value is refused. |
 | `EYRIE_SOURCE_URL` | the URL set at build time (published images: `https://github.com/zjcochran/eyrie`) | Where the source code of the running version is: an `http(s)` URL, linked from the footer of every page and given in `/api/v1/info` (AGPL section 13). Set it when you run a modified version. Without either, the footer links only to the licence. |
 | `EYRIE_METRICS_TOKEN` | empty | Turns on `/metrics` (Prometheus) behind `Authorization: Bearer <token>`. Empty: `/metrics` answers 404. See [HTTP interface](http-interface.md#metrics). |
+| `EYRIE_CLAUDE_CODE` | `false` | `true` (any case): Eyrie downloads Claude Code from Anthropic into `<data folder>/claude-code` at start and keeps it at the stable release, so [alert analysis](../user/alert-analysis.md#claude-with-your-subscription-claude-code) can use a Claude subscription. Sign it in with `CLAUDE_CODE_OAUTH_TOKEN`. Any value but `true` or `false` is refused. |
+| `CLAUDE_CODE_OAUTH_TOKEN` | empty | Read by Claude Code, never by Eyrie: the token from `claude setup-token` that signs Claude Code in with your subscription. |
 | `EYRIE_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`, in any case. The log is plain text (`key=value`) on standard error. |
 | `TZ` | `UTC` | Time zone for the log, as an IANA name such as `Etc/UTC`. The zone database is built into the binary. |
 

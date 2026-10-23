@@ -76,19 +76,22 @@ export interface SSOSettingsChange extends Omit<SSOSettings, 'has_secret' | 'cal
 
 export interface AnalysisSettings {
   enabled: boolean;
-  /** 'api': Claude with an Anthropic API key; 'local': an OpenAI-compatible server. */
-  provider: 'api' | 'local';
+  /** 'api': Claude with an Anthropic API key; 'claude-code': Claude with a
+   * subscription, through Claude Code; 'local': an OpenAI-compatible server. */
+  provider: 'api' | 'claude-code' | 'local';
   model: string;
   has_api_key: boolean;
   base_url: string;
   has_local_api_key: boolean;
   timeout_s: number;
   default_model: string;
+  /** The Claude Code download; null unless EYRIE_CLAUDE_CODE=true. */
+  claude_code: { state: 'installing' | 'ready' | 'failed'; version?: string; error?: string } | null;
 }
 
 export interface AnalysisSettingsChange {
   enabled: boolean;
-  provider: 'api' | 'local';
+  provider: 'api' | 'claude-code' | 'local';
   model: string;
   base_url: string;
   timeout_s: number;

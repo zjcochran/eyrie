@@ -20,11 +20,19 @@ type analysisView struct {
 	HasLocalAPIKey bool   `json:"has_local_api_key"`
 	TimeoutS       int    `json:"timeout_s"`
 	DefaultModel   string `json:"default_model"`
+	// ClaudeCode is the Claude Code download; null when EYRIE_CLAUDE_CODE
+	// is not true.
+	ClaudeCode *analysis.ClaudeCodeStatus `json:"claude_code"`
 }
 
-func analysisViewOf(a analysis.Settings) analysisView {
-	return analysisView{Enabled: a.Enabled, Provider: a.Provider, Model: a.Model, HasAPIKey: a.APIKey != "",
+func (s *Server) analysisView(a analysis.Settings) analysisView {
+	v := analysisView{Enabled: a.Enabled, Provider: a.Provider, Model: a.Model, HasAPIKey: a.APIKey != "",
 		BaseURL: a.BaseURL, HasLocalAPIKey: a.LocalKey != "", TimeoutS: a.TimeoutS, DefaultModel: analysis.DefaultModel}
+	if s.Analyzer.Claude != nil {
+		st := s.Analyzer.Claude.Status()
+		v.ClaudeCode = &st
+	}
+	return v
 }
 
 func (s *Server) getAnalysis(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +41,7 @@ func (s *Server) getAnalysis(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, analysisViewOf(a))
+	writeJSON(w, http.StatusOK, s.analysisView(a))
 }
 
 // analysisBody is what saving or testing the settings sends. api_key and
@@ -84,6 +92,10 @@ func (s *Server) analysisSettings(w http.ResponseWriter, r *http.Request, b anal
 		invalid(w, http.StatusUnprocessableEntity, capitalize(err.Error())+".")
 		return next, "", false
 	}
+	if next.Provider == analysis.ProviderClaudeCode && s.Analyzer.Claude == nil {
+		invalid(w, http.StatusUnprocessableEntity, "Claude Code is off: set EYRIE_CLAUDE_CODE=true in Eyrie's environment and restart it.")
+		return next, "", false
+	}
 	return next, key, true
 }
 
@@ -103,7 +115,7 @@ func (s *Server) saveAnalysis(w http.ResponseWriter, r *http.Request) {
 	s.Analyzer.SetSettings(next)
 	s.Log.Info("alert analysis settings saved", "enabled", next.Enabled, "provider", next.Provider, "model", next.Model,
 		"base_url", next.BaseURL, "by", sessionFrom(r).User.Username)
-	writeJSON(w, http.StatusOK, analysisViewOf(next))
+	writeJSON(w, http.StatusOK, s.analysisView(next))
 }
 
 // testAnalysis asks the model about a made-up alert with the form as it is,

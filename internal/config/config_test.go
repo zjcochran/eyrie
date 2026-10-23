@@ -18,7 +18,7 @@ func TestDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	if c.Listen != ":8080" || c.DataDir != "/data" || c.LogLevel != slog.LevelInfo || c.Postgres() ||
-		c.BaseURL != "" || c.TrustedProxies != nil || c.ForceLocal {
+		c.BaseURL != "" || c.TrustedProxies != nil || c.ForceLocal || c.ClaudeCode {
 		t.Errorf("defaults = %+v", c)
 	}
 	if c.Database() != "/data/eyrie.db" || c.SecretKeyFile() != "/data/secret.key" {
@@ -38,6 +38,7 @@ func TestSet(t *testing.T) {
 		"EYRIE_LOCAL_LOGIN":     "Force",
 		"EYRIE_METRICS_TOKEN":   " t0ken ",
 		"EYRIE_SOURCE_URL":      "https://git.example.com/eyrie",
+		"EYRIE_CLAUDE_CODE":     "True",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -45,8 +46,9 @@ func TestSet(t *testing.T) {
 	if c.Listen != "127.0.0.1:9000" || c.SecretKey != "k" || c.LogLevel != slog.LevelDebug || !c.Postgres() {
 		t.Errorf("config = %+v", c)
 	}
-	if c.BaseURL != "https://eyrie.example.com" || !c.ForceLocal || c.SourceURL != "https://git.example.com/eyrie" || c.MetricsToken != "t0ken" {
-		t.Errorf("base URL %q, force %v", c.BaseURL, c.ForceLocal)
+	if c.BaseURL != "https://eyrie.example.com" || !c.ForceLocal || c.SourceURL != "https://git.example.com/eyrie" || c.MetricsToken != "t0ken" ||
+		!c.ClaudeCode {
+		t.Errorf("base URL %q, force %v, claude code %v", c.BaseURL, c.ForceLocal, c.ClaudeCode)
 	}
 	var proxies []string
 	for _, p := range c.TrustedProxies {
@@ -69,6 +71,7 @@ func TestInvalid(t *testing.T) {
 		{"EYRIE_BASE_URL", "https://eyrie.example.com/?x=1"},
 		{"EYRIE_TRUSTED_PROXIES", "192.0.2.1, proxy.example.com"},
 		{"EYRIE_LOCAL_LOGIN", "yes"},
+		{"EYRIE_CLAUDE_CODE", "yes"},
 		{"EYRIE_SOURCE_URL", "git.example.com/eyrie"},
 	} {
 		if _, err := Load(env(map[string]string{c.name: c.value})); err == nil || !strings.Contains(err.Error(), c.name) {

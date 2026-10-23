@@ -224,8 +224,8 @@ proxy saw.
 ## Alert analysis
 
 Off by default. When an admin turns it on, each down alert sends the
-monitor's data to Anthropic under the admin's API key, or to the server
-URL the admin set. See [what is sent](../user/alert-analysis.md#what-is-sent-to-the-model).
+monitor's data to Anthropic under the admin's API key or subscription, or
+to the server URL the admin set. See [what is sent](../user/alert-analysis.md#what-is-sent-to-the-model).
 
 - Monitor settings are sent only through `check.Describe`, which each
   monitor type implements to list what may leave Eyrie: never header
@@ -239,6 +239,15 @@ URL the admin set. See [what is sent](../user/alert-analysis.md#what-is-sent-to-
   never sent to the other) are sealed like other secrets and never
   returned. Claude subscription tokens are refused as API keys: Anthropic
   allows them only in its own apps.
+- With `EYRIE_CLAUDE_CODE=true`, Eyrie downloads Claude Code over HTTPS
+  from Anthropic and runs it only if its size and SHA-256 match the
+  release's manifest, from the same place (as Anthropic's installer
+  does). The binary is kept in the data folder, readable and runnable
+  only by Eyrie's user. It runs as a fixed command with fixed arguments,
+  but for the model name, which may not start with `-` or contain spaces,
+  with no tools, MCP servers or slash commands, in a new empty folder, and
+  is killed at the timeout. Its sign-in, `CLAUDE_CODE_OAUTH_TOKEN`, is
+  read only by Claude Code.
 - Only admins set the server URL, which must be `http` or `https` without
   a user, query or fragment. Without `https`, the monitor's data crosses
   the network in clear.

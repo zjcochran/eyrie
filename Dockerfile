@@ -20,7 +20,10 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -tags ui -trimpath -ldflags="-s -w -X main.version=${VERSION} -X main.sourceURL=${SOURCE_URL}" -o /out/eyrie ./cmd/eyrie && \
     mkdir /out/data
 
-FROM gcr.io/distroless/static-debian13:nonroot
+# base-nossl is Debian's glibc and nothing more (no shell, no package
+# manager): the Go binary needs none of it, but the Claude Code binary that
+# EYRIE_CLAUDE_CODE=true downloads at start does.
+FROM gcr.io/distroless/base-nossl-debian13:nonroot
 ARG VERSION=dev
 # Where the source is, for published images (github-image sets it).
 ARG SOURCE_URL=""

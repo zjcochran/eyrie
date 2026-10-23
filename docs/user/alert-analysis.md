@@ -21,6 +21,7 @@ It is **off** until an admin turns it on, in **Settings → Alert analysis**.
 | Model | What you need | Billed to |
 | --- | --- | --- |
 | **Claude** | An API key from the [Claude Console](https://platform.claude.com) (`sk-ant-api03-…`) | The Console account the key belongs to, per token |
+| **Claude with your subscription** | A Claude Pro or Max subscription, and `EYRIE_CLAUDE_CODE=true`: Eyrie downloads [Claude Code](https://code.claude.com) to use it | Your subscription's usage limits |
 | **A model on your own server** | A server with an OpenAI-compatible API that Eyrie can reach: [Ollama](https://ollama.com), LM Studio, llama.cpp's `llama-server`, vLLM, LocalAI | Nobody: it runs on your hardware |
 
 ### Claude
@@ -30,9 +31,59 @@ like other secrets, and never sent back to the browser: the form shows
 "Saved; leave blank to keep it". Tick **Remove the saved API key** to
 delete it.
 
-A Claude Pro or Max subscription cannot be used: Anthropic allows
-subscription sign-ins only in its own apps, so a subscription token
-(`sk-ant-oat…`, from `claude setup-token`) is refused here.
+A subscription token (`sk-ant-oat…`, from `claude setup-token`) is
+refused here: Anthropic allows subscription sign-ins only in its own apps.
+Use it with Claude Code, below.
+
+### Claude with your subscription (Claude Code)
+
+Anthropic allows a Claude Pro or Max subscription only in its own apps,
+such as Claude Code. So Eyrie downloads the unmodified Claude Code from
+Anthropic and asks Claude through it; Claude Code holds the sign-in, and
+Eyrie never reads it.
+
+1. On any computer with a browser, install Claude Code and run
+   `claude setup-token`. Sign in with your subscription; it prints a token
+   that lasts a year.
+2. Give Eyrie two environment variables, such as in `compose.yaml`, and
+   restart it:
+
+   ```yaml
+       environment:
+         EYRIE_CLAUDE_CODE: "true"
+         CLAUDE_CODE_OAUTH_TOKEN: <the token>
+   ```
+
+3. In **Settings → Alert analysis**, choose **Claude, with your Claude Pro
+   or Max subscription**, then **Test with a made-up alert**.
+
+At start, Eyrie downloads Claude Code's stable release from
+`https://downloads.claude.ai/claude-code-releases`, the way Anthropic's
+installer does: it reads the version, then the release's manifest, and
+keeps the binary only if its size and SHA-256 match the manifest. It is
+about 300 MB, kept in `<data folder>/claude-code/<version>/claude`, so a
+restart does not download it again. Eyrie starts without waiting for it;
+the settings page shows when it is ready. Every day Eyrie checks for a
+new stable release and replaces the old one; after a failed download it
+tries again every hour, and a working older version stays in use. Claude
+Code does not update itself, and keeps its own settings in
+`<data folder>/claude-code/config`.
+
+Claude Code runs on Linux (x86-64 and Arm, glibc or musl) and macOS. The
+published image includes the C library it needs.
+
+Each analysis runs Claude Code with no tools, no MCP servers, no slash
+commands and no saved session, in a new empty folder that is deleted
+afterwards:
+
+```sh
+claude -p --output-format json --max-turns 1 --tools "" --strict-mcp-config \
+  --disable-slash-commands --no-session-persistence --system-prompt "<Eyrie's instructions>" \
+  [--model <model>]   # the alert's data on standard input
+```
+
+The models are Claude Code's aliases, `opus`, `sonnet` and `haiku`, or
+your account's default.
 
 ### A model on your own server
 
@@ -84,10 +135,10 @@ made-up alert** to see how long it takes.
 | Setting | Meaning |
 | --- | --- |
 | Analyse down alerts | Off by default. |
-| Model | Claude, or a model on your own server. |
+| Analyse with | Claude with an API key, Claude with your subscription (only with `EYRIE_CLAUDE_CODE=true`), or a model on your own server. |
 | Server URL | Your own server only. Required to turn analysis on. |
-| API key | Claude: required to turn analysis on. Your own server: only if it needs one. |
-| Model | Chosen from the models the provider lists (Claude: `GET /v1/models` with the API key; your own server: `GET <server URL>/models`), or typed in when the list cannot be loaded. Claude: blank is `claude-opus-5-5`. Your own server: required. |
+| API key | Claude with an API key: required to turn analysis on. Your own server: only if it needs one. Not used with your subscription. |
+| Model | Chosen from the models the provider lists (Claude: `GET /v1/models` with the API key; your own server: `GET <server URL>/models`), or typed in when the list cannot be loaded. Claude: blank is `claude-opus-5-5`. Your subscription: `opus`, `sonnet`, `haiku`, or blank for your account's default. Your own server: required. |
 | Timeout | 5 to 300 seconds, 60 by default: how long a down alert waits for the analysis. |
 
 **Test with a made-up alert** sends a made-up down alert (a shop website
@@ -139,7 +190,8 @@ start of a page without the keyword. The model is told that everything
 about the monitor is data, not instructions.
 
 With Claude, requests go to `https://api.anthropic.com/v1/messages` under
-the key's Claude Console account, and
+the key's Claude Console account, or through Claude Code under your
+subscription, and
 [Anthropic's terms and privacy policy](https://www.anthropic.com/legal)
 apply to what is sent. With your own server, they go only to the server
 URL.

@@ -169,3 +169,27 @@ func TestAnalysisModels(t *testing.T) {
 		t.Errorf("bad URL: %d", code)
 	}
 }
+
+func TestAnalysisClaudeCode(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	var v analysisView
+	if admin.call("GET", "/api/v1/settings/analysis", nil, &v); v.ClaudeCode != nil {
+		t.Errorf("off %+v", v.ClaudeCode)
+	}
+	cc := map[string]any{"enabled": true, "provider": "claude-code", "timeout_s": 60}
+	if code, msg := admin.errorOf("PUT", "/api/v1/settings/analysis", cc); code != http.StatusUnprocessableEntity ||
+		!strings.Contains(msg, "EYRIE_CLAUDE_CODE=true") {
+		t.Errorf("off: %d %q", code, msg)
+	}
+	// On, still downloading.
+	e.analyzer.Claude = &analysis.ClaudeCode{Dir: t.TempDir()}
+	if code := admin.call("PUT", "/api/v1/settings/analysis", cc, &v); code != http.StatusOK || v.Provider != "claude-code" ||
+		v.ClaudeCode == nil || v.ClaudeCode.State != "installing" {
+		t.Errorf("on: %d %+v %+v", code, v, v.ClaudeCode)
+	}
+	var res ssoTest
+	if admin.call("POST", "/api/v1/settings/analysis/test", cc, &res); res.OK || !strings.Contains(res.Message, "not finished") {
+		t.Errorf("test %+v", res)
+	}
+}

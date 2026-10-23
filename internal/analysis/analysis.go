@@ -5,6 +5,10 @@
 // and uses one of:
 //
 //   - Claude, through the Claude API with an Anthropic API key;
+//   - Claude with the admin's Claude subscription, through the unmodified
+//     Claude Code binary, which Eyrie downloads from Anthropic when
+//     EYRIE_CLAUDE_CODE is true (ClaudeCode) and the admin signs in with
+//     CLAUDE_CODE_OAUTH_TOKEN; Eyrie never reads that token;
 //   - a model on a server the admin runs (Ollama, LM Studio, llama.cpp,
 //     vLLM), through the OpenAI-compatible chat completions API at its
 //     URL, with an optional API key.
@@ -32,8 +36,9 @@ import (
 
 // Providers: which model answers.
 const (
-	ProviderAPI   = "api"   // Claude, through the Claude API
-	ProviderLocal = "local" // an OpenAI-compatible server
+	ProviderAPI        = "api"         // Claude, through the Claude API
+	ProviderClaudeCode = "claude-code" // Claude, through Claude Code
+	ProviderLocal      = "local"       // an OpenAI-compatible server
 )
 
 // DefaultModel is the Claude API model used when none is set.
@@ -50,8 +55,8 @@ const MaxLength = 800
 type Settings struct {
 	Enabled  bool   `json:"enabled"`
 	Provider string `json:"provider"`
-	// Model is a model name; "" is DefaultModel for the Claude API, and
-	// required for a local server.
+	// Model is a model name; "" is DefaultModel for the Claude API and the
+	// account's default for Claude Code, and required for a local server.
 	Model  string `json:"model"`
 	APIKey string `json:"api_key"` // sealed; the Anthropic API key
 	// BaseURL is the local server's OpenAI-compatible API, such as
@@ -68,7 +73,7 @@ func DefaultSettings() Settings { return Settings{Provider: ProviderAPI, Timeout
 func (s *Settings) Normalize() error {
 	s.Model = strings.TrimSpace(s.Model)
 	s.BaseURL = strings.TrimRight(strings.TrimSpace(s.BaseURL), "/")
-	if s.Provider != ProviderAPI && s.Provider != ProviderLocal {
+	if s.Provider != ProviderAPI && s.Provider != ProviderClaudeCode && s.Provider != ProviderLocal {
 		return fmt.Errorf("unknown provider %q", s.Provider)
 	}
 	if s.TimeoutS < 5 || s.TimeoutS > 300 {
@@ -109,7 +114,7 @@ func (s *Settings) Key() *string {
 func CheckKey(key string) error {
 	if strings.HasPrefix(key, "sk-ant-oat") {
 		return errors.New("that is a Claude subscription token, which Anthropic allows only in its own apps; " +
-			"create an API key in the Claude Console")
+			"to use your subscription, set it as CLAUDE_CODE_OAUTH_TOKEN with EYRIE_CLAUDE_CODE=true and choose Claude Code")
 	}
 	if strings.ContainsAny(key, " \t\r\n") {
 		return errors.New("the API key cannot contain spaces")
@@ -138,6 +143,9 @@ type Analyzer struct {
 	Client  *http.Client // nil: http.DefaultClient; the timeout comes from the settings
 	APIURL  string       // "": https://api.anthropic.com
 	Version string       // sent in the User-Agent
+	// Claude is Claude Code, when EYRIE_CLAUDE_CODE is true; nil otherwise.
+	Claude *ClaudeCode
+	Run    Runner // nil: os/exec
 	// Now is the clock; nil is time.Now.
 	Now func() time.Time
 	// second is how long a second of the timeout lasts: shorter in tests.
@@ -241,9 +249,12 @@ func (a *Analyzer) ask(ctx context.Context, s Settings, prompt string) (string, 
 func (a *Analyzer) askKey(ctx context.Context, s Settings, key, prompt string) (string, error) {
 	var text string
 	var err error
-	if s.Provider == ProviderLocal {
+	switch s.Provider {
+	case ProviderLocal:
 		text, err = a.chat(ctx, s, key, prompt)
-	} else {
+	case ProviderClaudeCode:
+		text, err = a.claudeCode(ctx, s, prompt)
+	default:
 		text, err = a.messages(ctx, s, key, prompt)
 	}
 	if err != nil {

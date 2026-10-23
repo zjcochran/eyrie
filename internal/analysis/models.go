@@ -23,14 +23,18 @@ type modelList struct {
 }
 
 // Models lists the models the provider of settings s offers, whose API
-// keys are in clear: the Claude API's newest first (GET /v1/models), a
-// local server's by name (GET <base URL>/models).
+// keys are in clear: the Claude API's newest first (GET /v1/models),
+// Claude Code's aliases, a local server's by name (GET <base URL>/models).
 func (a *Analyzer) Models(ctx context.Context, s Settings) ([]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, modelsTimeout)
 	defer cancel()
 	var resp answer
 	var err error
 	who := "the Claude API"
+	if s.Provider == ProviderClaudeCode {
+		// Claude Code takes these aliases for the latest of each model.
+		return []string{"opus", "sonnet", "haiku"}, nil
+	}
 	if s.Provider == ProviderLocal {
 		if s.BaseURL == "" {
 			return nil, errors.New("enter the server URL first")
