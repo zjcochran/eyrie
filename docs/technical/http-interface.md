@@ -24,6 +24,9 @@ One server (`internal/api`) answers everything on `EYRIE_LISTEN`.
 
 See [Security](security.md) for sessions, CSRF, rate limits and tokens.
 
+What of this stays the same between versions is in
+[Upgrades and compatibility](../user/upgrading.md#what-stays-compatible).
+
 ## Routes
 
 ### Health and version
@@ -55,7 +58,7 @@ See [Security](security.md) for sessions, CSRF, rate limits and tokens.
   "csrf": "<token>",
   "sso": { "enabled": true, "name": "Example ID" },
   "password_sign_in": true,
-  "version": "v0.2.0",
+  "version": "v0.10.0",
   "source": "https://github.com/zjcochran/eyrie"
 }
 ```
@@ -557,10 +560,14 @@ A binary built without the tag `ui` answers every app path with `503` and a
 page saying it has no web interface.
 
 The app's pages: `/` (monitors), `/monitors/new`, `/monitors/{id}`,
-`/monitors/{id}/edit`, `/login`, `/settings/account`, `/settings/users`,
-`/settings/sso`, `/settings/api-tokens`, `/settings/notifications`,
-`/settings/alert-analysis` and `/settings/history`. Before the
-first account exists every page shows the setup form.
+`/monitors/{id}/edit`, `/maintenance`, `/status-pages`,
+`/status-pages/new`, `/status-pages/{id}`, `/status/{address}` (a public
+status page), `/login`, `/settings` (the same as `/settings/account`),
+`/settings/account`, `/settings/users`, `/settings/sso`,
+`/settings/api-tokens`, `/settings/tags`, `/settings/notifications`,
+`/settings/alert-analysis`, `/settings/history` and `/settings/backup`.
+Any other path shows **Not found**. Before the first account exists every
+page but public status pages shows the setup form.
 
 ## Response headers
 

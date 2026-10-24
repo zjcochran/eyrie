@@ -55,6 +55,14 @@ same tables, columns and indexes. Use the shared types in the
 [data model](data-model.md). Never edit a migration that has been merged.
 `TestMigrationsInStep` and `TestSchemasMatch` check this.
 
+Within a major version, a migration only adds: tables, indexes, and
+columns that are nullable or have a default. Backup files of older
+versions lack the new columns and must still restore
+(`TestBackupOlderSchema`), and the
+[compatibility promises](../user/upgrading.md#what-stays-compatible) keep
+every saved setting's meaning. Renaming or removing waits for a major
+version.
+
 ## Adding an npm package
 
 Don't, without asking the user first: the app keeps to five packages

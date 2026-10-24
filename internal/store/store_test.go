@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -274,5 +275,21 @@ func TestMigrationsInStep(t *testing.T) {
 	}
 	if a, b := list("sqlite"), list("postgres"); !reflect.DeepEqual(a, b) {
 		t.Errorf("migration files differ:\nsqlite   %v\npostgres %v", a, b)
+	}
+}
+
+func TestNewerDatabaseRefused(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "eyrie.db")
+	s, err := Open(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`INSERT INTO goose_db_version (version_id, is_applied) VALUES (?, ?)`, 99999, true); err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	_, err = Open(context.Background(), path)
+	if !errors.Is(err, ErrNewerDatabase) || !strings.Contains(err.Error(), "schema 99999") {
+		t.Fatalf("got %v, want ErrNewerDatabase", err)
 	}
 }

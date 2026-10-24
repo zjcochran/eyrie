@@ -37,7 +37,8 @@ with history. A restore deletes the rows of every one of these tables and
 transaction; `monitors.parent_id` is set once every monitor is in, and
 PostgreSQL's identity sequences are moved past the restored ids. Only
 known tables and columns are accepted, and the schema version of a backup
-must not be newer than the database's.
+must not be newer than the database's. A backup of an older schema
+leaves out the columns added since, which take their defaults.
 
 ## Migrations
 
@@ -53,6 +54,12 @@ Rules, enforced by tests in `internal/store`:
   `NOT NULL`, primary key) and indexes (`TestSchemasMatch`, against a real
   PostgreSQL server in CI).
 - Migrations are only added, never edited.
+- Within a major version they only add tables, indexes, and columns that
+  are nullable or have a default, so older backup files restore
+  (`TestBackupOlderSchema`).
+- Eyrie refuses to start on a database migrated past the newest migration
+  it has, that is by a newer version (`ErrNewerDatabase`,
+  `TestNewerDatabaseRefused`).
 
 ## Tables
 

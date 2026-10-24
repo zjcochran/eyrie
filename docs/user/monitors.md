@@ -7,6 +7,8 @@ in sees them.
 
 ## The dashboard
 
+![The dashboard: monitors with their status, type, tags, last checks, uptime and response time](../images/dashboard-dark.png)
+
 The start page lists every monitor. Groups come first, each followed by its
 members (indented). Each row shows:
 
@@ -41,10 +43,16 @@ Click a monitor for its page:
 Admins also get **Check now**, **Pause** or **Resume**, **Edit** and
 **Delete** (which also deletes the monitor's history).
 
+![A monitor's page: its status, response times, uptime, response time chart and status changes](../images/monitor.png)
+
+![A monitor that is down, with the down period marked in red on its chart](../images/monitor-down-dark.png)
+
 ## Adding a monitor
 
 **Add a monitor** on the dashboard (admins). Choose the type first; it
 cannot change later.
+
+![The form to add a monitor, for an HTTP(S) monitor](../images/add-monitor-dark.png)
 
 ### Settings every type has
 
@@ -512,6 +520,8 @@ curl -fsS "https://eyrie.example.com/api/push/<token>?status=up&msg=OK&ping="
 
 The token in the URL is the only credential: keep it secret. **Make a new
 URL** in the monitor's settings replaces it.
+
+![A push monitor's page, with its push URL](../images/monitor-push-dark.png)
 
 ### Manual
 

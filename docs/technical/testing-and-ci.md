@@ -156,7 +156,7 @@ the GitLab releases.
 
 `github-image` builds the image for `linux/amd64` and `linux/arm64` with
 buildx (arm64 through QEMU, `tonistiigi/binfmt`) and pushes it to
-`ghcr.io/<GHCR_REPO>` as `X.Y.Z`, `X.Y` and `latest`, with
+`ghcr.io/<GHCR_REPO>` as `X.Y.Z`, `X.Y`, `X` (from 1.0.0 on) and `latest`, with
 `VERSION=vX.Y.Z` and `SOURCE_URL=https://github.com/<GHCR_REPO>` built in. The
 index carries the `org.opencontainers.image.licenses` (`AGPL-3.0-or-later`) and
 `org.opencontainers.image.source` annotations, the latter pointing at the GitHub

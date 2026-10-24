@@ -9,6 +9,8 @@ accepts a JSON POST, signed so the receiver can check it came from Eyrie.
 Admins set up **channels** in **Settings → Notifications**, then choose in
 each monitor's settings which channels it notifies.
 
+![Settings → Notifications: the channels and the certificate warning days](../images/notifications-dark.png)
+
 ## Adding a channel
 
 **Add a channel**, and fill in:

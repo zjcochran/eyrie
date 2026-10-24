@@ -5,24 +5,29 @@ websites, servers, databases and services, tells you when one goes down,
 and publishes status pages. It is a single Go binary with its web app built
 in, and keeps its data in SQLite or, for large installations, PostgreSQL.
 
-**Status: early development.** This version monitors websites (HTTP(S),
-keywords, JSON, or in a real browser), TCP ports, ping, DNS, WebSockets,
-mail (SMTP), time (NTP), RADIUS, SNMP, SIP, SFTP, gRPC, Docker containers,
-game servers, Tailscale nodes, system services, PM2 processes, probes
-around the world (Globalping), databases (PostgreSQL, MySQL and MariaDB,
-SQL Server, Oracle, MongoDB, Redis) and message brokers (MQTT, RabbitMQ,
-Kafka), takes pushes from jobs, and has
-manual monitors and groups, a live dashboard, uptime history and Prometheus
-metrics, and notifies ntfy, Gotify, Pushover, Telegram, Discord, email and
-signed webhooks, with accounts, two-factor sign-in and single sign-on.
-Down alerts can carry an analysis of the failure by Claude (an API key or
-your Claude subscription) or a model on your own server, such as Ollama
-(off by default). Monitors have tags, and maintenance windows (once, weekly,
-monthly, every N days or by cron) silence the monitors they cover. Public
-status pages, built from tags and monitors, show uptime, incidents with a
-timeline and maintenance, and their monitors have status badges.
-Encrypted backup files, made by hand or every day, restore into SQLite or
-PostgreSQL. A documentation pass follows; see [the plan](#roadmap).
+![Eyrie's dashboard](docs/images/dashboard.png)
+
+- **Monitors** for websites (HTTP(S), keywords, JSON, or in a real
+  browser), TCP ports, ping, DNS, WebSockets, mail (SMTP), time (NTP),
+  RADIUS, SNMP, SIP, SFTP, gRPC, Docker containers, game servers, Tailscale
+  nodes, system services, PM2 processes, probes around the world
+  (Globalping), databases (PostgreSQL, MySQL and MariaDB, SQL Server,
+  Oracle, MongoDB, Redis) and message brokers (MQTT, RabbitMQ, Kafka);
+  pushes from jobs, manual monitors and groups. A live dashboard, uptime
+  history, tags.
+- **Notifications** to ntfy, Gotify, Pushover, Telegram, Discord, email
+  and signed webhooks, with certificate expiry warnings. Down alerts can
+  carry an analysis of the failure by Claude (an API key or your Claude
+  subscription) or a model on your own server, such as Ollama (off by
+  default).
+- **Maintenance windows** (once, weekly, monthly, every N days or by cron)
+  that silence the monitors they cover.
+- **Public status pages** built from tags and monitors, with uptime,
+  incidents on a timeline and maintenance, and **status badges**.
+- **Accounts** with roles, two-factor sign-in, single sign-on (OpenID
+  Connect) and read-only API tokens; **Prometheus metrics**.
+- **Encrypted backup files**, made by hand or every day, that restore into
+  SQLite or PostgreSQL.
 
 ## Quick start
 
@@ -39,25 +44,21 @@ admin. Its data (the SQLite database and the key that
 encrypts stored secrets) is in the `eyrie-data` volume, mounted at `/data`.
 See [Installation](docs/user/installation.md), including PostgreSQL.
 
+## Versions
+
+Eyrie is at 0.x and has not been widely tested yet: any release may
+still change things. From 1.0.0 it follows semantic versioning, and
+upgrades within a major version keep your data, configuration, backup
+files, the HTTP API, push URLs, webhooks and metrics working. See
+[Upgrades and compatibility](docs/user/upgrading.md).
+
 ## Documentation
 
-Everything is in [docs/](docs/README.md): installation, monitors, maintenance windows, status pages, backup and restore, notifications, alert analysis, using the web app,
-single sign-on, configuration, the HTTP interface, security, the data
-model, testing and CI, development.
-
-## Roadmap
-
-1. Scaffold and CI
-2. Users and sign-in: passwords, two-factor sign-in, single sign-on, API tokens
-3. The monitor engine, the first monitor types, Prometheus metrics
-4. Notifications: ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks
-5. Alert analysis: down alerts carry an analysis by Claude (an Anthropic API key, or a Claude subscription through Claude Code) or a model on your own server (Ollama, LM Studio, llama.cpp, vLLM)
-6. Tags and maintenance windows
-7. Status pages, incidents and status badges
-8. Network and system monitor types: WebSocket, SMTP, NTP, RADIUS, SNMP, Docker, SIP, Tailscale, system services, PM2, Globalping, SFTP, game servers, gRPC, a real browser
-9. Database and message broker monitor types: PostgreSQL, MySQL, SQL Server, Oracle, MongoDB, Redis, MQTT, RabbitMQ, Kafka
-10. Backup and restore (this version)
-11. Documentation pass and compatibility promises
+Everything is in [docs/](docs/README.md): installation, upgrades and
+compatibility, monitors, maintenance windows, status pages, backup and
+restore, notifications, alert analysis, using the web app, single sign-on,
+configuration, the HTTP interface, security, the data model, testing and
+CI, development.
 
 Eyrie is written from scratch; it is not a fork of Uptime Kuma, Peekaping
 or any other monitor.

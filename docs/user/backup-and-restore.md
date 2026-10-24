@@ -18,6 +18,8 @@ There are two ways to back up Eyrie:
 
 **Settings → Backup and restore → Download a backup**:
 
+![Download a backup, in Settings → Backup and restore](../images/backup-dark.png)
+
 1. Choose **History**: *None, configuration only*, *Last 30 days*, *Last 60
    days*, *Last 90 days* or *All of it*.
 2. Enter a passphrase of at least 12 characters, twice.

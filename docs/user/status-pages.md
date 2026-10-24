@@ -5,6 +5,8 @@ status and uptime of chosen monitors, grouped in sections, with incidents
 and maintenance. Once published, anyone can open it at
 `https://<your Eyrie>/status/<address>`, without signing in.
 
+![A published status page with an open incident, upcoming maintenance, sections of monitors with 90 days of uptime, and a past incident](../images/status-page.png)
+
 A status page shows only monitors' **names**, statuses, uptime and,
 optionally, tags and certificate expiry. It never shows check messages,
 URLs, hosts or any other setting, nor who wrote an incident update.
@@ -14,6 +16,8 @@ pages and incidents; viewers see the list, the pages (also unpublished, as
 a preview) and their incidents.
 
 ## A page's settings
+
+![A status page's settings in Eyrie](../images/status-page-edit-dark.png)
 
 | Setting | Meaning |
 | --- | --- |

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -260,4 +261,37 @@ func TestBackupValues(t *testing.T) {
 	if _, err := openSQLite(t).columns(context.Background(), openSQLite(t).db, "nope"); err == nil {
 		t.Error("no table")
 	}
+}
+
+// A backup of an older version lacks the tables and columns later
+// migrations added: they restore empty and with their defaults.
+func TestBackupOlderSchema(t *testing.T) {
+	eachDB(t, func(t *testing.T, s *Store) {
+		ctx := context.Background()
+		fill(t, s)
+		snap, err := s.Export(ctx, true, time.Time{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		old := roundTrip(t, snap)
+		for _, r := range old.History["monitor_state"] {
+			delete(r, "cert_notified") // added by 00004
+			delete(r, "before_status") // added by 00005
+			delete(r, "before_since")
+		}
+		for _, table := range []string{"status_pages", "status_page_logos", "status_page_sections", "status_page_monitors", "incidents", "incident_updates"} {
+			delete(old.Config, table) // added by 00006
+		}
+		if err := s.Import(ctx, old, false); err != nil {
+			t.Fatal(err)
+		}
+		after, _ := s.Export(ctx, true, time.Time{})
+		st := after.History["monitor_state"]
+		if len(st) != 1 || st[0]["before_status"] != "" || fmt.Sprint(st[0]["cert_notified"]) != "0" {
+			t.Errorf("states: %v", st)
+		}
+		if len(after.Config["status_pages"]) != 0 || len(after.Config["monitors"]) != 2 {
+			t.Errorf("after: %d pages, %d monitors", len(after.Config["status_pages"]), len(after.Config["monitors"]))
+		}
+	})
 }
