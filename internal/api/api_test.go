@@ -339,6 +339,9 @@ func TestBadRequests(t *testing.T) {
 	if code, msg := admin.errorOf("POST", "/api/v1/logout", nil); code != http.StatusOK && code != http.StatusNoContent {
 		t.Errorf("same-site logout: %d %s", code, msg)
 	}
+	if !strings.Contains(e.log.String(), `msg="signed out" user=alice`) {
+		t.Error("sign-out not logged")
+	}
 	resp, body := e.client().do("POST", "/api/v1/login", credentials{"alice", pw}, "Sec-Fetch-Site", "cross-site")
 	if resp.StatusCode != http.StatusForbidden || !strings.Contains(string(body), "cross-origin") {
 		t.Errorf("cross-site sign-in: %d %s", resp.StatusCode, body)

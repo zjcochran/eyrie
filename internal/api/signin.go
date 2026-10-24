@@ -201,6 +201,9 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookie); err == nil {
+		if sess, ok, err := s.Store.SessionByToken(r.Context(), c.Value, s.now()); err == nil && ok {
+			s.Log.Info("signed out", "user", sess.User.Username, "ip", s.clientIP(r))
+		}
 		if err := s.Store.DeleteSession(r.Context(), c.Value); err != nil {
 			s.fail(w, r, err)
 			return

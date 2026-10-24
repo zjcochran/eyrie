@@ -56,6 +56,9 @@ func TestSetup(t *testing.T) {
 	if u := v.User; u.Username != "alice" || u.Role != "admin" || !u.Password {
 		t.Errorf("admin %+v", u)
 	}
+	if !strings.Contains(e.log.String(), `msg="signed in" user=alice`) {
+		t.Error("sign-in not logged")
+	}
 	if !strings.Contains(e.log.String(), "first admin created") {
 		t.Error("setup not logged")
 	}

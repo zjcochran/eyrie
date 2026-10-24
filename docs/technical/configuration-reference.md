@@ -20,7 +20,7 @@ variable.
 | `EYRIE_METRICS_TOKEN` | empty | Turns on `/metrics` (Prometheus) behind `Authorization: Bearer <token>`. Empty: `/metrics` answers 404. See [HTTP interface](http-interface.md#metrics). |
 | `EYRIE_CLAUDE_CODE` | `false` | `true` (any case): Eyrie downloads Claude Code from Anthropic into `<data folder>/claude-code` at start and keeps it at the stable release, so [alert analysis](../user/alert-analysis.md#claude-with-your-subscription-claude-code) can use a Claude subscription. Sign it in with `CLAUDE_CODE_OAUTH_TOKEN`. Any value but `true` or `false` is refused. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | empty | Read by Claude Code, never by Eyrie: the token from `claude setup-token` that signs Claude Code in with your subscription. |
-| `EYRIE_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`, in any case. The log is plain text (`key=value`) on standard error. |
+| `EYRIE_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`, in any case. The log is plain text (`key=value`) on standard error. `debug` adds a line per check and per HTTP request; [what is logged](security.md#logging). |
 | `TZ` | `UTC` | Time zone for the log and the time of day of [scheduled backups](../user/backup-and-restore.md#scheduled-backups), as an IANA name such as `Etc/UTC`. The zone database is built into the binary. Maintenance windows have their own. |
 
 ## Command line
