@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <!-- The logo in white on a round badge, which stays legible at 16 px. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#4f5490" />
+      <stop offset="1" stop-color="#8590c4" />
+    </linearGradient>
+  </defs>
+  <circle cx="32" cy="32" r="31" fill="url(#g)" />
+  <g fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="4" d="M8 30 H12 L16 20 L21 40 L25 32 H30 C38 32 45 28 44 21 C43 15 35 14 32 20 C28 27 31 37 40 37 C46 37 51 34 56 31" />
+    <path stroke-width="3.5" d="M10 42 C18 54 46 54 54 42" />
+    <path stroke-width="3" d="M14 41 C24 50 42 50 52 44 M12 46 C24 52 38 52 50 40" />
+  </g>
+</svg>

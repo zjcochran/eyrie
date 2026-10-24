@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import icon from './assets/icon.png';
+  import logo from './assets/logo.svg';
   import Avatar from './components/Avatar.svelte';
   import { go, link, nav } from './lib/nav.svelte.ts';
   import { connect, disconnect, loadMonitors } from './lib/live.svelte.ts';
@@ -81,7 +81,7 @@
   <Login />
 {:else}
   <header>
-    <a class="brand" href="/" onclick={link}><img src={icon} alt="" width="22" height="22" /> Eyrie</a>
+    <a class="brand" href="/" onclick={link}><img src={logo} alt="" width="28" height="28" /> Eyrie</a>
     <nav>
       <a href="/" onclick={link} aria-current={!inSettings && !inStatusPages && page !== 'maintenance' ? 'page' : undefined}
         >Monitors</a
@@ -149,9 +149,6 @@
   {#if app.session?.source}
     · <a href={app.session.source} rel="noreferrer" target="_blank">Source code</a>
   {/if}
-  · <a href="https://www.flaticon.com/free-icons/eagle" title="eagle icons" rel="noreferrer" target="_blank"
-    >Eagle icons created by max.icons - Flaticon</a
-  >
 </footer>
 
 <style>

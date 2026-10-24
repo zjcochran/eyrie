@@ -70,6 +70,3 @@ Copyright the Eyrie contributors. Licensed under the
 (`AGPL-3.0-or-later`). Every page links to the source of the running
 version, as the AGPL requires; set `EYRIE_SOURCE_URL` if you run a modified
 version.
-
-The app icon is from Flaticon:
-[Eagle icons created by max.icons - Flaticon](https://www.flaticon.com/free-icons/eagle).

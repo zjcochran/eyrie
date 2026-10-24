@@ -3,10 +3,6 @@
 Open Eyrie in a browser at the address it runs on, `http://<host>:8080` by
 default.
 
-Every page footer, public status pages included, shows the version and
-links to the licence and the source code, as the AGPL requires, and
-credits the app icon (Eagle icons created by max.icons - Flaticon).
-
 ## First start: setup
 
 Before any account exists, every page shows **Set up Eyrie**. Enter a
