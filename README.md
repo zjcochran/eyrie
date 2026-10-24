@@ -46,9 +46,10 @@ See [Installation](docs/user/installation.md), including PostgreSQL.
 
 ## Versions
 
-Eyrie follows semantic versioning. Within a major version, upgrades keep
-your data, configuration, backup files, the HTTP API, push URLs,
-webhooks and metrics working; the `1` image tag follows them. See
+Eyrie is at 0.x and has not been widely tested yet: any release may
+still change things. From 1.0.0 it follows semantic versioning, and
+upgrades within a major version keep your data, configuration, backup
+files, the HTTP API, push URLs, webhooks and metrics working. See
 [Upgrades and compatibility](docs/user/upgrading.md).
 
 ## Documentation

@@ -1,7 +1,9 @@
 # Upgrades and compatibility
 
-Eyrie's versions follow [semantic versioning](https://semver.org) from
-1.0.0: `MAJOR.MINOR.PATCH`.
+**Eyrie is not at 1.0.0 yet.** Until then (0.x), any release may change
+or remove something below; its release notes say what. The promises on
+this page apply from 1.0.0 on, when Eyrie's versions follow
+[semantic versioning](https://semver.org): `MAJOR.MINOR.PATCH`.
 
 | Release | What changes |
 | --- | --- |
@@ -9,8 +11,8 @@ Eyrie's versions follow [semantic versioning](https://semver.org) from
 | Minor (1.**5**.0) | New features. Everything below keeps working. |
 | Major (**2**.0.0) | May change or remove something below; its release notes say what and how to move |
 
-Versions before 1.0.0 made no promises; upgrading from them works all the
-same (see [Upgrading](#upgrading)).
+Upgrading from a 0.x version works all the same (see
+[Upgrading](#upgrading)).
 
 ## Upgrading
 
@@ -36,11 +38,13 @@ first.
 | --- | --- |
 | `1.4.2` | Nothing: exactly that version |
 | `1.4` | Its patch releases |
-| `1` | Every compatible release: the minor and patch releases of 1.x |
+| `1` | From 1.0.0: every compatible release, the minor and patch releases of 1.x |
 | `latest` | Every release, new major versions included |
 
-`1` gets new features and fixes without breaking changes. Pin `1.4.2` to
-upgrade only by hand. There is no major tag for 0.x.
+From 1.0.0, `1` gets new features and fixes without breaking changes.
+Pin a version to upgrade only by hand. There is no major tag for 0.x: in
+0.x, a minor release can break things, so pin `0.10` to get only its
+fixes.
 
 ## Downgrading
 
@@ -61,7 +65,7 @@ refused.
 
 ## What stays compatible
 
-Within a major version, upgrading never needs you to change your setup,
+From 1.0.0, within a major version, upgrading never needs you to change your setup,
 scripts or integrations:
 
 | | Promise |

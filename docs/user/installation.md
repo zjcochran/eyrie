@@ -7,16 +7,17 @@
 ## The image
 
 Each release is published at `ghcr.io/zjcochran/eyrie`, for amd64 and
-arm64, with the tags of its version (`1.4.2`), its minor line (`1.4`, which
-follows patch releases), its major line (`1`, which follows every
-compatible release) and `latest`. The Compose files below use `1`; see
+arm64, with the tags of its version (`0.10.0`), its minor line (`0.10`,
+which follows patch releases) and `latest`; from 1.0.0 on, also its major
+line (`1`). Pin a version or a minor line if you do not want upgrades to
+arrive on their own; see
 [Which image tag to use](upgrading.md#which-image-tag-to-use).
 
 To build it yourself instead (Go modules, npm packages and base images are
 downloaded during the build):
 
 ```sh
-docker build -t eyrie --build-arg VERSION=v1.0.0 --build-arg SOURCE_URL=https://github.com/zjcochran/eyrie .
+docker build -t eyrie --build-arg VERSION=v0.10.0 --build-arg SOURCE_URL=https://github.com/zjcochran/eyrie .
 ```
 
 and use `image: eyrie` below. Without `VERSION`, Eyrie reports `dev`.
@@ -30,7 +31,7 @@ for; point it at your own copy if you change the code.
 ```yaml
 services:
   eyrie:
-    image: ghcr.io/zjcochran/eyrie:1
+    image: ghcr.io/zjcochran/eyrie:latest
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -60,7 +61,7 @@ version tested.
 ```yaml
 services:
   eyrie:
-    image: ghcr.io/zjcochran/eyrie:1
+    image: ghcr.io/zjcochran/eyrie:latest
     restart: unless-stopped
     ports:
       - "8080:8080"

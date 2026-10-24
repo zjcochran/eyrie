@@ -58,7 +58,7 @@ What of this stays the same between versions is in
   "csrf": "<token>",
   "sso": { "enabled": true, "name": "Example ID" },
   "password_sign_in": true,
-  "version": "v1.0.0",
+  "version": "v0.10.0",
   "source": "https://github.com/zjcochran/eyrie"
 }
 ```
