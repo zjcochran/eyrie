@@ -1,7 +1,8 @@
 # Configuration reference
 
 Eyrie reads its configuration from environment variables at start
-(`internal/config`). Leading and trailing spaces are ignored, except in
+(`internal/config`). They keep working across upgrades within a major
+version (see [Upgrades and compatibility](../user/upgrading.md)). Leading and trailing spaces are ignored, except in
 `EYRIE_SECRET_KEY`. An invalid value stops Eyrie with an error naming the
 variable.
 
@@ -20,7 +21,7 @@ variable.
 | `EYRIE_CLAUDE_CODE` | `false` | `true` (any case): Eyrie downloads Claude Code from Anthropic into `<data folder>/claude-code` at start and keeps it at the stable release, so [alert analysis](../user/alert-analysis.md#claude-with-your-subscription-claude-code) can use a Claude subscription. Sign it in with `CLAUDE_CODE_OAUTH_TOKEN`. Any value but `true` or `false` is refused. |
 | `CLAUDE_CODE_OAUTH_TOKEN` | empty | Read by Claude Code, never by Eyrie: the token from `claude setup-token` that signs Claude Code in with your subscription. |
 | `EYRIE_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`, in any case. The log is plain text (`key=value`) on standard error. |
-| `TZ` | `UTC` | Time zone for the log, as an IANA name such as `Etc/UTC`. The zone database is built into the binary. |
+| `TZ` | `UTC` | Time zone for the log and the time of day of [scheduled backups](../user/backup-and-restore.md#scheduled-backups), as an IANA name such as `Etc/UTC`. The zone database is built into the binary. Maintenance windows have their own. |
 
 ## Command line
 

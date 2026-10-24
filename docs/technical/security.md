@@ -16,7 +16,7 @@ change it. The threat model for sign-in and accounts:
 | Clickjacking | `X-Frame-Options: DENY`, `frame-ancestors 'none'` |
 | Forged proxy headers | Believed only from configured trusted proxies |
 | Single sign-on attacks | Authorization code with PKCE, state, nonce, ID-token checks, matching on issuer and subject |
-| A leaked database | Passwords and tokens hashed; two-factor secrets and the client secret sealed with a key kept apart |
+| A leaked database | Passwords and tokens hashed; every [stored secret](#stored-secrets) sealed with a key kept apart |
 | An open redirect after sign-in | `next` must be a local path |
 
 Eyrie does not protect against someone with access to the host, the data
@@ -114,8 +114,8 @@ layer 2.
 
 | Role | Can |
 | --- | --- |
-| viewer | Read the app: monitors, their history; change their own password, two-factor sign-in, picture and single sign-on link |
-| admin | Everything: monitors, notification channels, users, single sign-on settings, history retention and API tokens |
+| viewer | Read the app: monitors and their history, tags, maintenance windows, status pages (unpublished ones too) and their incidents; change their own password, two-factor sign-in, picture and single sign-on link |
+| admin | Everything: monitors, tags, maintenance windows, status pages and incidents, notification channels, alert analysis, users, single sign-on, history retention, API tokens, backups and restores |
 
 Checked for each route on the server, not only by hiding controls. Admins
 cannot disable, delete or change the role of themselves, and the last
@@ -126,8 +126,9 @@ enabled admin cannot be disabled, deleted or made a viewer.
 `eyt_` followed by 32 random bytes in base64url, made by an admin and shown
 once. Only a SHA-256 hash is stored; a request is matched by hashing the
 token it presents. A token can only read (`GET` and `HEAD`) the read routes
-(monitors, their history and the event stream): it cannot sign in, reach
-session routes or change anything. Its last use is recorded.
+(monitors and their history, the event stream, tags, maintenance windows,
+status pages and incidents): it cannot sign in, reach session routes,
+settings or backups, or change anything. Its last use is recorded.
 Revoking deletes it at once.
 
 ## Push URLs
@@ -292,7 +293,8 @@ to the server URL the admin set. See [what is sent](../user/alert-analysis.md#wh
 ## Stored secrets
 
 Two-factor secrets, the single sign-on client secret, the alert analysis
-API key, notification channels' URLs, tokens and users, and monitors'
+API keys (Anthropic's and a local server's), the scheduled backups'
+passphrase, notification channels' URLs, tokens and users, and monitors'
 secret settings (passwords, keys, tokens, SNMP communities, database
 connection strings, a real browser's address) are sealed with AES-256-GCM (`internal/secrets`):
 

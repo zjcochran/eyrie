@@ -1,7 +1,7 @@
 # Eyrie with SQLite, its database and secret key in the eyrie-data volume.
 services:
   eyrie:
-    image: ghcr.io/zjcochran/eyrie:latest
+    image: ghcr.io/zjcochran/eyrie:1
     restart: unless-stopped
     ports:
       - "8080:8080"

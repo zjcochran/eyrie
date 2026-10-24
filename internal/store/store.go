@@ -39,6 +39,10 @@ const (
 	Postgres Dialect = "postgres"
 )
 
+// ErrNewerDatabase means a newer version of Eyrie has migrated the
+// database: downgrades are not supported.
+var ErrNewerDatabase = errors.New("the database was used by a newer version of Eyrie")
+
 // Store holds all of Eyrie's data.
 type Store struct {
 	db      *sql.DB
@@ -87,6 +91,16 @@ func (s *Store) migrate(ctx context.Context) error {
 	p, err := goose.NewProvider(gd, s.db, dir)
 	if err != nil {
 		return err
+	}
+	// goose would start on a database a newer Eyrie migrated, whose tables
+	// this version does not know; refuse it instead.
+	have, err := p.GetDBVersion(ctx)
+	if err != nil {
+		return err
+	}
+	sources := p.ListSources()
+	if known := sources[len(sources)-1].Version; have > known {
+		return fmt.Errorf("%w (schema %d; this version knows up to %d): run that version, or restore a backup made before the upgrade", ErrNewerDatabase, have, known)
 	}
 	_, err = p.Up(ctx)
 	return err

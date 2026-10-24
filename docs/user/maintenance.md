@@ -81,6 +81,8 @@ the week are given, a day matching either matches, as in cron.
 
 ## The list
 
+![The maintenance windows: a weekly one for a tag, a monthly cron one for every monitor, and a one-off for a group](../images/maintenance-dark.png)
+
 Each window shows when it is on, what it covers and where it stands now:
 **On** (until when, if it ends), **Starts** (when), **Over** (it will not be
 on again), or **Turned off**.

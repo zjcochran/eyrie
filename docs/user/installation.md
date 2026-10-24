@@ -7,15 +7,16 @@
 ## The image
 
 Each release is published at `ghcr.io/zjcochran/eyrie`, for amd64 and
-arm64, with three tags: the version (`0.2.0`), its minor line (`0.2`, which
-follows patch releases) and `latest`. Pin a version or a minor line if you
-do not want upgrades to arrive on their own.
+arm64, with the tags of its version (`1.4.2`), its minor line (`1.4`, which
+follows patch releases), its major line (`1`, which follows every
+compatible release) and `latest`. The Compose files below use `1`; see
+[Which image tag to use](upgrading.md#which-image-tag-to-use).
 
 To build it yourself instead (Go modules, npm packages and base images are
 downloaded during the build):
 
 ```sh
-docker build -t eyrie --build-arg VERSION=v0.2.0 --build-arg SOURCE_URL=https://github.com/zjcochran/eyrie .
+docker build -t eyrie --build-arg VERSION=v1.0.0 --build-arg SOURCE_URL=https://github.com/zjcochran/eyrie .
 ```
 
 and use `image: eyrie` below. Without `VERSION`, Eyrie reports `dev`.
@@ -29,7 +30,7 @@ for; point it at your own copy if you change the code.
 ```yaml
 services:
   eyrie:
-    image: ghcr.io/zjcochran/eyrie:latest
+    image: ghcr.io/zjcochran/eyrie:1
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -59,7 +60,7 @@ version tested.
 ```yaml
 services:
   eyrie:
-    image: ghcr.io/zjcochran/eyrie:latest
+    image: ghcr.io/zjcochran/eyrie:1
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -101,11 +102,13 @@ for example `?sslmode=require`.
 | File | What it is |
 | --- | --- |
 | `eyrie.db`, `eyrie.db-wal`, `eyrie.db-shm` | The SQLite database, in WAL mode. Not used with PostgreSQL. |
-| `secret.key` | The key that encrypts the secrets Eyrie stores (AES-256-GCM): two-factor secrets and the single sign-on client secret so far. Made at first start. Not used when `EYRIE_SECRET_KEY` is set. |
+| `secret.key` | The key that encrypts the secrets Eyrie stores (AES-256-GCM), such as two-factor secrets, notification tokens and monitors' passwords; see [Stored secrets](../technical/security.md#stored-secrets). Made at first start. Not used when `EYRIE_SECRET_KEY` is set. |
+| `backups/` | [Scheduled backup files](backup-and-restore.md#scheduled-backups) (`EYRIE_BACKUP_DIR`) |
+| `claude-code/` | Claude Code, only with `EYRIE_CLAUDE_CODE=true`; see [Alert analysis](alert-analysis.md#claude-with-your-subscription-claude-code) |
 
-Back up the whole folder, and with PostgreSQL the database as well. Without
+To back it up, see [Backup and restore](backup-and-restore.md). Without
 `secret.key` (or the same `EYRIE_SECRET_KEY`), stored secrets cannot be
-decrypted and must be entered again.
+decrypted and must be entered again; backup files do not need it.
 
 The container runs as the non-root user 65532, which owns `/data` in the
 image, so a new volume belongs to it too. A bind-mounted folder must be
@@ -137,13 +140,15 @@ timeout, 20 s start period, 3 retries). It asks the running server for
 
 ## Upgrading
 
-Pull the new image and recreate the container:
+Make a backup, then pull the new image and recreate the container:
 
 ```sh
 docker compose pull && docker compose up -d
 ```
 
-Database migrations run by themselves at start.
+Database migrations run by themselves at start. Versions can be skipped,
+and downgrades are not supported; see
+[Upgrades and compatibility](upgrading.md).
 
 ## Configuration
 

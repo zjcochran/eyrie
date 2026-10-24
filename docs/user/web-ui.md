@@ -17,6 +17,8 @@ settings of a backup file instead; then sign in with an account from it. See
 
 ## Signing in
 
+![The sign-in page](../images/sign-in-dark.png)
+
 The sign-in page asks for your username and password. Usernames ignore
 case: `Alice` and `alice` are the same account. When single sign-on is set
 up, a **Sign in with …** button comes first (see
@@ -142,8 +144,9 @@ enabled admin cannot be disabled, deleted or made a viewer.
 ### API tokens
 
 Admins only. A token lets a script read Eyrie without signing in, with the
-header `Authorization: Bearer <token>`: the monitors, their history and the
-event stream (see the [HTTP interface](../technical/http-interface.md#monitors)).
+header `Authorization: Bearer <token>`: the monitors, their history, the
+event stream, tags, maintenance windows, status pages and incidents (the
+**read** routes of the [HTTP interface](../technical/http-interface.md#conventions)).
 It can only read: it cannot sign in or change anything.
 
 **New token** asks for a name (up to 64 characters, such as `ci`) and shows
@@ -151,6 +154,9 @@ the token, which starts with `eyt_`, once: copy it then. The list shows who
 made each token, when, and when it was last used. **Revoke** stops a token
 at once.
 
-## Dark mode
+## Dark mode and phones
 
-Eyrie follows your device's light or dark setting.
+Eyrie follows your device's light or dark setting, and its pages fit a
+phone's screen.
+
+![The dashboard on a phone, in dark mode](../images/narrow-dashboard-dark.png)
