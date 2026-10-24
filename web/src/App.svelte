@@ -188,6 +188,18 @@
     align-items: center;
     gap: 0.5rem;
   }
+  /* On a phone: the name and Sign out at the top right, beside the logo,
+     and the menu on its own line below them. */
+  @media (max-width: 48rem) {
+    .me {
+      margin-left: auto;
+    }
+    nav {
+      order: 1;
+      flex-basis: 100%;
+      flex-wrap: wrap;
+    }
+  }
   main {
     max-width: 60rem;
     margin: 1.5rem auto;
