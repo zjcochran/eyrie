@@ -14,6 +14,9 @@ describe('format', () => {
   });
   it('shows response times', () => {
     assert.equal(millis(12.4), '12 ms');
+    assert.equal(millis(3.26), '3.3 ms');
+    assert.equal(millis(0.5), '0.50 ms');
+    assert.equal(millis(0), '0.00 ms');
     assert.equal(millis(12345), '12.3 s');
     assert.equal(millis(null), '–');
   });

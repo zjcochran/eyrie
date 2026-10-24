@@ -223,6 +223,9 @@ func TestBadges(t *testing.T) {
 	if percent(0.99996) != "99.99%" || percent(1) != "100%" {
 		t.Error("percent")
 	}
+	if millis(0.512) != "0.51 ms" || millis(3.25) != "3.2 ms" || millis(123.4) != "123 ms" {
+		t.Error("millis")
+	}
 }
 
 func TestPageLogo(t *testing.T) {

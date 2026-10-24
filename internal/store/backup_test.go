@@ -279,6 +279,16 @@ func TestBackupOlderSchema(t *testing.T) {
 			delete(r, "before_status") // added by 00005
 			delete(r, "before_since")
 		}
+		for _, table := range []string{"monitor_state", "heartbeats"} {
+			for _, r := range old.History[table] {
+				delete(r, "latency_us") // added by 00007
+			}
+		}
+		for _, table := range []string{"stats_hourly", "stats_daily"} {
+			for _, r := range old.History[table] {
+				delete(r, "latency_us_sum")
+			}
+		}
 		for _, table := range []string{"status_pages", "status_page_logos", "status_page_sections", "status_page_monitors", "incidents", "incident_updates"} {
 			delete(old.Config, table) // added by 00006
 		}
@@ -289,6 +299,20 @@ func TestBackupOlderSchema(t *testing.T) {
 		st := after.History["monitor_state"]
 		if len(st) != 1 || st[0]["before_status"] != "" || fmt.Sprint(st[0]["cert_notified"]) != "0" {
 			t.Errorf("states: %v", st)
+		}
+		// Response times come back from the milliseconds.
+		var child int64
+		ms, _ := s.Monitors(ctx)
+		for _, m := range ms {
+			if m.Type == "port" {
+				child = m.ID
+			}
+		}
+		if beats, _ := s.Heartbeats(ctx, child, time.Time{}, 10); len(beats) != 3 || beats[0].Latency != 3*time.Millisecond {
+			t.Errorf("beats %+v", beats)
+		}
+		if days, _ := s.DailyTotals(ctx, time.Time{}); days[child].AvgLatency() != 2*time.Millisecond {
+			t.Errorf("days %+v", days)
 		}
 		if len(after.Config["status_pages"]) != 0 || len(after.Config["monitors"]) != 2 {
 			t.Errorf("after: %d pages, %d monitors", len(after.Config["status_pages"]), len(after.Config["monitors"]))

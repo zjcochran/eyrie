@@ -203,6 +203,28 @@ func TestHeartbeats(t *testing.T) {
 	})
 }
 
+// Faster than a millisecond is kept, to the microsecond.
+func TestFastBeats(t *testing.T) {
+	eachDB(t, func(t *testing.T, s *Store) {
+		ctx := context.Background()
+		a, _ := seed(t, s)
+		fast := beat(a.ID, t0.Add(200*time.Minute), "up", 0)
+		fast.Beat.Latency, fast.State.Latency = 512345*time.Nanosecond, 512345*time.Nanosecond
+		if err := s.Save(ctx, []Record{fast}); err != nil {
+			t.Fatal(err)
+		}
+		if beats, _ := s.Heartbeats(ctx, a.ID, t0.Add(200*time.Minute), 1); len(beats) != 1 || beats[0].Latency != 512*time.Microsecond {
+			t.Errorf("fast beat %+v", beats)
+		}
+		if states, _ := s.States(ctx); states[a.ID].Latency != 512*time.Microsecond {
+			t.Errorf("fast state %+v", states[a.ID])
+		}
+		if hours, _ := s.Hours(ctx, a.ID, t0.Add(200*time.Minute)); len(hours) != 1 || hours[0].AvgLatency() != 512*time.Microsecond {
+			t.Errorf("fast hour %+v", hours)
+		}
+	})
+}
+
 func TestStats(t *testing.T) {
 	eachDB(t, func(t *testing.T, s *Store) {
 		ctx := context.Background()
@@ -211,7 +233,7 @@ func TestStats(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := hours[a.ID]; got.Up != 5 || got.Down != 1 || got.LatencyCount != 6 || got.AvgLatency() != 102*time.Millisecond {
+		if got := hours[a.ID]; got.Up != 5 || got.Down != 1 || got.LatencyCount != 6 || got.AvgLatency() != 102500*time.Microsecond {
 			t.Errorf("hourly totals %+v", got)
 		}
 		if got := hours[b.ID]; got.Uptime() != 1 || got.AvgLatency() != -1 {

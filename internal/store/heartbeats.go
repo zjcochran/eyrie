@@ -65,11 +65,18 @@ func latencyMS(d time.Duration) int64 {
 	return d.Milliseconds()
 }
 
-func fromLatency(ms int64) time.Duration {
-	if ms < 0 {
+func latencyUS(d time.Duration) int64 {
+	if d < 0 {
 		return -1
 	}
-	return time.Duration(ms) * time.Millisecond
+	return d.Microseconds()
+}
+
+func fromLatency(us int64) time.Duration {
+	if us < 0 {
+		return -1
+	}
+	return time.Duration(us) * time.Microsecond
 }
 
 // Save writes heartbeats and states in one transaction, and adds each beat
@@ -107,8 +114,8 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 	// Parameterized: every value is a bound argument, not SQL text.
 	// nosemgrep
 	if _, err := tx.ExecContext(ctx, s.q(`
-		INSERT INTO heartbeats (monitor_id, at, status, latency_ms, message, important) VALUES (?, ?, ?, ?, ?, ?)`),
-		b.MonitorID, at, b.Status, latencyMS(b.Latency), b.Message, b.Important); err != nil {
+		INSERT INTO heartbeats (monitor_id, at, status, latency_ms, latency_us, message, important) VALUES (?, ?, ?, ?, ?, ?, ?)`),
+		b.MonitorID, at, b.Status, latencyMS(b.Latency), latencyUS(b.Latency), b.Message, b.Important); err != nil {
 		return err
 	}
 	var cert int64
@@ -118,14 +125,14 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 	// Parameterized: every value is a bound argument, not SQL text.
 	// nosemgrep
 	if _, err := tx.ExecContext(ctx, s.q(`
-		INSERT INTO monitor_state (monitor_id, status, since, message, last_check, latency_ms, cert_expires, failures, down_checks,
-			cert_notified, before_status, before_since)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO monitor_state (monitor_id, status, since, message, last_check, latency_ms, latency_us, cert_expires, failures,
+			down_checks, cert_notified, before_status, before_since)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (monitor_id) DO UPDATE SET status = excluded.status, since = excluded.since, message = excluded.message,
-			last_check = excluded.last_check, latency_ms = excluded.latency_ms, cert_expires = excluded.cert_expires,
+			last_check = excluded.last_check, latency_ms = excluded.latency_ms, latency_us = excluded.latency_us, cert_expires = excluded.cert_expires,
 			failures = excluded.failures, down_checks = excluded.down_checks, cert_notified = excluded.cert_notified,
 			before_status = excluded.before_status, before_since = excluded.before_since`),
-		st.MonitorID, st.Status, st.Since.UnixMilli(), st.Message, st.LastCheck.UnixMilli(), latencyMS(st.Latency), cert,
+		st.MonitorID, st.Status, st.Since.UnixMilli(), st.Message, st.LastCheck.UnixMilli(), latencyMS(st.Latency), latencyUS(st.Latency), cert,
 		st.Failures, st.DownChecks, st.CertNotified, st.BeforeStatus, millisOrZero(st.BeforeSince)); err != nil {
 		return err
 	}
@@ -136,9 +143,9 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 	if b.Status == "down" {
 		up, down = 0, 1
 	}
-	var sum, count int64
+	var sum, us, count int64
 	if b.Latency >= 0 {
-		sum, count = b.Latency.Milliseconds(), 1
+		sum, us, count = b.Latency.Milliseconds(), b.Latency.Microseconds(), 1
 	}
 	for _, t := range []struct {
 		table string
@@ -148,11 +155,13 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 		// bound arguments.
 		// nosemgrep
 		if _, err := tx.ExecContext(ctx, s.q(`
-			INSERT INTO `+t.table+` (monitor_id, bucket, up, down, latency_sum, latency_count) VALUES (?, ?, ?, ?, ?, ?)
+			INSERT INTO `+t.table+` (monitor_id, bucket, up, down, latency_sum, latency_us_sum, latency_count)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (monitor_id, bucket) DO UPDATE SET up = `+t.table+`.up + excluded.up,
 				down = `+t.table+`.down + excluded.down, latency_sum = `+t.table+`.latency_sum + excluded.latency_sum,
+				latency_us_sum = `+t.table+`.latency_us_sum + excluded.latency_us_sum,
 				latency_count = `+t.table+`.latency_count + excluded.latency_count`),
-			b.MonitorID, at-at%t.size, up, down, sum, count); err != nil {
+			b.MonitorID, at-at%t.size, up, down, sum, us, count); err != nil {
 			return err
 		}
 	}
@@ -161,7 +170,7 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 
 // States returns every monitor's saved state, by monitor ID.
 func (s *Store) States(ctx context.Context) (map[int64]MonitorState, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT monitor_id, status, since, message, last_check, latency_ms, cert_expires,
+	rows, err := s.db.QueryContext(ctx, `SELECT monitor_id, status, since, message, last_check, latency_us, cert_expires,
 		failures, down_checks, cert_notified, before_status, before_since FROM monitor_state`)
 	if err != nil {
 		return nil, err
@@ -201,7 +210,7 @@ func scanBeats(rows *sql.Rows) ([]Beat, error) {
 // most limit of them.
 func (s *Store) Heartbeats(ctx context.Context, id int64, since time.Time, limit int) ([]Beat, error) {
 	rows, err := s.db.QueryContext(ctx, s.q(`
-		SELECT monitor_id, at, status, latency_ms, message, important FROM heartbeats
+		SELECT monitor_id, at, status, latency_us, message, important FROM heartbeats
 		WHERE monitor_id = ? AND at >= ? ORDER BY at DESC, id DESC LIMIT ?`), id, since.UnixMilli(), limit)
 	if err != nil {
 		return nil, err
@@ -212,8 +221,8 @@ func (s *Store) Heartbeats(ctx context.Context, id int64, since time.Time, limit
 // RecentBeats returns the last n heartbeats of every monitor, oldest first.
 func (s *Store) RecentBeats(ctx context.Context, n int) (map[int64][]Beat, error) {
 	rows, err := s.db.QueryContext(ctx, s.q(`
-		SELECT monitor_id, at, status, latency_ms, message, important FROM (
-			SELECT monitor_id, at, status, latency_ms, message, important, id,
+		SELECT monitor_id, at, status, latency_us, message, important FROM (
+			SELECT monitor_id, at, status, latency_us, message, important, id,
 				ROW_NUMBER() OVER (PARTITION BY monitor_id ORDER BY at DESC, id DESC) AS n
 			FROM heartbeats) recent
 		WHERE n <= ? ORDER BY monitor_id, at, id`), n)
@@ -231,7 +240,7 @@ func (s *Store) RecentBeats(ctx context.Context, n int) (map[int64][]Beat, error
 // Totals are check counts over a period.
 type Totals struct {
 	Up, Down     int64
-	LatencySum   int64 // milliseconds
+	LatencySum   int64 // microseconds
 	LatencyCount int64
 }
 
@@ -248,7 +257,7 @@ func (t Totals) AvgLatency() time.Duration {
 	if t.LatencyCount == 0 {
 		return -1
 	}
-	return time.Duration(t.LatencySum/t.LatencyCount) * time.Millisecond
+	return time.Duration(t.LatencySum/t.LatencyCount) * time.Microsecond
 }
 
 // HourlyTotals adds up every monitor's hourly stats from the hour that
@@ -267,7 +276,7 @@ func (s *Store) totals(ctx context.Context, table string, from int64) (map[int64
 	// The table name is one of two constants; from is a bound argument.
 	// nosemgrep
 	rows, err := s.db.QueryContext(ctx, s.q(`SELECT monitor_id, CAST(SUM(up) AS BIGINT), CAST(SUM(down) AS BIGINT),
-		CAST(SUM(latency_sum) AS BIGINT), CAST(SUM(latency_count) AS BIGINT)
+		CAST(SUM(latency_us_sum) AS BIGINT), CAST(SUM(latency_count) AS BIGINT)
 		FROM `+table+` WHERE bucket >= ? GROUP BY monitor_id`), from)
 	if err != nil {
 		return nil, err
@@ -294,7 +303,7 @@ type HourBucket struct {
 // Hours returns a monitor's hourly stats from the hour that contains since,
 // oldest first.
 func (s *Store) Hours(ctx context.Context, id int64, since time.Time) ([]HourBucket, error) {
-	rows, err := s.db.QueryContext(ctx, s.q(`SELECT bucket, up, down, latency_sum, latency_count FROM stats_hourly
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT bucket, up, down, latency_us_sum, latency_count FROM stats_hourly
 		WHERE monitor_id = ? AND bucket >= ? ORDER BY bucket`), id, since.UnixMilli()-since.UnixMilli()%hour)
 	if err != nil {
 		return nil, err
@@ -316,7 +325,7 @@ func (s *Store) Hours(ctx context.Context, id int64, since time.Time) ([]HourBuc
 // Days returns every monitor's daily stats from the day that contains
 // since (days in UTC), oldest first, by monitor ID.
 func (s *Store) Days(ctx context.Context, since time.Time) (map[int64][]HourBucket, error) {
-	rows, err := s.db.QueryContext(ctx, s.q(`SELECT monitor_id, bucket, up, down, latency_sum, latency_count FROM stats_daily
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT monitor_id, bucket, up, down, latency_us_sum, latency_count FROM stats_daily
 		WHERE bucket >= ? ORDER BY monitor_id, bucket`), since.UnixMilli()-since.UnixMilli()%day)
 	if err != nil {
 		return nil, err

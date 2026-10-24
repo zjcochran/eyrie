@@ -90,7 +90,7 @@ wikis and dashboards:
 | --- | --- |
 | `/api/badge/<id>/status` | The monitor's name and status, as on the status page |
 | `/api/badge/<id>/uptime` | Uptime over 24 hours; `?period=30d` or `?period=1y` for 30 days or a year |
-| `/api/badge/<id>/response` | The last check's response time: green under 300 ms, amber under 1 s, orange above |
+| `/api/badge/<id>/response` | The last check's response time, with decimals under 10 ms (`0.51 ms`, `3.2 ms`): green under 300 ms, amber under 1 s, orange above |
 | `/api/badge/<id>/cert` | Days until the HTTPS certificate expires: green over 21, amber over 7, red after |
 
 `?label=` replaces the text on the left (up to 50 characters), such as

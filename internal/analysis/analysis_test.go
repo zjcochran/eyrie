@@ -121,6 +121,14 @@ func seed(t *testing.T, a *Analyzer) store.Monitor {
 	return m
 }
 
+func TestLatency(t *testing.T) {
+	for d, want := range map[time.Duration]string{512 * time.Microsecond: "0.51 ms", 3250 * time.Microsecond: "3.2 ms", 150 * time.Millisecond: "150 ms"} {
+		if got := latency(d); got != want {
+			t.Errorf("%v: %q", d, got)
+		}
+	}
+}
+
 func TestPrompt(t *testing.T) {
 	a := newAnalyzer(t)
 	m := seed(t, a)

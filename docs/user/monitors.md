@@ -40,6 +40,10 @@ Click a monitor for its page:
   averages), with down periods marked in red;
 - the status changes of the last 24 hours.
 
+Response times are kept to the microsecond and shown with decimals under
+10 ms (`0.51 ms`, `3.2 ms`), so a fast check on the local network does
+not read as 0 ms.
+
 Admins also get **Check now**, **Pause** or **Resume**, **Edit** and
 **Delete** (which also deletes the monitor's history).
 

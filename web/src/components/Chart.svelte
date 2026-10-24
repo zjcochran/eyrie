@@ -8,7 +8,8 @@
   const h = 180;
   const pad = { l: 56, r: 8, t: 8, b: 22 };
 
-  const top = $derived(Math.max(10, ...points.map((p) => p.v ?? 0)) * 1.1);
+  // At least 1 ms, so sub-millisecond checks still fill the chart.
+  const top = $derived(Math.max(1, ...points.map((p) => p.v ?? 0)) * 1.1);
   const x = (t: number) => pad.l + ((t - from) / Math.max(1, to - from)) * (w - pad.l - pad.r);
   const y = (v: number) => pad.t + (1 - v / top) * (h - pad.t - pad.b);
 
