@@ -136,6 +136,12 @@ All admin routes.
 | `PUT /api/v1/settings/sso` | the same fields, plus `client_secret` (`""` keeps the saved one) and `clear_secret` | `200` the saved settings. `422` when on without an `http(s)` issuer or a client ID, and for `sso_only` while your own account is not linked. |
 | `POST /api/v1/settings/sso/test` | `{"issuer"}` | `200` `{"ok":true,"message":"Found <issuer> (sign-in at <url>)."}` or `{"ok":false,"message":"<why>"}`. Saves nothing. |
 
+### Audit log
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `GET /api/v1/audit?action=<a>&user=<u>&before=<id>&limit=<n>` | | Admin. `200` `{"entries":[{"id","at","user","ip","action","details"}],"actions":[…],"users":[…]}`: entries newest first, `limit` of them (default 100, at most 1000), only those with that action and user when set and with an id below `before`; `actions` and `users` are every action and user in the log, sorted, for filters. `400` when `before` or `limit` is not a positive number |
+
 ### API tokens
 
 All admin routes.

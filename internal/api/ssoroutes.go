@@ -3,7 +3,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -113,7 +112,7 @@ func (s *Server) ssoCallback(w http.ResponseWriter, r *http.Request) {
 		s.linkAccount(w, r, o, l)
 		return
 	}
-	u, msg, err := s.ssoAccount(ctx, o, l)
+	u, msg, err := s.ssoAccount(r, o, l)
 	switch {
 	case err != nil:
 		s.fail(w, r, err)
@@ -156,7 +155,7 @@ func (s *Server) linkAccount(w http.ResponseWriter, r *http.Request, o sso.Setti
 		redirect(w, r, accountPage, "error", capitalize(bad.Msg)+".")
 		return
 	}
-	s.Log.Info("single sign-on linked", "user", sess.User.Username, "sso_user", l.Claims.Username())
+	s.audit(r, "single sign-on linked", "user", sess.User.Username, "sso_user", l.Claims.Username())
 	s.refreshSSOPicture(ctx, sess.User.ID, l)
 	msg := o.Name() + " account linked."
 	// A linked account signs in with the provider's own second factor.
@@ -166,7 +165,7 @@ func (s *Server) linkAccount(w http.ResponseWriter, r *http.Request, o sso.Setti
 		return
 	}
 	if on {
-		s.Log.Info("two-factor sign-in off", "user", sess.User.Username, "by", "sso link")
+		s.audit(r, "two-factor sign-in off", "user", sess.User.Username, "via", "sso link")
 		msg += " Two-factor sign-in is now off: use " + o.Name() + "'s."
 	}
 	redirect(w, r, accountPage, "message", msg)
@@ -175,7 +174,8 @@ func (s *Server) linkAccount(w http.ResponseWriter, r *http.Request, o sso.Setti
 // ssoAccount finds the account for a verified identity, applying the admin
 // group, or creates one when that is on. A message means the sign-in is
 // refused.
-func (s *Server) ssoAccount(ctx context.Context, o sso.Settings, l sso.Login) (store.User, string, error) {
+func (s *Server) ssoAccount(r *http.Request, o sso.Settings, l sso.Login) (store.User, string, error) {
+	ctx := r.Context()
 	inAdmin := o.AdminGroup != "" && sso.InGroup(l.Claims.Groups, o.AdminGroup)
 	role := store.RoleViewer
 	if inAdmin {
@@ -194,7 +194,7 @@ func (s *Server) ssoAccount(ctx context.Context, o sso.Settings, l sso.Login) (s
 		if !u.HasLocal && o.AdminGroup != "" && role != u.Role {
 			if err := s.Store.SetUserRole(ctx, u.ID, role); err == nil {
 				u.Role = role
-				s.Log.Info("role changed", "user", u.Username, "role", role, "by", "sso groups")
+				s.audit(r, "role changed", "user", u.Username, "role", role, "via", "sso groups")
 			}
 		}
 		return u, "", nil
@@ -203,7 +203,7 @@ func (s *Server) ssoAccount(ctx context.Context, o sso.Settings, l sso.Login) (s
 		if err != nil {
 			return store.User{}, "", err
 		}
-		s.Log.Info("user created", "user", u.Username, "role", role, "by", "sso")
+		s.audit(r, "user created", "user", u.Username, "role", role, "via", "sso")
 		return u, "", nil
 	}
 	return store.User{}, fmt.Sprintf("No Eyrie account is linked to your %s account. Ask an admin to add you.", o.Name()), nil
@@ -215,7 +215,7 @@ func (s *Server) unlinkSSO(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("single sign-on unlinked", "user", me.Username)
+	s.audit(r, "single sign-on unlinked", "user", me.Username)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -301,7 +301,7 @@ func (s *Server) saveSSOSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sso.Forget()
-	s.Log.Info("single sign-on settings saved", "enabled", next.Enabled, "sso_only", next.SSOOnly,
+	s.audit(r, "single sign-on settings saved", "enabled", next.Enabled, "sso_only", next.SSOOnly,
 		"by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, s.ssoView(r, next))
 }

@@ -134,7 +134,7 @@ func (s *Server) setup(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("first admin created", "user", u.Username, "ip", s.clientIP(r))
+	s.audit(r, "first admin created", "user", u.Username, "ip", s.clientIP(r))
 	sess, err := s.startSession(w, r, u)
 	if err != nil {
 		s.fail(w, r, err)
@@ -173,7 +173,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	u, err := s.Store.Authenticate(r.Context(), user, c.Password, now)
 	if errors.Is(err, store.ErrBadLogin) {
 		s.limiter.fail(now, keys...)
-		s.Log.Warn("failed sign-in", "user", user, "ip", s.clientIP(r))
+		s.auditWarn(r, "failed sign-in", "user", user, "ip", s.clientIP(r))
 		invalid(w, http.StatusUnauthorized, "Wrong username or password.")
 		return
 	}
@@ -202,7 +202,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		if sess, ok, err := s.Store.SessionByToken(r.Context(), c.Value, s.now()); err == nil && ok {
-			s.Log.Info("signed out", "user", sess.User.Username, "ip", s.clientIP(r))
+			s.audit(r, "signed out", "user", sess.User.Username, "ip", s.clientIP(r))
 		}
 		if err := s.Store.DeleteSession(r.Context(), c.Value); err != nil {
 			s.fail(w, r, err)
@@ -302,7 +302,7 @@ func (s *Server) loginCode(w http.ResponseWriter, r *http.Request) {
 	}
 	if !used {
 		s.limiter.fail(now, keys...)
-		s.Log.Warn("failed sign-in code", "user", pc.user.Username, "ip", s.clientIP(r))
+		s.auditWarn(r, "failed sign-in code", "user", pc.user.Username, "ip", s.clientIP(r))
 		invalid(w, http.StatusUnauthorized, "That code is not right.")
 		return
 	}
@@ -311,7 +311,7 @@ func (s *Server) loginCode(w http.ResponseWriter, r *http.Request) {
 	s.limiter.reset(keys...)
 	if recovery {
 		left, _ := s.Store.RecoveryCodesLeft(ctx, pc.user.ID)
-		s.Log.Info("recovery code used", "user", pc.user.Username, "left", left)
+		s.audit(r, "recovery code used", "user", pc.user.Username, "left", left)
 	}
 	if err := s.Store.TouchLogin(ctx, pc.user.ID, now); err != nil {
 		s.fail(w, r, err)

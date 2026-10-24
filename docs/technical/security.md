@@ -363,3 +363,7 @@ response time, message) and every HTTP request (method, route, status,
 time taken, client address). A request is logged by its route, such as
 `POST /api/push/{token}`, not its path, so push tokens stay out of the
 log.
+
+Sign-ins, sign-outs and changes also go to the audit log (Settings →
+**Audit log**, admins only), with the user and address, under the same
+rules.

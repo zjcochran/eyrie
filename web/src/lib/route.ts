@@ -15,6 +15,7 @@ export type Page =
   | 'notifications'
   | 'analysis'
   | 'tags'
+  | 'audit'
   | 'maintenance'
   | 'status-pages'
   | 'new-status-page'
@@ -40,6 +41,7 @@ export const settingsTabs: { page: Page; path: string; label: string; admin: boo
   { page: 'analysis', path: '/settings/alert-analysis', label: 'Alert analysis', admin: true },
   { page: 'retention', path: '/settings/history', label: 'History', admin: true },
   { page: 'backup', path: '/settings/backup', label: 'Backup and restore', admin: true },
+  { page: 'audit', path: '/settings/audit-log', label: 'Audit log', admin: true },
 ];
 
 /** The page for a path; /settings is the account tab. */

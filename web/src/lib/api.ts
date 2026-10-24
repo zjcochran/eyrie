@@ -100,6 +100,23 @@ export interface AnalysisSettingsChange {
   clear_api_key: boolean;
 }
 
+/** One line of the audit log. */
+export interface AuditEntry {
+  id: number;
+  at: string;
+  user: string;
+  ip: string;
+  action: string;
+  details: string;
+}
+
+/** A page of the audit log, with the actions and users to filter by. */
+export interface AuditPage {
+  entries: AuditEntry[];
+  actions: string[];
+  users: string[];
+}
+
 export interface Token {
   id: number;
   name: string;
@@ -578,6 +595,14 @@ export class Client {
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });
 
+  audit = (f: { action?: string; user?: string; before?: number }) => {
+    const q = new URLSearchParams();
+    if (f.action) q.set('action', f.action);
+    if (f.user) q.set('user', f.user);
+    if (f.before) q.set('before', String(f.before));
+    const s = q.toString();
+    return this.request<AuditPage>('GET', '/api/v1/audit' + (s ? '?' + s : ''));
+  };
   tokens = () => this.request<Token[]>('GET', '/api/v1/tokens');
   createToken = (name: string) => this.request<Token & { token: string }>('POST', '/api/v1/tokens', { name });
   deleteToken = (id: number) => this.request<void>('DELETE', `/api/v1/tokens/${id}`);

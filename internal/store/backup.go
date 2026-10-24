@@ -44,6 +44,7 @@ var historyTables = []struct{ name, column string }{
 	{"heartbeats", "at"},
 	{"stats_hourly", "bucket"},
 	{"stats_daily", "bucket"},
+	{"audit_log", "at"},
 }
 
 // loadHistory inserts the history tables' rows.
@@ -450,7 +451,7 @@ func (s *Store) resetIdentities(ctx context.Context, tx *sql.Tx) error {
 	if s.dialect != Postgres {
 		return nil
 	}
-	for _, t := range append(slices.Clone(ConfigTables), "heartbeats") {
+	for _, t := range append(slices.Clone(ConfigTables), "heartbeats", "audit_log") {
 		cols, err := s.columns(ctx, tx, t)
 		if err != nil {
 			return err

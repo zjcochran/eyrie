@@ -124,6 +124,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/backups/run", s.admin(s.runBackup))
 	mux.Handle("GET /api/v1/backups/{name}", s.admin(s.storedBackup))
 
+	mux.Handle("GET /api/v1/audit", s.admin(s.listAudit))
 	mux.Handle("GET /api/v1/tokens", s.admin(s.listTokens))
 	mux.Handle("POST /api/v1/tokens", s.admin(s.createToken))
 	mux.Handle("DELETE /api/v1/tokens/{id}", s.admin(s.deleteToken))

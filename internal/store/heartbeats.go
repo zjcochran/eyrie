@@ -345,7 +345,7 @@ func (s *Store) Days(ctx context.Context, since time.Time) (map[int64][]HourBuck
 }
 
 // Prune deletes heartbeats older than beats, hourly stats older than hours
-// and daily stats older than days.
+// and daily stats and audit log entries older than days.
 func (s *Store) Prune(ctx context.Context, beats, hours, days time.Time) error {
 	for _, p := range []struct {
 		query  string
@@ -354,6 +354,7 @@ func (s *Store) Prune(ctx context.Context, beats, hours, days time.Time) error {
 		{`DELETE FROM heartbeats WHERE at < ?`, beats},
 		{`DELETE FROM stats_hourly WHERE bucket < ?`, hours},
 		{`DELETE FROM stats_daily WHERE bucket < ?`, days},
+		{`DELETE FROM audit_log WHERE at < ?`, days},
 	} {
 		if _, err := s.db.ExecContext(ctx, s.q(p.query), p.before.UnixMilli()); err != nil {
 			return err

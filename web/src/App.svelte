@@ -9,6 +9,7 @@
   import { api, app, refresh } from './lib/session.svelte.ts';
   import Account from './pages/Account.svelte';
   import Analysis from './pages/Analysis.svelte';
+  import Audit from './pages/Audit.svelte';
   import Backup from './pages/Backup.svelte';
   import Home from './pages/Home.svelte';
   import Login from './pages/Login.svelte';
@@ -160,6 +161,8 @@
         <Tags />
       {:else if page === 'analysis'}
         <Analysis />
+      {:else if page === 'audit'}
+        <Audit />
       {/if}
     {/if}
   </main>

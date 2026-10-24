@@ -50,7 +50,7 @@ func (s *Server) createTag(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("tag created", "tag", t.Name, "by", sessionFrom(r).User.Username)
+	s.audit(r, "tag created", "tag", t.Name, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusCreated, viewTag(t))
 }
 
@@ -69,7 +69,7 @@ func (s *Server) updateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.hub.publish("monitors", map[string]int64{"tag": id})
-	s.Log.Info("tag changed", "tag", t.Name, "by", sessionFrom(r).User.Username)
+	s.audit(r, "tag changed", "tag", t.Name, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, viewTag(t))
 }
 
@@ -93,6 +93,6 @@ func (s *Server) deleteTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.hub.publish("monitors", map[string]int64{"tag": id})
-	s.Log.Info("tag deleted", "tag", t.Name, "by", sessionFrom(r).User.Username)
+	s.audit(r, "tag deleted", "tag", t.Name, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusNoContent)
 }
