@@ -93,8 +93,17 @@ func render(m store.Monitor, b store.Beat, group string, facts []check.Fact, bea
 	return s.String()
 }
 
+// latency is in milliseconds, with decimals under 10 ms so a fast check
+// does not read as 0 ms.
 func latency(d time.Duration) string {
-	return fmt.Sprintf("%.0f ms", float64(d)/float64(time.Millisecond))
+	ms := float64(d) / float64(time.Millisecond)
+	switch {
+	case ms < 1:
+		return fmt.Sprintf("%.2f ms", ms)
+	case ms < 10:
+		return fmt.Sprintf("%.1f ms", ms)
+	}
+	return fmt.Sprintf("%.0f ms", ms)
 }
 
 // testPrompt is a made-up alert for the settings page's test.
@@ -109,5 +118,5 @@ var testPrompt = render(
 		{At: time.Date(2027, 1, 15, 8, 27, 0, 0, time.UTC), Status: "up", Latency: 1400 * time.Millisecond, Message: "200 OK"},
 		{At: time.Date(2027, 1, 15, 8, 26, 0, 0, time.UTC), Status: "up", Latency: 120 * time.Millisecond, Message: "200 OK"},
 	},
-	store.Totals{Up: 1430, Down: 2, LatencySum: 1430 * 130, LatencyCount: 1430},
+	store.Totals{Up: 1430, Down: 2, LatencySum: 1430 * 130000, LatencyCount: 1430},
 )

@@ -366,8 +366,8 @@ func (s *Server) makeBadge(r *http.Request, m store.Monitor, kind string) (badge
 	case "response":
 		b := badge.Badge{Label: "response", Message: "no data", Color: badge.Grey}
 		if es.Latency >= 0 && !es.LastCheck.IsZero() {
-			ms := es.Latency.Milliseconds()
-			b.Message, b.Color = fmt.Sprintf("%d ms", ms), badge.Green
+			ms := float64(es.Latency) / float64(time.Millisecond)
+			b.Message, b.Color = millis(ms), badge.Green
 			if ms >= 1000 {
 				b.Color = badge.Orange
 			} else if ms >= 300 {
@@ -420,6 +420,18 @@ func (s *Server) uptimeBadge(r *http.Request, m store.Monitor) (badge.Badge, boo
 		b.Message, b.Color = percent(u), badge.UptimeColor(u)
 	}
 	return b, true, nil
+}
+
+// millis is a response time for a badge, with decimals under 10 ms: a fast
+// check is not 0 ms.
+func millis(ms float64) string {
+	switch {
+	case ms < 1:
+		return fmt.Sprintf("%.2f ms", ms)
+	case ms < 10:
+		return fmt.Sprintf("%.1f ms", ms)
+	}
+	return fmt.Sprintf("%.0f ms", ms)
 }
 
 // percent is an uptime share as a percentage, never rounded up to 100%:

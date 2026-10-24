@@ -300,20 +300,21 @@ func (n *Notifier) deliver(ctx context.Context, j job) {
 			if err == nil {
 				err = n.sendRetrying(ctx, c, j.msg)
 			}
-			n.record(sc.ID, sc.Name, err)
+			n.record(sc.ID, sc.Name, j.msg, err)
 		})
 	}
 	wg.Wait()
 }
 
-func (n *Notifier) record(id int64, name string, err error) {
+func (n *Notifier) record(id int64, name string, m Message, err error) {
 	r := Result{At: time.Now()}
 	if err != nil {
 		r.Err = err.Error()
 		n.failed.Add(1)
-		n.Log.Warn("notification failed", "channel", name, "err", err)
+		n.Log.Warn("notification failed", "channel", name, "title", m.Title, "err", err)
 	} else {
 		n.sent.Add(1)
+		n.Log.Info("notification sent", "channel", name, "title", m.Title)
 	}
 	n.mu.Lock()
 	n.last[id] = r
@@ -340,12 +341,13 @@ func (n *Notifier) sendRetrying(ctx context.Context, c Channel, m Message) error
 // saved channel the result is recorded as its last delivery.
 func (n *Notifier) Test(ctx context.Context, c Channel) error {
 	n.init()
-	err := n.send(ctx, c, Message{
+	m := Message{
 		Event: "test", Title: "Test notification", Priority: 3, Time: time.Now().UTC(),
 		Text: "Notifications from Eyrie reach this channel.",
-	})
+	}
+	err := n.send(ctx, c, m)
 	if c.ID != 0 {
-		n.record(c.ID, c.Name, err)
+		n.record(c.ID, c.Name, m, err)
 	}
 	return err
 }

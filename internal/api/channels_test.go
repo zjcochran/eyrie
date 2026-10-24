@@ -159,6 +159,10 @@ func TestMonitorNotifications(t *testing.T) {
 	e.up.Store(false)
 	admin.call("POST", fmt.Sprintf("/api/v1/monitors/%d/check", m.ID), nil, nil)
 	eventually(t, "the down notification", func() bool { return len(h.messages()) == 1 })
+	eventually(t, "the notification logged", func() bool { return strings.Contains(e.log.String(), `msg="notification sent"`) })
+	if !strings.Contains(e.log.String(), `msg="check now" monitor=DB`) {
+		t.Error("check now not logged")
+	}
 	var msg notify.Message
 	json.Unmarshal([]byte(h.messages()[0]), &msg)
 	if msg.Event != notify.EventDown || msg.Monitor.Name != "DB" || msg.URL != fmt.Sprintf("https://eyrie.example.com/monitors/%d", m.ID) {

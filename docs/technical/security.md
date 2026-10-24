@@ -347,7 +347,19 @@ reverse proxy.
 
 ## Logging
 
-The log has usernames and client addresses for sign-ins that fail, the
-groups a provider sent at each single sign-on sign-in, and a line for every
-account change (who did it). It never has passwords, codes, session or CSRF
-tokens, API tokens or secrets.
+The log has usernames and client addresses for every sign-in, failed or
+not, and every sign-out, the groups a provider sent at each single sign-on
+sign-in, and a line for every account change (who did it). It never has
+passwords, codes, session or CSRF tokens, API tokens or secrets.
+
+At the default level, `info`, Eyrie logs its start and stop, sign-ins and
+sign-outs, every change made in the app (monitors, tags, groups, status
+pages, incidents, maintenance windows, notification channels, users and
+settings) and who made it, **Check now**, every status change of a
+monitor, maintenance windows starting and ending, every notification sent
+(channel and title), backups, and every failure (`warn`). With
+`EYRIE_LOG_LEVEL=debug` it also logs every check (monitor, status,
+response time, message) and every HTTP request (method, route, status,
+time taken, client address). A request is logged by its route, such as
+`POST /api/push/{token}`, not its path, so push tokens stay out of the
+log.

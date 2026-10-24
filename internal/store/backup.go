@@ -46,6 +46,33 @@ var historyTables = []struct{ name, column string }{
 	{"stats_daily", "bucket"},
 }
 
+// loadHistory inserts the history tables' rows.
+func (s *Store) loadHistory(ctx context.Context, tx *sql.Tx, history map[string][]Row) error {
+	for _, h := range historyTables {
+		if err := s.load(ctx, tx, h.name, history[h.name]); err != nil {
+			return err
+		}
+	}
+	return fillMicros(ctx, tx)
+}
+
+// fillMicros gives the response times of a backup from before they were
+// kept in microseconds their value from the milliseconds, as migration
+// 00007 does.
+func fillMicros(ctx context.Context, tx *sql.Tx) error {
+	for _, q := range []string{
+		`UPDATE monitor_state SET latency_us = latency_ms * 1000 WHERE latency_us < 0 AND latency_ms >= 0`,
+		`UPDATE heartbeats SET latency_us = latency_ms * 1000 WHERE latency_us < 0 AND latency_ms >= 0`,
+		`UPDATE stats_hourly SET latency_us_sum = latency_sum * 1000 WHERE latency_us_sum < 0`,
+		`UPDATE stats_daily SET latency_us_sum = latency_sum * 1000 WHERE latency_us_sum < 0`,
+	} {
+		if _, err := tx.ExecContext(ctx, q); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // selfRefs are columns that name a row of their own table: they are set
 // once every row is in.
 var selfRefs = map[string]string{"monitors": "parent_id"}
@@ -341,10 +368,8 @@ func (s *Store) Import(ctx context.Context, snap Snapshot, empty bool) error {
 			return err
 		}
 	}
-	for _, h := range historyTables {
-		if err := s.load(ctx, tx, h.name, snap.History[h.name]); err != nil {
-			return err
-		}
+	if err := s.loadHistory(ctx, tx, snap.History); err != nil {
+		return err
 	}
 	if err := s.resetIdentities(ctx, tx); err != nil {
 		return err

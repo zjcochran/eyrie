@@ -193,7 +193,8 @@ Written with every heartbeat.
 | `since` | `BIGINT` | When the status began |
 | `message` | `TEXT` | Of the last check |
 | `last_check` | `BIGINT` | |
-| `latency_ms` | `INTEGER` | Of the last check; `-1` for none |
+| `latency_ms` | `INTEGER` | Of the last check, in whole milliseconds; `-1` for none. Still written, but read only to fill `latency_us` |
+| `latency_us` | `BIGINT` | Of the last check, in microseconds; `-1` for none. Migration `00007_latency_micros`. |
 | `cert_expires` | `BIGINT` | The last certificate an HTTPS check saw; `0` for none |
 | `failures` | `INTEGER` | Failed checks in a row while pending |
 | `down_checks` | `INTEGER` | Checks since the last down notification, for "notify again every" |
@@ -212,7 +213,8 @@ setting are deleted daily.
 | `monitor_id` | `BIGINT` | `monitors.id`, `ON DELETE CASCADE` |
 | `at` | `BIGINT` | When the check ended |
 | `status` | `TEXT` | `up`, `pending`, `down` or `maintenance` |
-| `latency_ms` | `INTEGER` | `-1` for none |
+| `latency_ms` | `INTEGER` | In whole milliseconds; `-1` for none. Still written, but read only to fill `latency_us` |
+| `latency_us` | `BIGINT` | In microseconds; `-1` for none. Migration `00007_latency_micros`. |
 | `message` | `TEXT` | |
 | `important` | `BOOLEAN` | The status changed |
 
@@ -231,8 +233,14 @@ Check counts per monitor and hour (`bucket`: the hour's start) or day
 | `bucket` | `BIGINT` | |
 | `up` | `INTEGER` | Up and pending checks (checks in maintenance are not counted at all) |
 | `down` | `INTEGER` | Down checks |
-| `latency_sum` | `BIGINT` | Milliseconds, over checks with a response time |
+| `latency_sum` | `BIGINT` | Whole milliseconds, over checks with a response time. Still written, but read only to fill `latency_us_sum` |
+| `latency_us_sum` | `BIGINT` | Microseconds, over checks with a response time; `-1` until filled from `latency_sum`. Migration `00007_latency_micros`. |
 | `latency_count` | `INTEGER` | Checks with a response time |
+
+Response times were kept in whole milliseconds until migration
+`00007_latency_micros`, which made a 0.5 ms ping 0 ms. The migration fills
+the microsecond columns from the millisecond ones, and a restore does the
+same for a backup made before it.
 
 Uptime is `up / (up + down)`. The 24-hour and 30-day figures add up the
 hourly rows from the hour that contains "24 hours (30 days) ago", the 1-year

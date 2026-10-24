@@ -33,7 +33,9 @@ only way in, the password fields are not shown.
 - With [two-factor sign-in](#two-factor-sign-in), a second step asks for a
   code.
 - A session lasts 7 days from the last time you used Eyrie. **Sign out**,
-  at the top right, ends it.
+  in the menu under your name at the top right, ends it. The menu also
+  has **Your account**; on a phone it stays at the top right, with the
+  page menu on its own line below.
 
 If you opened a page while signed out, you land on it after signing in.
 

@@ -18,6 +18,7 @@
   let points = $state<Point[]>([]);
   let notice = $state<{ ok: boolean; text: string } | null>(null);
   let busy = $state(false);
+  let checking = $state(false); // Check now was clicked; its heartbeat has not arrived
   let manualMessage = $state('');
   let now = $state(Date.now());
 
@@ -57,6 +58,10 @@
   $effect(() =>
     onBeat((b) => {
       if (b.monitor_id !== id || !monitor) return;
+      if (checking) {
+        checking = false;
+        if (notice?.ok) notice = null;
+      }
       beats = [b, ...beats];
       if (b.important && (b.status === 'maintenance') !== (monitor.status.status === 'maintenance')) {
         api.monitor(id).then((m) => (monitor = m), () => {});
@@ -89,6 +94,16 @@
     } finally {
       busy = false;
     }
+  }
+
+  // checkNow asks for a check; its heartbeat clears the notice.
+  async function checkNow() {
+    checking = true;
+    await run(async () => {
+      await api.checkMonitor(id);
+      return checking ? 'Checking…' : undefined;
+    });
+    if (notice && !notice.ok) checking = false;
   }
 
   async function remove() {
@@ -128,7 +143,7 @@
     {#if admin}
       <div class="row">
         {#if m.type !== 'push' && m.type !== 'manual' && m.active}
-          <button disabled={busy || m.status.checking} onclick={() => run(async () => (await api.checkMonitor(id), 'Checking…'))}
+          <button disabled={busy || m.status.checking} onclick={checkNow}
             >Check now</button
           >
         {/if}

@@ -507,6 +507,7 @@ func (s *Server) checkMonitor(w http.ResponseWriter, r *http.Request) {
 		invalid(w, http.StatusUnprocessableEntity, capitalize(err.Error())+".")
 		return
 	}
+	s.Log.Info("check now", "monitor", m.Name, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusAccepted)
 }
 

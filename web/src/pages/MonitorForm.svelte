@@ -19,6 +19,13 @@
   // The tags ticked, and each one's value.
   let tagIDs = $state<number[]>([]);
   let tagValues = $state<Record<number, string>>({});
+  // A tag made on the spot, without going to Settings → Tags.
+  let newTagName = $state('');
+  let newTagColor = $state('#1f5fbf');
+  let addingTag = $state(false);
+  // A group made on the spot: a monitor of the type group.
+  let newGroupName = $state('');
+  let addingGroup = $state(false);
   let existing = $state<Monitor | null>(null);
   let error = $state('');
   let busy = $state(false);
@@ -103,6 +110,53 @@
     } catch (e) {
       error = message(e);
       busy = false;
+    }
+  }
+
+  // addTag creates a tag and ticks it for this monitor.
+  async function addTag() {
+    if (!newTagName.trim() || addingTag) return;
+    addingTag = true;
+    error = '';
+    try {
+      const t = await api.createTag(newTagName.trim(), newTagColor);
+      allTags = [...allTags, t].sort((a, b) => a.name.localeCompare(b.name));
+      tagIDs = [...tagIDs, t.id];
+      newTagName = '';
+    } catch (e) {
+      error = message(e);
+    } finally {
+      addingTag = false;
+    }
+  }
+
+  // addGroup creates a group and puts this monitor in it.
+  async function addGroup() {
+    if (!newGroupName.trim() || addingGroup) return;
+    addingGroup = true;
+    error = '';
+    try {
+      const g = await api.createMonitor({
+        name: newGroupName.trim(),
+        type: 'group',
+        parent_id: null,
+        active: true,
+        interval: 0,
+        retry_interval: 0,
+        retries: 0,
+        resend_every: 0,
+        timeout: 0,
+        upside_down: false,
+        description: '',
+        settings: {},
+      });
+      groups = [...groups, g].sort((a, b) => a.name.localeCompare(b.name));
+      parent = g.id;
+      newGroupName = '';
+    } catch (e) {
+      error = message(e);
+    } finally {
+      addingGroup = false;
     }
   }
 </script>
@@ -212,29 +266,57 @@
     <p class="muted">No notification channels yet: add them in Settings → Notifications.</p>
   {/if}
 
-  {#if allTags.length}
-    <fieldset>
-      <legend>Tags</legend>
-      {#each allTags as t (t.id)}
-        <div class="tag row">
-          <label class="check"><input type="checkbox" bind:group={tagIDs} value={t.id} /> <TagChip name={t.name} color={t.color} /></label>
-          {#if tagIDs.includes(t.id)}
-            <input bind:value={tagValues[t.id]} maxlength="100" placeholder="Value (optional)" aria-label="Value of {t.name}" />
-          {/if}
-        </div>
-      {/each}
-    </fieldset>
-  {:else}
-    <p class="muted">No tags yet: add them in Settings → Tags.</p>
-  {/if}
+  <fieldset>
+    <legend>Tags</legend>
+    {#each allTags as t (t.id)}
+      <div class="tag row">
+        <label class="check"><input type="checkbox" bind:group={tagIDs} value={t.id} /> <TagChip name={t.name} color={t.color} /></label>
+        {#if tagIDs.includes(t.id)}
+          <input bind:value={tagValues[t.id]} maxlength="100" placeholder="Value (optional)" aria-label="Value of {t.name}" />
+        {/if}
+      </div>
+    {/each}
+    <div class="tag row">
+      <input
+        bind:value={newTagName}
+        maxlength="50"
+        placeholder="New tag"
+        aria-label="New tag's name"
+        onkeydown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addTag();
+          }
+        }}
+      />
+      <input type="color" bind:value={newTagColor} aria-label="New tag's colour" />
+      <button type="button" disabled={addingTag || !newTagName.trim()} onclick={addTag}>Add tag</button>
+    </div>
+  </fieldset>
 
-  <label
-    >Group
-    <select bind:value={parent}>
+  <fieldset>
+    <legend>Group</legend>
+    <select bind:value={parent} aria-label="Group">
       <option value={0}>None</option>
       {#each groups as g (g.id)}<option value={g.id}>{g.name}</option>{/each}
     </select>
-  </label>
+    <div class="tag row">
+      <input
+        bind:value={newGroupName}
+        maxlength="100"
+        placeholder="New group"
+        aria-label="New group's name"
+        onkeydown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addGroup();
+          }
+        }}
+      />
+      <button type="button" disabled={addingGroup || !newGroupName.trim()} onclick={addGroup}>Add group</button>
+    </div>
+    <span class="muted help">A group is a monitor of the type Group: up while its members are up.</span>
+  </fieldset>
   <label>Description <input bind:value={description} maxlength="2000" /></label>
   <label class="check"><input type="checkbox" bind:checked={upsideDown} /> Upside down: up when the check fails</label>
   <label class="check"><input type="checkbox" bind:checked={active} /> Active (unticked: paused)</label>

@@ -144,6 +144,14 @@ select {
   color: var(--fg);
 }
 
+/* That padding would squash a colour picker's swatch to a line. */
+input[type='color'] {
+  width: 3rem;
+  height: 2.4rem;
+  padding: 0.15rem;
+  cursor: pointer;
+}
+
 button,
 .button {
   font: inherit;

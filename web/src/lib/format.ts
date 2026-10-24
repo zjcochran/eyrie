@@ -9,10 +9,12 @@ export function percent(share: number | null | undefined): string {
   return `${(Math.floor(share * 10000) / 100).toFixed(2)}%`;
 }
 
-/** Milliseconds, rounded for people. */
+/** Milliseconds, rounded for people; decimals under 10 ms, so a fast check is not 0 ms. */
 export function millis(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return '–';
   if (ms >= 10000) return `${(ms / 1000).toFixed(1)} s`;
+  if (ms < 1) return `${ms.toFixed(2)} ms`;
+  if (ms < 10) return `${ms.toFixed(1)} ms`;
   return `${Math.round(ms)} ms`;
 }
 

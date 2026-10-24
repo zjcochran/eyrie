@@ -53,6 +53,25 @@
     }
   });
 
+  // The account menu: closed by a click outside it, Escape or going to
+  // another page.
+  let menu = $state<HTMLDetailsElement>();
+  let menuOpen = $state(false);
+  $effect(() => {
+    void nav.path;
+    menuOpen = false;
+  });
+  function closeMenu(e: MouseEvent | KeyboardEvent) {
+    if (!menuOpen) return;
+    if (e instanceof KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      menuOpen = false;
+      menu?.querySelector('summary')?.focus();
+    } else if (!menu?.contains(e.target as Node)) {
+      menuOpen = false;
+    }
+  }
+
   async function signOut() {
     try {
       await api.logout();
@@ -62,6 +81,8 @@
     }
   }
 </script>
+
+<svelte:window onclick={closeMenu} onkeydown={closeMenu} />
 
 {#if page === 'status'}
   <!-- Public: anyone may see a published status page, signed in or not. -->
@@ -90,13 +111,15 @@
       <a href="/status-pages" onclick={link} aria-current={inStatusPages ? 'page' : undefined}>Status pages</a>
       <a href="/settings/account" onclick={link} aria-current={inSettings ? 'page' : undefined}>Settings</a>
     </nav>
-    <div class="me">
-      <Avatar {user} />
-      <span>{user.username}</span>
-      <button onclick={signOut}>Sign out</button>
-    </div>
+    <details class="me" bind:this={menu} bind:open={menuOpen}>
+      <summary aria-label="Account menu for {user.username}"><Avatar {user} /><span>{user.username}</span></summary>
+      <div class="menu">
+        <a href="/settings/account" onclick={link}>Your account</a>
+        <button onclick={signOut}>Sign out</button>
+      </div>
+    </details>
   </header>
-  <main>
+  <main class:wide={inSettings}>
     {#if page === 'home'}
       <Home />
     {:else if page === 'monitor'}
@@ -184,14 +207,81 @@
     font-weight: 600;
   }
   .me {
+    position: relative;
+  }
+  .me summary {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    padding: 0.25rem 0.4rem;
+    border-radius: var(--radius);
+    color: var(--muted);
+    cursor: pointer;
+    list-style: none;
+  }
+  .me summary::-webkit-details-marker {
+    display: none;
+  }
+  .me summary::after {
+    content: '▾';
+    font-size: 0.75rem;
+  }
+  .me summary:hover,
+  .me[open] summary {
+    color: var(--fg);
+    background: var(--bg);
+  }
+  .menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.35rem);
+    z-index: 20;
+    display: grid;
+    min-width: 11rem;
+    padding: 0.35rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+  }
+  .menu a,
+  .menu button {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--fg);
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .menu a:hover,
+  .menu button:hover {
+    background: var(--bg);
+  }
+  /* On a phone: the account menu at the top right, beside the logo, and
+     the page menu on its own line below them. */
+  @media (max-width: 48rem) {
+    .brand {
+      flex: 1;
+    }
+    nav {
+      order: 1;
+      flex-basis: 100%;
+      flex-wrap: wrap;
+    }
   }
   main {
     max-width: 60rem;
     margin: 1.5rem auto;
     padding: 0 1rem;
+  }
+  /* Room for every settings tab on one line. */
+  main.wide {
+    max-width: 68rem;
   }
   main.narrow {
     max-width: 28rem;

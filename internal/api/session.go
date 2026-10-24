@@ -110,6 +110,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, u store.Us
 		Name: sessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: s.secure(r),
 		SameSite: http.SameSiteLaxMode, MaxAge: int(store.SessionTTL.Seconds()),
 	})
+	s.Log.Info("signed in", "user", u.Username, "ip", s.clientIP(r))
 	sess, _, err := s.Store.SessionByToken(r.Context(), token, s.now())
 	return &sess, err
 }

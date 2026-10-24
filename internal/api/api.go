@@ -202,8 +202,54 @@ func (s *Server) Handler() http.Handler {
 	cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusForbidden, errorBody{"cross-origin request refused"})
 	}))
-	return securityHeaders(cop.Handler(mux))
+	return s.logRequests(securityHeaders(cop.Handler(mux)))
 }
+
+// logRequests logs every request at the debug level: the method, the
+// route's pattern (not the path, which can hold a push token), the
+// status and how long it took.
+func (s *Server) logRequests(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.Log.Enabled(r.Context(), slog.LevelDebug) {
+			h.ServeHTTP(w, r)
+			return
+		}
+		start := time.Now()
+		rec := &recorder{ResponseWriter: w}
+		h.ServeHTTP(rec, r)
+		s.Log.Debug("request", "method", r.Method, "route", r.Pattern, "status", rec.status,
+			"took", time.Since(start).Round(time.Microsecond), "ip", s.clientIP(r))
+	})
+}
+
+// recorder notes a response's status; it still flushes, for the events
+// stream.
+type recorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *recorder) WriteHeader(code int) {
+	if w.status == 0 {
+		w.status = code
+	}
+	w.ResponseWriter.WriteHeader(code)
+}
+
+func (w *recorder) Write(b []byte) (int, error) {
+	if w.status == 0 {
+		w.status = http.StatusOK
+	}
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *recorder) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *recorder) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 // securityHeaders are on every response. The app has no inline scripts, so
 // scripts may come only from Eyrie itself; Svelte sets inline styles.
