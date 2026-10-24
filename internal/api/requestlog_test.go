@@ -25,21 +25,21 @@ func TestLogRequests(t *testing.T) {
 	})
 	s := &Server{Log: slog.New(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))}
 	h := s.logRequests(mux)
-	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/api/push/s3cr3t", nil))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/push/tok123", nil))
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest("GET", "/events", nil))
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/events", nil))
 	if !rec.Flushed {
 		t.Error("not flushed")
 	}
 	got := buf.String()
 	if !strings.Contains(got, `msg=request method=POST route="POST /api/push/{token}" status=202`) ||
-		!strings.Contains(got, `route="GET /events" status=200`) || strings.Contains(got, "s3cr3t") {
+		!strings.Contains(got, `route="GET /events" status=200`) || strings.Contains(got, "tok123") {
 		t.Errorf("log %s", got)
 	}
 	// Above debug: nothing.
 	buf.Reset()
 	s.Log = slog.New(slog.NewTextHandler(&buf, nil))
-	s.logRequests(mux).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/events", nil))
+	s.logRequests(mux).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/events", nil))
 	if buf.Len() != 0 {
 		t.Errorf("logged at info: %s", buf.String())
 	}
