@@ -402,7 +402,11 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
 	default:
 		e.Log.Warn("the heartbeat queue is full; a heartbeat was dropped", "monitor", en.m.Name)
 	}
-	e.Log.Debug("check", "monitor", en.m.Name, "status", o.Status, "latency", latency, "message", o.Message)
+	if latency >= 0 {
+		e.Log.Debug("check", "monitor", en.m.Name, "status", o.Status, "latency", latency, "message", o.Message)
+	} else {
+		e.Log.Debug("check", "monitor", en.m.Name, "status", o.Status, "message", o.Message)
+	}
 	if o.Important {
 		e.Log.Info("monitor status", "monitor", en.m.Name, "status", o.Status, "message", o.Message)
 	}
