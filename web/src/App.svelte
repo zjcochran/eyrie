@@ -96,7 +96,7 @@
       <button onclick={signOut}>Sign out</button>
     </div>
   </header>
-  <main>
+  <main class:wide={inSettings}>
     {#if page === 'home'}
       <Home />
     {:else if page === 'monitor'}
@@ -192,6 +192,10 @@
     max-width: 60rem;
     margin: 1.5rem auto;
     padding: 0 1rem;
+  }
+  /* Room for every settings tab on one line. */
+  main.wide {
+    max-width: 68rem;
   }
   main.narrow {
     max-width: 28rem;
