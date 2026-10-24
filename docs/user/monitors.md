@@ -65,8 +65,8 @@ cannot change later.
 | Retry every | the interval | How soon a pending monitor is checked again. |
 | Notify again every | 0 (never) | While down, notify again every this many checks. |
 | Notify | the default channels | The [notification channels](notifications.md) it sends to. |
-| Tags | none | Its [tags](#tags), each with an optional value. |
-| Group | none | The group the monitor is in. |
+| Tags | none | Its [tags](#tags), each with an optional value. **Add tag** under them makes a new tag (a name and a colour) and gives it to the monitor. |
+| Group | none | The [group](#group) the monitor is in. **Add group** under it makes a new group monitor (with every setting at its default) and puts the monitor in it. |
 | Description | | Shown on the monitor's page. |
 | Upside down | off | A failed check counts as up and a successful one as down: for things that must *not* answer. |
 | Active | on | Unticked, the monitor is paused: not checked, its status kept. |
@@ -98,8 +98,9 @@ change a monitor, leave a secret empty to keep the saved one, or tick
 ## Tags
 
 Tags label monitors, such as `prod` or `database`, each with a colour.
-Admins make them in **Settings → Tags** (a name of 1 to 50 characters,
-unique whatever the case, and a colour) and give them to monitors in the
+Admins make them in **Settings → Tags**, or with **Add tag** in a
+monitor's form (a name of 1 to 50 characters, unique whatever the case,
+and a colour), and give them to monitors in the
 monitor's settings, each with an optional value of up to 100 characters
 (`env: prod`, `region: eu`). Renaming or recolouring a tag changes it on
 every monitor; deleting it takes it off every monitor and maintenance
@@ -531,7 +532,9 @@ check, such as a supplier's outage.
 
 ### Group
 
-A group's status follows its active members: down when at least one is
+A group is a monitor too: add one with **Add a monitor** and the type
+**Group**, or with **Add group** in another monitor's form; then put
+monitors in it with their **Group** setting. A group's status follows its active members: down when at least one is
 down, up otherwise (pending members do not count). It is evaluated at its
 interval and whenever a member's status changes. Its message names the
 members that are down. A group can be in another group, but not in itself
