@@ -159,6 +159,8 @@ at once.
 
 ### Audit log
 
+![The audit log: who signed in, checked a monitor and made and deleted a tag](../images/audit-dark.png)
+
 Admins only. Who did what, newest first, 100 at a time (**Older** for the
 next): every sign-in (password, two-factor or single sign-on), failed
 sign-in and sign-out, and every change made in Eyrie (monitors, **Check
