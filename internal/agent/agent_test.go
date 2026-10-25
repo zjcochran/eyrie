@@ -153,6 +153,8 @@ func TestRun(t *testing.T) {
 		t.Error("healthy without a heartbeat")
 	}
 	var st state
+	// The test's own temporary folder.
+	// nosemgrep
 	b, _ := os.ReadFile(filepath.Join(a.Cfg.Dir, stateFile))
 	if json.Unmarshal(b, &st) != nil || st.Agent != 7 || st.Name != "edge" || st.Token != tokenHash("eya_good") {
 		t.Errorf("state %s", b)
@@ -274,6 +276,8 @@ func TestRotate(t *testing.T) {
 	if err := runUntil(t, a2, func() bool { return rotated(e, a.Cfg.Dir, 1) }); err != nil {
 		t.Fatal(err)
 	}
+	// The test's own temporary folder.
+	// nosemgrep
 	b, _ := os.ReadFile(filepath.Join(a.Cfg.Dir, keyFile))
 	k, err := agentauth.ParseKey(string(b))
 	if err != nil || k.Public().String() != e.rotated[0] {

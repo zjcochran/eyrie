@@ -125,6 +125,8 @@ func (s *Store) Agents(ctx context.Context) ([]Agent, error) {
 // its key: the agent must enroll again.
 func (s *Store) NewAgentToken(ctx context.Context, id int64, expires time.Time) (string, error) {
 	token := AgentTokenPrefix + randomToken()
+	// Parameterized: every value is a bound argument.
+	// nosemgrep
 	res, err := s.db.ExecContext(ctx, s.q(`UPDATE agents SET token_hash = ?, token_expires = ?, public_key = '', previous_key = '', key_created = 0 WHERE id = ?`),
 		hashToken(token), expires.UnixMilli(), id)
 	if err != nil {

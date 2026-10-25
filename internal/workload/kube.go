@@ -56,11 +56,14 @@ func InCluster(getenv func(string) string, dir string) (*Kubernetes, error) {
 	if dir == "" {
 		dir = serviceAccount
 	}
+	// The ServiceAccount's own file, in a fixed folder.
+	// nosemgrep
 	ca, err := os.ReadFile(filepath.Join(dir, "ca.crt")) //nolint:gosec // G304: the ServiceAccount's own file
 	if err != nil {
 		return nil, fmt.Errorf("kubernetes: %w", err)
 	}
 	return NewKubernetes("https://"+net.JoinHostPort(host, port), ca, func() (string, error) {
+		// nosemgrep
 		b, err := os.ReadFile(filepath.Join(dir, "token")) //nolint:gosec // G304: the ServiceAccount's own file
 		return strings.TrimSpace(string(b)), err
 	})
