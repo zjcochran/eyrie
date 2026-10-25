@@ -9,6 +9,7 @@ are updated in the same change as the behaviour they describe.
 | Guide | What it covers |
 | --- | --- |
 | [Installation](user/installation.md) | The image, Docker Compose with SQLite or PostgreSQL, the data folder, a reverse proxy |
+| [Reverse proxy examples](user/reverse-proxy.md) | nginx, Caddy, Traefik, Apache httpd and HAProxy in front of Eyrie, what a proxy must allow, finding the proxy's address |
 | [Upgrades and compatibility](user/upgrading.md) | Upgrading, image tags, downgrades, what stays compatible between versions (configuration, API, backups, …) and what can change |
 | [Monitors](user/monitors.md) | The dashboard, a monitor's page, adding monitors, every type and setting, tags, push URLs, uptime and history |
 | [Maintenance windows](user/maintenance.md) | Schedules (once, weekly, monthly, every N days, cron), time zones, what a window covers (monitors, tags, groups), what happens during and after it |

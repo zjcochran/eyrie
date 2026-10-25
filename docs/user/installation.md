@@ -133,6 +133,10 @@ client address in the log and the sign-in rate limit is the visitor's, from
 `X-Forwarded-For`, and not the proxy's. Headers from any other address are
 ignored.
 
+Eyrie must have its own host name: it does not work under a path. For
+nginx, Caddy, Traefik, Apache httpd and HAProxy configurations, and how to
+find the proxy's address, see [Reverse proxy examples](reverse-proxy.md).
+
 ## Health check
 
 The image's `HEALTHCHECK` runs `/eyrie healthcheck` every 30 seconds (5 s
