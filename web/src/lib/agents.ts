@@ -23,12 +23,10 @@ services:
     image: ${image}
     command: agent
     restart: unless-stopped
-    group_add:
-      - "999" # the socket's group: stat -c %g /var/run/docker.sock
     environment:
 ${env}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       - eyrie-agent:/data
 
 volumes:
@@ -39,13 +37,11 @@ services:
   agent:
     image: ${image}
     command: agent
-    group_add:
-      - "999" # the socket's group on the managers: stat -c %g /var/run/docker.sock
     environment:
       EYRIE_AGENT_PLATFORM: swarm
 ${env}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       - agent:/data
     deploy:
       replicas: 1

@@ -32,16 +32,14 @@ LABEL org.opencontainers.image.title="Eyrie" \
       org.opencontainers.image.source="${SOURCE_URL}" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 # alpine:3 is the newest Alpine release, and apk upgrade adds every fix
-# published since the image was built; a non-root user (UID 65532, as
-# before).
-# The base already has the CA certificates HTTPS checks use.
-RUN apk upgrade --no-cache && \
-    addgroup -g 65532 eyrie && \
-    adduser -D -H -u 65532 -G eyrie -h /data -s /sbin/nologin eyrie
+# published since the image was built. The base already has the CA
+# certificates HTTPS checks use.
+# Runs as root, as WAN Drawbridge does: the mounted Docker socket is only
+# writable by root or the host's docker group, whose ID differs between
+# hosts.
+RUN apk upgrade --no-cache
 COPY --from=build /out/eyrie /eyrie
-# /data belongs to the image's non-root user, so a new volume does too.
-COPY --from=build --chown=65532:65532 /out/data /data
-USER 65532:65532
+COPY --from=build /out/data /data
 VOLUME ["/data"]
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD ["/eyrie", "healthcheck"]

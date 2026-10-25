@@ -27,7 +27,7 @@ What the manifest makes, in the namespace `eyrie`:
 | ServiceAccount `eyrie-agent` | The agent's identity in the cluster |
 | ClusterRole and ClusterRoleBinding `eyrie-agent` | `list` on Deployments, StatefulSets and DaemonSets, in every namespace. Nothing else: no pods, secrets or changes |
 | PersistentVolumeClaim `eyrie-agent` (64 MiB) | The agent's key and state, which must survive the pod |
-| Deployment `eyrie-agent` | One replica (`Recreate`), as user 65532, read-only root file system, no capabilities; the liveness probe runs `/eyrie healthcheck`, which fails when the agent has not reported for 90 seconds |
+| Deployment `eyrie-agent` | One replica (`Recreate`), read-only root file system, no capabilities; the liveness probe runs `/eyrie healthcheck`, which fails when the agent has not reported for 90 seconds |
 
 ## Only some namespaces
 

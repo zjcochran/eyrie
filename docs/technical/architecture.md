@@ -44,7 +44,9 @@ Node.js is never installed on a developer's machine. It runs only:
   stage builds the Go binary with `-tags ui`, and the image that ships has
   only the binary, on `alpine:3`, the newest Alpine release (with every
   published Alpine fix; its C library, musl, is for the Claude Code
-  binary that `EYRIE_CLAUDE_CODE=true` downloads), running as UID 65532.
+  binary that `EYRIE_CLAUDE_CODE=true` downloads), running as root, as WAN
+  Drawbridge does, so it can use a mounted Docker socket whatever group
+  owns it on the host.
 
 ## The monitor engine
 

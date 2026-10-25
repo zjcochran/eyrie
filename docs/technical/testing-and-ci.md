@@ -116,8 +116,7 @@ that does not apply, add `<identifier> <package or file> <reason>` to
 (`test/smoke/compose.yaml`): on SQLite, and on PostgreSQL 17. For each it
 checks that `/healthz` answers `ok`, `/api/v1/info` reports the version
 built in, the CSP header is set, an app route serves the embedded app and
-its script is cached as immutable, the container runs as user 65532, and
-setup creates the admin `alice` and signs her in, and a push monitor goes
+its script is cached as immutable, setup creates the admin `alice` and signs her in, and a push monitor goes
 up when its URL is called. Then it restarts both,
 waits for them to answer, checks that `alice` can sign in with her
 password, and waits up to 2 minutes for Docker to report both healthy. `SMOKE_HOST`, `SMOKE_BIND`,
