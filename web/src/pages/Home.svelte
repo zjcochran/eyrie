@@ -122,7 +122,10 @@
             aria-expanded={!collapsed.has(m.id)}
             aria-label="{collapsed.has(m.id) ? 'Show' : 'Hide'} the members of {m.name}"
             title={collapsed.has(m.id) ? 'Show members' : 'Hide members'}
-            onclick={() => toggle(m.id)}>{collapsed.has(m.id) ? '▸' : '▾'}</button
+            onclick={() => toggle(m.id)}
+            ><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"
+              ><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg
+            ></button
           >
         {/if}
         <a class="monitor" href="/monitors/{m.id}" onclick={link} style:padding-left="{2 + depth * 1.25}rem">
@@ -197,8 +200,13 @@
     border-radius: 4px;
     background: none;
     color: var(--muted);
-    font-size: 1rem;
-    line-height: 1;
+    line-height: 0;
+  }
+  .toggle svg {
+    transition: transform 0.15s;
+  }
+  .toggle[aria-expanded='true'] svg {
+    transform: rotate(90deg);
   }
   .toggle:hover {
     color: var(--fg);
@@ -238,7 +246,7 @@
     }
     /* Level with the name, on the row's first line. */
     .toggle {
-      top: 0.65rem;
+      top: 0.6rem;
       transform: none;
     }
   }
