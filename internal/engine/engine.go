@@ -17,6 +17,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -621,6 +622,20 @@ func (e *Engine) CheckNow(ctx context.Context, id int64) error {
 		}
 		if !en.running {
 			en.next = e.Clock.Now()
+		}
+		return nil
+	})
+}
+
+// CheckMatching checks at once every active monitor of type typ whose
+// settings match, such as the agent monitors of a workload whose report
+// changed.
+func (e *Engine) CheckMatching(ctx context.Context, typ string, match func(config json.RawMessage) bool) error {
+	return e.do(ctx, func() error {
+		for _, en := range e.mons {
+			if en.m.Type == typ && en.m.Active && !en.running && match(en.m.Config) {
+				en.next = e.Clock.Now()
+			}
 		}
 		return nil
 	})

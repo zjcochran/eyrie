@@ -1,0 +1,113 @@
+# Eyrie's agent for a Kubernetes cluster: it reports the cluster's
+# Deployments, StatefulSets and DaemonSets to Eyrie. See README.md next to
+# this file. Make the namespace and the Secret first (Settings → Agents in
+# Eyrie shows the commands with your token), then:
+#   kubectl apply -f eyrie-agent.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eyrie-agent
+  namespace: eyrie
+---
+# Only reading: the agent lists workloads and their ready counts. No pods,
+# secrets, exec, or any change.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: eyrie-agent
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["list"]
+---
+# Every namespace. To limit the agent to some, delete this
+# ClusterRoleBinding, add a RoleBinding to the ClusterRole in each of them,
+# and list them in EYRIE_AGENT_NAMESPACES below (see README.md).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eyrie-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eyrie-agent
+subjects:
+  - kind: ServiceAccount
+    name: eyrie-agent
+    namespace: eyrie
+---
+# The agent's key and state: they must survive the pod being replaced.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eyrie-agent
+  namespace: eyrie
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 64Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eyrie-agent
+  namespace: eyrie
+  labels:
+    app: eyrie-agent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # one agent at a time, and the volume is ReadWriteOnce
+  selector:
+    matchLabels:
+      app: eyrie-agent
+  template:
+    metadata:
+      labels:
+        app: eyrie-agent
+    spec:
+      serviceAccountName: eyrie-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: ghcr.io/zjcochran/eyrie:latest
+          args: ["agent"]
+          env:
+            - name: EYRIE_AGENT_PLATFORM
+              value: kubernetes
+            # - name: EYRIE_AGENT_NAMESPACES
+            #   value: shop,ops
+          envFrom:
+            - secretRef:
+                name: eyrie-agent # EYRIE_AGENT_URL and EYRIE_AGENT_TOKEN
+          volumeMounts:
+            - name: state
+              mountPath: /data
+          livenessProbe:
+            exec:
+              command: ["/eyrie", "healthcheck"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: eyrie-agent

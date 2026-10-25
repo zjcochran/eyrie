@@ -2,7 +2,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import TagChip from '../components/TagChip.svelte';
-  import { type Channel, type Monitor, type MonitorChange, type Tag, message } from '../lib/api.ts';
+  import { type Agent, type Channel, type Monitor, type MonitorChange, type Tag, type Workload, message } from '../lib/api.ts';
   import { go, link } from '../lib/nav.svelte.ts';
   import { api } from '../lib/session.svelte.ts';
   import { fields, shown, toSettings, toValues } from '../lib/settings.ts';
@@ -27,6 +27,9 @@
   let newGroupName = $state('');
   let addingGroup = $state(false);
   let existing = $state<Monitor | null>(null);
+  // For agent monitors: the agents, and what the chosen one reports.
+  let agents = $state<Agent[]>([]);
+  let workloads = $state<Workload[]>([]);
   let error = $state('');
   let busy = $state(false);
 
@@ -54,6 +57,7 @@
       groups = all.filter((m) => m.type === 'group' && m.id !== id);
       allChannels = await api.channels();
       allTags = await api.tags();
+      agents = await api.agents();
       channels = allChannels.filter((c) => c.default).map((c) => c.id);
       if (id) {
         const m = await api.monitor(id);
@@ -80,6 +84,27 @@
   });
 
   const typeFields = $derived(fields[type] ?? []);
+
+  $effect(() => {
+    const agent = type === 'agent' ? Number(values.agent) : 0;
+    if (!agent) {
+      workloads = [];
+      return;
+    }
+    api
+      .workloads(agent)
+      .then((w) => (workloads = w))
+      .catch((e) => (error = message(e)));
+  });
+  // The workloads by group (Compose project, stack, namespace or node).
+  const workloadGroups = $derived.by(() => {
+    const groups = new Map<string, Workload[]>();
+    for (const w of workloads) {
+      const g = w.group ?? '';
+      groups.set(g, [...(groups.get(g) ?? []), w]);
+    }
+    return [...groups.entries()];
+  });
   const checked = $derived(type !== 'push' && type !== 'manual');
 
   async function save(event: SubmitEvent) {
@@ -209,6 +234,33 @@
             ><input type="checkbox" bind:group={clearSecrets} value={f.key} /> Remove the saved {f.label.toLowerCase()}</label
           >
         {/if}
+      {:else if f.kind === 'agent'}
+        <label
+          >{f.label}
+          <select bind:value={values[f.key]} required>
+            <option value="" disabled>Choose an agent</option>
+            {#each agents as a (a.id)}
+              <option value={String(a.id)}>{a.name}{a.status === 'online' ? '' : ` (${a.status})`}</option>
+            {/each}
+          </select>
+        </label>
+      {:else if f.kind === 'workload'}
+        <label
+          >{f.label}
+          <select bind:value={values[f.key]} required>
+            <option value="" disabled>Choose a workload</option>
+            {#each workloadGroups as [group, ws] (group)}
+              <optgroup label={group || 'Ungrouped'}>
+                {#each ws as w (w.key)}
+                  <option value={w.key}>{w.name} · {w.kind}{w.up ? '' : ' (down)'}</option>
+                {/each}
+              </optgroup>
+            {/each}
+            {#if values[f.key] && !workloads.some((w) => w.key === values[f.key])}
+              <option value={values[f.key]}>{values[f.key]} (not reported now)</option>
+            {/if}
+          </select>
+        </label>
       {:else if f.kind === 'textarea'}
         <label>{f.label} <textarea bind:value={values[f.key]} placeholder={f.placeholder} rows={f.rows ?? 3}></textarea></label>
       {:else if f.kind === 'number'}
@@ -231,6 +283,8 @@
     <p class="muted">Its status is set by hand, on the monitor's page.</p>
   {:else if type === 'group'}
     <p class="muted">A group is down when one of its active members is down. Put monitors in it with their Group setting.</p>
+  {:else if type === 'agent' && !agents.length}
+    <p class="muted">No agents yet: add one in Settings → Agents, and run it where the workloads are.</p>
   {/if}
 
   <fieldset>

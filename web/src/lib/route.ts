@@ -10,6 +10,7 @@ export type Page =
   | 'users'
   | 'sso'
   | 'tokens'
+  | 'agents'
   | 'retention'
   | 'backup'
   | 'notifications'
@@ -36,6 +37,7 @@ export const settingsTabs: { page: Page; path: string; label: string; admin: boo
   { page: 'users', path: '/settings/users', label: 'Users', admin: true },
   { page: 'sso', path: '/settings/sso', label: 'Single sign-on', admin: true },
   { page: 'tokens', path: '/settings/api-tokens', label: 'API tokens', admin: true },
+  { page: 'agents', path: '/settings/agents', label: 'Agents', admin: true },
   { page: 'tags', path: '/settings/tags', label: 'Tags', admin: true },
   { page: 'notifications', path: '/settings/notifications', label: 'Notifications', admin: true },
   { page: 'analysis', path: '/settings/alert-analysis', label: 'Alert analysis', admin: true },

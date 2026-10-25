@@ -62,10 +62,19 @@ describe('lists', () => {
   });
 });
 
+describe('agent settings', () => {
+  it('sends the agent as a number', () => {
+    const v = toValues('agent', { agent: 3, workload: 'service/api' });
+    assert.deepEqual(v, { agent: '3', workload: 'service/api' });
+    assert.deepEqual(toSettings('agent', v), { agent: 3, workload: 'service/api' });
+    assert.deepEqual(toSettings('agent', toValues('agent', {})), {});
+  });
+});
+
 describe('fields', () => {
   it('has fields for every type that has settings', () => {
     for (const t of ['websocket-upgrade', 'smtp', 'ntp', 'radius', 'snmp', 'docker', 'sip-options', 'tailscale-ping',
-      'system-service', 'pm2', 'globalping', 'sftp', 'steam', 'gamedig', 'grpc-keyword', 'real-browser', 'postgres', 'mysql',
+      'system-service', 'pm2', 'agent', 'globalping', 'sftp', 'steam', 'gamedig', 'grpc-keyword', 'real-browser', 'postgres', 'mysql',
       'sqlserver', 'oracledb', 'mongodb', 'redis', 'mqtt', 'rabbitmq', 'kafka-producer']) {
       assert.equal((fields[t] ?? []).length > 0, true, t);
     }

@@ -590,3 +590,27 @@ func TestReplace(t *testing.T) {
 		t.Error("monitors not reloaded after a failed swap")
 	}
 }
+
+func TestCheckMatching(t *testing.T) {
+	h := newHarness(t)
+	h.start()
+	ctx := context.Background()
+	a := h.add(monitor("Web", "port", portConfig))
+	if b := h.next(); b.MonitorID != a.ID {
+		t.Fatalf("first check %+v", b)
+	}
+	if err := h.e.CheckMatching(ctx, "port", func(json.RawMessage) bool { return false }); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.e.CheckMatching(ctx, "http", func(json.RawMessage) bool { return true }); err != nil {
+		t.Fatal(err)
+	}
+	h.none()
+	var seen json.RawMessage
+	if err := h.e.CheckMatching(ctx, "port", func(c json.RawMessage) bool { seen = c; return true }); err != nil {
+		t.Fatal(err)
+	}
+	if b := h.next(); b.MonitorID != a.ID || string(seen) == "" {
+		t.Errorf("matched %+v %s", b, seen)
+	}
+}

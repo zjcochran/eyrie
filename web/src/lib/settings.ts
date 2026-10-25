@@ -15,6 +15,9 @@ export type Field = Base &
     | { kind: 'number'; min: number; max: number; placeholder?: string }
     | { kind: 'check' }
     | { kind: 'select'; options: string[] }
+    /** One of Eyrie's agents, and a workload it reports. */
+    | { kind: 'agent' }
+    | { kind: 'workload' }
   );
 
 const http: Field[] = [
@@ -158,6 +161,10 @@ export const fields: Record<string, Field[]> = {
   'tailscale-ping': [{ key: 'host', label: 'Tailscale node', kind: 'text', placeholder: 'nas', help: 'Its name or Tailscale IP address' }],
   'system-service': [{ key: 'service', label: 'Service', kind: 'text', placeholder: 'nginx', help: 'systemd on Linux, services on Windows' }],
   pm2: [{ key: 'process', label: 'PM2 process', kind: 'text', placeholder: 'api', help: 'Its name or id' }],
+  agent: [
+    { key: 'agent', label: 'Agent', kind: 'agent', help: 'Add agents in Settings → Agents' },
+    { key: 'workload', label: 'Workload', kind: 'workload', help: 'What the agent reports, as of its last report' },
+  ],
   globalping: [
     { key: 'kind', label: 'Measurement', kind: 'select', options: ['ping', 'http'] },
     { key: 'target', label: 'Target', kind: 'text', placeholder: 'example.com, or https://example.com/health for http' },
@@ -320,7 +327,7 @@ export function toSettings(type: string, values: Values): Record<string, unknown
     // Secrets are sent as typed: spaces can be part of a password.
     const text = f.kind === 'secret' ? String(v ?? '') : String(v ?? '').trim();
     if (text === '') continue;
-    if (f.kind === 'number') {
+    if (f.kind === 'number' || f.kind === 'agent') {
       out[f.key] = Number(text);
     } else if (maps.includes(f.key)) {
       const headers: Record<string, string> = {};

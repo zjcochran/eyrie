@@ -7,7 +7,7 @@ change it. The threat model for sign-in and accounts:
 
 | Threat | Mitigation |
 | --- | --- |
-| Someone on the network uses the app | Every API route needs a session or, for reading, an API token, except setup (until the first account exists), sign-in, `/api/v1/session`, `/api/v1/info`, `/healthz`, push URLs (their token) and `/metrics` (its token) |
+| Someone on the network uses the app | Every API route needs a session or, for reading, an API token, except setup (until the first account exists), sign-in, `/api/v1/session`, `/api/v1/info`, `/healthz`, push URLs (their token), `/metrics` (its token) and the agents' routes (a one-time token to enroll, then the agent's signature) |
 | Password guessing | argon2id hashes, at least 12 characters, a rate limit per client address and per username |
 | A stolen password | Optional two-factor sign-in with an authenticator app |
 | A stolen session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS; only a hash stored; sessions end on a password change, a reset or disabling |
@@ -15,6 +15,7 @@ change it. The threat model for sign-in and accounts:
 | Script injection | Svelte escapes text; a Content-Security-Policy without inline scripts; SVG pictures refused |
 | Clickjacking | `X-Frame-Options: DENY`, `frame-ancestors 'none'` |
 | Forged proxy headers | Believed only from configured trusted proxies |
+| A forged or replayed agent report | Ed25519 signatures over the request with a time and a nonce; keys rotated every 30 days, refused after 90 |
 | Single sign-on attacks | Authorization code with PKCE, state, nonce, ID-token checks, matching on issuer and subject |
 | A leaked database | Passwords and tokens hashed; every [stored secret](#stored-secrets) sealed with a key kept apart |
 | An open redirect after sign-in | `next` must be a local path |
@@ -130,6 +131,36 @@ token it presents. A token can only read (`GET` and `HEAD`) the read routes
 status pages and incidents): it cannot sign in, reach session routes,
 settings or backups, or change anything. Its last use is recorded.
 Revoking deletes it at once.
+
+## Agents
+
+[Agents](../user/agents.md) only read, and Eyrie sends them nothing to
+do, so an agent's host never runs anything on Eyrie's word. What an agent
+can do to Eyrie is report: a false report can bring its own workloads'
+monitors up or down, and nothing else.
+
+- An agent enrolls with a one-time token, `eya_` + 32 random bytes
+  (base64url), made by an admin, valid for an hour and shown once. Eyrie
+  stores only its SHA-256. Refused tokens count against a limit of 10 a
+  minute per client address.
+- From then on every request is signed with the agent's Ed25519 key, over
+  the method, path, agent, time, a random nonce and the body's SHA-256. A
+  reverse proxy or anyone else on the way cannot forge or replay one: the
+  time must be within 5 minutes and a nonce is accepted once.
+- The private key never leaves the agent's folder. The agent replaces it
+  every 30 days, the new key proving itself with a signature; Eyrie refuses
+  keys older than 90 days. **New token** or **Remove** shuts an agent out
+  at once.
+- Reports are not encrypted by the agent: over `http://` they can be read
+  on the way, and the agent warns at start.
+- With Docker, the agent needs the Docker socket, and whoever can use the
+  socket controls the host. The agent sends only `GET` requests; a socket
+  proxy that allows only those holds it to that. In Kubernetes its
+  ServiceAccount may only list Deployments, StatefulSets and DaemonSets;
+  for Proxmox VE a `PVEAuditor` token is enough, and the server's
+  certificate is pinned by its fingerprint.
+
+The protocol is in [Agent protocol](agent-protocol.md).
 
 ## Push URLs
 
@@ -354,8 +385,10 @@ passwords, codes, session or CSRF tokens, API tokens or secrets.
 
 At the default level, `info`, Eyrie logs its start and stop, sign-ins and
 sign-outs, every change made in the app (monitors, tags, groups, status
-pages, incidents, maintenance windows, notification channels, users and
-settings) and who made it, **Check now**, every status change of a
+pages, incidents, maintenance windows, notification channels, users,
+agents and settings) and who made it, agents enrolling, rotating their
+keys, being refused (at most once an hour each) and going offline,
+**Check now**, every status change of a
 monitor, maintenance windows starting and ending, every notification sent
 (channel and title), backups, and every failure (`warn`). With
 `EYRIE_LOG_LEVEL=debug` it also logs every check (monitor, status,

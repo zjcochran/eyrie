@@ -159,6 +159,27 @@ Unique index `api_tokens_hash` on `hash`.
 | `created_by` | `TEXT` | Username of the admin who made it |
 | `last_used` | `BIGINT` | `0`: never |
 
+### agents
+
+Eyrie's [agents](../user/agents.md). Migration `00009_agents`. Unique
+index `agents_name` on `name`. Times are milliseconds since the epoch, `0`
+for none.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key; the agent's ID in its signatures |
+| `name` | `TEXT` | 1 to 64 characters, unique |
+| `platform`, `hostname`, `version` | `TEXT` | From the agent's enrollment and reports |
+| `token_hash` | `TEXT` | SHA-256 (hex) of the one-time enrollment token; `''` when none waits |
+| `token_expires` | `BIGINT` | When that token expires |
+| `public_key` | `TEXT` | `ed25519:…`; `''` until the agent enrolls, and after a new token |
+| `previous_key` | `TEXT` | The key before a rotation, accepted until the new one is used |
+| `key_created` | `BIGINT` | When `public_key` was made; refused 90 days later |
+| `last_seen`, `last_address` | `BIGINT`, `TEXT` | The last report's time and client address |
+| `error` | `TEXT` | Why the last report had no workloads; `''` when it had |
+| `workloads` | `TEXT` | The last report's workloads, as JSON (`[{"key","name","kind","group","up","status"}]`) |
+| `created_at` | `BIGINT` | |
+
 ### monitors
 
 Migration `00003_monitors`. Index `monitors_parent` on `parent_id`; unique
@@ -169,7 +190,7 @@ does not collide).
 | --- | --- | --- |
 | `id` | `INTEGER` / `BIGINT` | Primary key |
 | `name` | `TEXT` | 1 to 100 characters |
-| `type` | `TEXT` | `http`, `keyword`, `json-query`, `port`, `ping`, `dns`, `push`, `manual` or `group`; never changes |
+| `type` | `TEXT` | One of the [monitor types](../user/monitors.md#types), such as `http`, `docker`, `agent`, `push`, `manual` or `group`; never changes |
 | `parent_id` | `BIGINT` | The group it is in, `NULL` for none; `ON DELETE SET NULL`. Must be a group, and not the monitor itself or one of its members. |
 | `active` | `BOOLEAN` | False: paused |
 | `interval_s`, `retry_interval_s` | `INTEGER` | Seconds |

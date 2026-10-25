@@ -148,7 +148,7 @@ describe('Client', () => {
       default: false,
     };
     const routes: [() => Promise<unknown>, string, string][] = [];
-    const { calls, client } = fake(...Array.from({ length: 60 }, () => json({})));
+    const { calls, client } = fake(...Array.from({ length: 80 }, () => json({})));
     routes.push(
       [() => client.account(), 'GET', '/api/v1/account'],
       [() => client.changePassword('a', 'b'), 'PUT', '/api/v1/account/password'],
@@ -184,6 +184,11 @@ describe('Client', () => {
       [() => client.testSSO('https://id.example.com'), 'POST', '/api/v1/settings/sso/test'],
       [() => client.audit({}), 'GET', '/api/v1/audit'],
       [() => client.audit({ action: 'signed in', user: 'bob', before: 40 }), 'GET', '/api/v1/audit?action=signed+in&user=bob&before=40'],
+      [() => client.agents(), 'GET', '/api/v1/agents'],
+      [() => client.addAgent('edge'), 'POST', '/api/v1/agents'],
+      [() => client.renewAgentToken(5), 'POST', '/api/v1/agents/5/token'],
+      [() => client.removeAgent(5), 'DELETE', '/api/v1/agents/5'],
+      [() => client.workloads(5), 'GET', '/api/v1/agents/5/workloads'],
       [() => client.createToken('ci'), 'POST', '/api/v1/tokens'],
       [() => client.deleteToken(3), 'DELETE', '/api/v1/tokens/3'],
       [() => client.monitorTypes(), 'GET', '/api/v1/monitor-types'],

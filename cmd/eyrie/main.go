@@ -4,7 +4,9 @@
 //
 //	eyrie                       run the server (the default)
 //	eyrie serve                 the same
-//	eyrie healthcheck           exit 0 if the running server answers, for Docker
+//	eyrie agent                 run as an agent, reporting another host's workloads
+//	eyrie healthcheck           exit 0 if the running server answers (or the
+//	                            agent reported lately), for Docker
 //	eyrie reset-password <user> set a user's password from standard input
 //	eyrie reset-2fa <user>      turn off a user's two-factor sign-in
 //	eyrie version               print the version
@@ -28,6 +30,8 @@ import (
 	"time"
 	_ "time/tzdata" // the image has no zoneinfo; TZ still works
 
+	"github.com/zjcochran/eyrie/internal/agent"
+	"github.com/zjcochran/eyrie/internal/agents"
 	"github.com/zjcochran/eyrie/internal/analysis"
 	"github.com/zjcochran/eyrie/internal/api"
 	"github.com/zjcochran/eyrie/internal/backup"
@@ -43,7 +47,8 @@ import (
 const usage = `usage:
   eyrie                       run the server
   eyrie serve                 the same
-  eyrie healthcheck           exit 0 if the running server answers
+  eyrie agent                 run as an agent: report another host's workloads to Eyrie
+  eyrie healthcheck           exit 0 if the running server answers (or the agent reported lately)
   eyrie reset-password <user> set a user's password, read from standard input
   eyrie reset-2fa <user>      turn off a user's two-factor sign-in
   eyrie version               print the version`
@@ -61,7 +66,7 @@ func main() {
 }
 
 // arguments is how many arguments each command takes.
-var arguments = map[string]int{"serve": 0, "healthcheck": 0, "version": 0, "reset-password": 1, "reset-2fa": 1}
+var arguments = map[string]int{"serve": 0, "agent": 0, "healthcheck": 0, "version": 0, "reset-password": 1, "reset-2fa": 1}
 
 // cli runs one invocation and returns the process exit code.
 func cli(args []string, getenv func(string) string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -83,6 +88,10 @@ func cli(args []string, getenv func(string) string, stdin io.Reader, stdout, std
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		err = serve(ctx, getenv, stderr, nil)
+	case "agent":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		err = runAgent(ctx, getenv, stderr)
 	case "reset-password":
 		err = resetPassword(getenv, args[1], stdin, stdout, stderr)
 	case "reset-2fa":
@@ -113,8 +122,13 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	}
 	go prune(ctx, st, log)
 
+	agentsMgr := agents.New(st, log)
+	if err := agentsMgr.Load(ctx); err != nil {
+		return err
+	}
+	go agentsMgr.Watch(ctx, 15*time.Second)
 	env := check.DefaultEnv("Eyrie/" + version)
-	env.Secrets = box
+	env.Secrets, env.Agents = box, agentsMgr
 	eng := engine.New(st, env, log)
 	analyzer := &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: version}
 	if cfg.ClaudeCode {
@@ -135,7 +149,7 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 		Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),
 		BaseURL: cfg.BaseURL, TrustedProxies: cfg.TrustedProxies, ForceLocal: cfg.ForceLocal,
 		SourceURL: cmp.Or(cfg.SourceURL, sourceURL), Engine: eng, Env: env, MetricsToken: cfg.MetricsToken,
-		Notifier: notifier, Analyzer: analyzer, Backups: backups,
+		Notifier: notifier, Analyzer: analyzer, Backups: backups, Agents: agentsMgr,
 	}
 	srv := &http.Server{
 		Handler:           apiSrv.Handler(),
@@ -287,8 +301,32 @@ func resetTwoFactor(getenv func(string) string, name string, stdout io.Writer) e
 	})
 }
 
-// healthcheck asks the running server for /healthz, for Docker's HEALTHCHECK.
+// runAgent runs agent mode: no database, web app or port; it reports this
+// host's workloads to Eyrie until ctx ends.
+func runAgent(ctx context.Context, getenv func(string) string, stderr io.Writer) error {
+	cfg, err := agent.ConfigFromEnv(getenv, version)
+	if err != nil {
+		return err
+	}
+	var level slog.Level
+	if err := level.UnmarshalText([]byte(cmp.Or(getenv("EYRIE_LOG_LEVEL"), "info"))); err != nil {
+		return fmt.Errorf("EYRIE_LOG_LEVEL: %w", err)
+	}
+	log := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: level}))
+	lister, events, err := agent.Open(ctx, cfg, getenv)
+	if err != nil {
+		return err
+	}
+	return agent.New(cfg, lister, events, log).Run(ctx)
+}
+
+// healthcheck asks the running server for /healthz, for Docker's
+// HEALTHCHECK. For an agent (EYRIE_AGENT_URL set), it checks that the
+// agent reported to Eyrie lately.
 func healthcheck(getenv func(string) string) error {
+	if getenv("EYRIE_AGENT_URL") != "" {
+		return agent.Healthy(cmp.Or(getenv("EYRIE_AGENT_DIR"), "/data/agent"), time.Now())
+	}
 	cfg, err := config.Load(getenv)
 	if err != nil {
 		return err

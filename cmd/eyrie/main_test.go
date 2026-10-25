@@ -7,11 +7,13 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -195,4 +197,112 @@ func TestPruneSessions(t *testing.T) {
 	if !strings.Contains(log.String(), "cannot delete expired sessions") {
 		t.Errorf("log %q", log.String())
 	}
+}
+
+// TestAgent runs Eyrie and an agent beside a fake Docker engine, and
+// waits for the agent's report.
+func TestAgent(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+	os.MkdirAll(filepath.Join(dir, "data"), 0o700)
+	st, err := store.Open(ctx, filepath.Join(dir, "data", "eyrie.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, token, err := st.AddAgent(ctx, "edge", time.Now(), time.Now().Add(time.Hour))
+	st.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sockDir, _ := os.MkdirTemp("", "ag") // short: socket paths are limited
+	defer os.RemoveAll(sockDir)
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "unix", filepath.Join(sockDir, "d.sock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	docker := &httptest.Server{Listener: ln, Config: &http.Server{ReadHeaderTimeout: time.Second, Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/events" {
+			<-r.Context().Done()
+			return
+		}
+		io.WriteString(w, `[{"Id":"aaaa","Names":["/web"],"State":"running","Status":"Up 1 hour"}]`)
+	})}}
+	docker.Start()
+	defer docker.Close()
+
+	sctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	addrs := make(chan string, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- serve(sctx, env(map[string]string{"EYRIE_LISTEN": "127.0.0.1:0", "EYRIE_DATA_DIR": filepath.Join(dir, "data")}), io.Discard, func(a string) { addrs <- a })
+	}()
+	addr := <-addrs
+	agentEnv := env(map[string]string{"EYRIE_AGENT_URL": "http://" + addr, "EYRIE_AGENT_TOKEN": token,
+		"EYRIE_AGENT_DIR": filepath.Join(dir, "agent"), "DOCKER_HOST": "unix://" + filepath.Join(sockDir, "d.sock")})
+	if err := healthcheck(agentEnv); err == nil {
+		t.Error("healthy before the agent ran")
+	}
+	var log syncBuffer
+	agentDone := make(chan error, 1)
+	go func() { agentDone <- runAgent(sctx, agentEnv, &log) }()
+	deadline := time.Now().Add(10 * time.Second)
+	for healthcheck(agentEnv) != nil {
+		if time.Now().After(deadline) {
+			t.Fatalf("the agent did not report: %s", log.String())
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if code := cli([]string{"healthcheck"}, agentEnv, nil, io.Discard, io.Discard); code != 0 {
+		t.Errorf("healthcheck exit %d", code)
+	}
+	cancel()
+	if err := <-agentDone; err != nil {
+		t.Errorf("agent: %v", err)
+	}
+	<-done
+	st, _ = store.Open(ctx, filepath.Join(dir, "data", "eyrie.db"))
+	defer st.Close()
+	got, err := st.Agent(ctx, a.ID)
+	if err != nil || len(got.Workloads) != 1 || got.Workloads[0].Key != "web" || !got.Workloads[0].Up || got.Platform != "docker" {
+		t.Errorf("stored %+v %v", got, err)
+	}
+	if !strings.Contains(log.String(), "enrolled") {
+		t.Errorf("log %s", log.String())
+	}
+}
+
+func TestAgentErrors(t *testing.T) {
+	ctx := context.Background()
+	var out bytes.Buffer
+	if code := cli([]string{"agent"}, env(nil), nil, io.Discard, &out); code != 1 || !strings.Contains(out.String(), "EYRIE_AGENT_URL") {
+		t.Errorf("no URL: %d %s", code, out.String())
+	}
+	vars := map[string]string{"EYRIE_AGENT_URL": "https://eyrie.example.com", "EYRIE_LOG_LEVEL": "loud"}
+	if err := runAgent(ctx, env(vars), io.Discard); err == nil || !strings.Contains(err.Error(), "EYRIE_LOG_LEVEL") {
+		t.Errorf("log level: %v", err)
+	}
+	vars["EYRIE_LOG_LEVEL"], vars["DOCKER_HOST"] = "", "ftp://docker.example.com"
+	if err := runAgent(ctx, env(vars), io.Discard); err == nil || !strings.Contains(err.Error(), "docker host") {
+		t.Errorf("docker host: %v", err)
+	}
+}
+
+// syncBuffer is a buffer two goroutines can use.
+type syncBuffer struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (s *syncBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
 }

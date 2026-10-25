@@ -74,6 +74,8 @@ type Env struct {
 	Secrets Sealer
 	// UserAgent is sent with HTTP requests.
 	UserAgent string
+	// Agents is what Eyrie's agents reported; nil: agent checks fail.
+	Agents Agents
 }
 
 // DefaultEnv reaches the real network.
@@ -147,6 +149,7 @@ func init() {
 	register(Type{"radius", "RADIUS", true, func() settings { return &Radius{} }})
 	register(Type{"snmp", "SNMP", true, func() settings { return &SNMP{} }})
 	register(Type{"docker", "Docker container", true, func() settings { return &Docker{} }})
+	register(Type{"agent", "Agent workload", true, func() settings { return &Agent{} }})
 	register(Type{"sip-options", "SIP OPTIONS", true, func() settings { return &SIP{} }})
 	register(Type{"tailscale-ping", "Tailscale ping", true, func() settings { return &Tailscale{} }})
 	register(Type{"system-service", "System service", true, func() settings { return &Service{} }})

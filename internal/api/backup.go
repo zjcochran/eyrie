@@ -101,7 +101,12 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request, setup bool) {
 		invalid(w, http.StatusUnprocessableEntity, capitalize(err.Error())+".")
 		return
 	}
-	err = s.Engine.Replace(ctx, func(ctx context.Context) error { return s.Store.Import(ctx, snap, setup) })
+	err = s.Engine.Replace(ctx, func(ctx context.Context) error {
+		if err := s.Store.Import(ctx, snap, setup); err != nil {
+			return err
+		}
+		return s.Agents.Load(ctx)
+	})
 	switch {
 	case errors.Is(err, store.ErrSetupDone):
 		invalid(w, http.StatusForbidden, "Setup is already done: sign in.")

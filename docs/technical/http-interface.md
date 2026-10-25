@@ -156,6 +156,19 @@ A token is sent as `Authorization: Bearer eyt_…`. Tokens can only read
 (`GET` and `HEAD`): they are accepted on the read routes below; every other
 route answers a request that has only a token with `401`.
 
+### Agents
+
+The admin routes for [agents](../user/agents.md). The agents' own routes,
+under `/api/agent/v1/`, are in [Agent protocol](agent-protocol.md#routes).
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `GET /api/v1/agents` | | `200` `[{"id","name","status","platform","hostname","version","last_seen","last_address","error","workloads","key","key_created","token_expires","created_at"}]` by name. `status` is `pending` (not enrolled), `online` (reported within 90 seconds) or `offline`; `workloads` how many the last report had; `key` the key's fingerprint (`""` when not enrolled); `token_expires` `null` when no enrollment token waits |
+| `POST /api/v1/agents` | `{"name"}`, 1 to 64 characters | `201` `{"agent":{…},"token":"eya_…"}`, the one-time enrollment token, valid for an hour and only shown here; `422` for a name in use |
+| `POST /api/v1/agents/{id}/token` | | `200` the same, with a new token; the agent's key is forgotten, so it is refused until it enrolls again |
+| `DELETE /api/v1/agents/{id}` | | `204`; its monitors go down |
+| `GET /api/v1/agents/{id}/workloads` | | `200` `[{"key","name","kind","group","up","status"}]`, the last report's |
+
 ### Notification channels
 
 All admin routes. See [Notifications](../user/notifications.md).
