@@ -69,7 +69,7 @@ func TestParse(t *testing.T) {
 	if _, _, err := Parse(env, "http", json.RawMessage(`{"url":"https://example.com","colour":"red"}`)); err == nil {
 		t.Error("unknown setting accepted")
 	}
-	if len(Names()) != 34 || Names()[0] != "dns" {
+	if len(Names()) != 35 || Names()[0] != "agent" {
 		t.Errorf("names %v", Names())
 	}
 }

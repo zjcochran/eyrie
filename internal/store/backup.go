@@ -31,7 +31,7 @@ type Snapshot struct {
 // ConfigTables are copied whole, in an order that satisfies the foreign
 // keys. Sessions are never copied: they belong to the running instance.
 var ConfigTables = []string{
-	"settings", "users", "oidc_identities", "recovery_codes", "user_pictures", "api_tokens",
+	"settings", "users", "oidc_identities", "recovery_codes", "user_pictures", "api_tokens", "agents",
 	"notification_channels", "tags", "monitors", "monitor_channels", "monitor_tags",
 	"maintenance_windows", "maintenance_monitors", "maintenance_tags",
 	"status_pages", "status_page_logos", "status_page_sections", "status_page_monitors", "incidents", "incident_updates",

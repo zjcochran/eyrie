@@ -193,7 +193,7 @@ func TestMonitorAccess(t *testing.T) {
 		t.Errorf("signed out: %d", code)
 	}
 	var types []struct{ Name, Label string }
-	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 34 || types[0].Name != "dns" {
+	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 35 || types[0].Name != "agent" {
 		t.Errorf("types %+v", types)
 	}
 }

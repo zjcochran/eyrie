@@ -336,6 +336,11 @@ func (s *Server) apply(b monitorBody, m *store.Monitor) error {
 		return err
 	}
 	m.Config = cfg
+	if agent, _, ok := check.AgentTarget(cfg); ok && m.Type == "agent" {
+		if _, found := s.Agents.Get(agent); !found {
+			return errors.New("there is no such agent: add it in Settings → Agents")
+		}
+	}
 	if m.Type == "push" && (m.PushToken == "" || b.ResetPushToken) {
 		m.PushToken = newPushToken()
 	}

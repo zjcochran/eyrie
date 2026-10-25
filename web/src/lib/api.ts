@@ -117,6 +117,36 @@ export interface AuditPage {
   users: string[];
 }
 
+/** One of Eyrie's agents on another host. */
+export interface Agent {
+  id: number;
+  name: string;
+  status: 'pending' | 'online' | 'offline';
+  platform: string;
+  hostname: string;
+  version: string;
+  last_seen: string | null;
+  last_address: string;
+  error: string;
+  workloads: number;
+  /** The key's fingerprint; empty until it enrolls. */
+  key: string;
+  key_created: string | null;
+  /** When the enrollment token expires; null when none waits. */
+  token_expires: string | null;
+  created_at: string;
+}
+
+/** Something an agent reports: a container, service, Kubernetes workload or Proxmox guest. */
+export interface Workload {
+  key: string;
+  name: string;
+  kind: string;
+  group?: string;
+  up: boolean;
+  status: string;
+}
+
 export interface Token {
   id: number;
   name: string;
@@ -603,6 +633,12 @@ export class Client {
     const s = q.toString();
     return this.request<AuditPage>('GET', '/api/v1/audit' + (s ? '?' + s : ''));
   };
+  agents = () => this.request<Agent[]>('GET', '/api/v1/agents');
+  addAgent = (name: string) => this.request<{ agent: Agent; token: string }>('POST', '/api/v1/agents', { name });
+  /** A new enrollment token; the agent must enroll again. */
+  renewAgentToken = (id: number) => this.request<{ agent: Agent; token: string }>('POST', `/api/v1/agents/${id}/token`);
+  removeAgent = (id: number) => this.request<void>('DELETE', `/api/v1/agents/${id}`);
+  workloads = (id: number) => this.request<Workload[]>('GET', `/api/v1/agents/${id}/workloads`);
   tokens = () => this.request<Token[]>('GET', '/api/v1/tokens');
   createToken = (name: string) => this.request<Token & { token: string }>('POST', '/api/v1/tokens', { name });
   deleteToken = (id: number) => this.request<void>('DELETE', `/api/v1/tokens/${id}`);

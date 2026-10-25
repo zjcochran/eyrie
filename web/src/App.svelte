@@ -8,6 +8,7 @@
   import { routeFor, settingsTabs } from './lib/route.ts';
   import { api, app, refresh } from './lib/session.svelte.ts';
   import Account from './pages/Account.svelte';
+  import Agents from './pages/Agents.svelte';
   import Analysis from './pages/Analysis.svelte';
   import Audit from './pages/Audit.svelte';
   import Backup from './pages/Backup.svelte';
@@ -151,6 +152,8 @@
         <SSO />
       {:else if page === 'tokens'}
         <Tokens />
+      {:else if page === 'agents'}
+        <Agents />
       {:else if page === 'retention'}
         <Retention />
       {:else if page === 'backup'}
@@ -284,7 +287,7 @@
   }
   /* Room for every settings tab on one line. */
   main.wide {
-    max-width: 72rem;
+    max-width: 78rem;
   }
   main.narrow {
     max-width: 28rem;

@@ -291,6 +291,41 @@ message gives its exit code.
   Whoever can use the socket controls the host: see
   [Security](../technical/security.md#monitor-checks).
 
+### Agent workload
+
+Follows a workload one of Eyrie's [agents](agents.md) reports: a Docker
+container, a Docker Swarm service, a Kubernetes Deployment, StatefulSet or
+DaemonSet, or a Proxmox VE LXC container or VM. Choose the **agent**, then
+the **workload** from what the agent last reported, grouped by Compose
+project, stack, namespace or Proxmox node.
+
+The check reads the agent's last report; it reaches no host itself, and
+has no response time. Its message is the workload's status:
+
+| Workload | Up while | Messages |
+| --- | --- | --- |
+| Container | It runs and, with a health check, is healthy or starting | `Running`, `Running, healthy`, `Running, health check starting`, `Running, unhealthy`, `Exited (exit code 137)`, `Paused`, `Restarting`, `Created`, `Dead` |
+| Swarm service | Every task it wants runs | `3 of 3 tasks running`, `Scaled to 0` |
+| Deployment, StatefulSet | Every replica it wants is ready | `3 of 3 ready`, `Scaled to 0` |
+| DaemonSet | Every scheduled pod is ready | `4 of 4 ready`, `Scheduled on no nodes` |
+| LXC container, VM | Its status is running | `Running`, `Stopped` |
+
+The monitor is also down, with the reason, when the agent was removed
+from Eyrie, is not enrolled, has not reported for 90 seconds (`The agent
+edge has not reported for 2m5s`), cannot list its workloads (`The agent
+edge cannot list its workloads: cannot reach Docker: …`), or no longer
+reports the workload (`The agent edge reports no web`).
+
+A report that changes a workload's status checks its monitors at once,
+so a container that stops is down within seconds, not at the next
+interval. The interval still applies, and an agent that stops reporting
+takes the monitors down within 15 seconds of the 90.
+
+Workloads are named so a monitor survives their being re-created: a
+container by its name, a Swarm service by `service/<name>`, a Kubernetes
+workload by `<namespace>/<kind>/<name>` and a Proxmox guest by `lxc/<vmid>`
+or `qemu/<vmid>`.
+
 ### SIP OPTIONS
 
 Sends a SIP `OPTIONS` request to a SIP server (**host**, port 5060, or 5061

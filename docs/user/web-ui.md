@@ -60,7 +60,8 @@ and what it covers; admins add, change, turn off and delete them there. See
 ## Settings
 
 **Settings**, at the top, has tabs. Everyone has **Your account**; admins
-also have **Users**, **Single sign-on**, **API tokens**, **Tags** (see
+also have **Users**, **Single sign-on**, **API tokens**, **Agents** (see
+[Agents](agents.md)), **Tags** (see
 [Tags](monitors.md#tags)), **Notifications** (see
 [Notifications](notifications.md)), **Alert
 analysis** (see [Alert analysis](alert-analysis.md)), **History**
@@ -157,6 +158,26 @@ the token, which starts with `eyt_`, once: copy it then. The list shows who
 made each token, when, and when it was last used. **Revoke** stops a token
 at once.
 
+### Agents
+
+Admins only. Eyrie's [agents](agents.md) on other hosts: each one's status
+(**pending** until it enrolls, then **online** while it reports, or
+**offline** after 90 seconds without a report), where it runs (platform,
+host name, address and version), its last report, how many workloads it
+reports, and its key's fingerprint. When an agent cannot list its
+workloads, the reason is under its status. The list updates every 15
+seconds.
+
+**Add an agent** asks for a name (up to 64 characters, such as `edge`) and
+shows the agent's one-time enrollment token, which starts with `eya_` and
+is valid for an hour, once. Below it, **Where it runs** shows the file or
+commands that run the agent there (Docker, Docker Swarm, Kubernetes or
+Proxmox VE), with Eyrie's address and the token filled in.
+
+**New token** makes a new enrollment token and forgets the agent's key:
+the agent is refused until it enrolls again with the new token. **Remove**
+deletes the agent; the monitors of its workloads go down.
+
 ### Audit log
 
 ![The audit log: who signed in, checked a monitor and made and deleted a tag](../images/audit-dark.png)
@@ -165,7 +186,8 @@ Admins only. Who did what, newest first, 100 at a time (**Older** for the
 next): every sign-in (password, two-factor or single sign-on), failed
 sign-in and sign-out, and every change made in Eyrie (monitors, **Check
 now**, tags, maintenance windows, status pages and incidents, notification
-channels, users, API tokens, settings, backups and restores). Each entry
+channels, users, API tokens, agents, settings, backups and restores), and
+agents enrolling, rotating their keys and being refused. Each entry
 has the time, the user (for a failed sign-in, the username tried), the
 action, its details (such as `monitor=Shop`) and the address it came from.
 Filter by **Action** and **User**. Changes made by single sign-on, such as

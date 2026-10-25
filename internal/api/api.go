@@ -14,6 +14,8 @@ import (
 	"net/netip"
 	"time"
 
+	"github.com/zjcochran/eyrie/internal/agentauth"
+	"github.com/zjcochran/eyrie/internal/agents"
 	"github.com/zjcochran/eyrie/internal/analysis"
 	"github.com/zjcochran/eyrie/internal/backup"
 	"github.com/zjcochran/eyrie/internal/check"
@@ -59,12 +61,17 @@ type Server struct {
 	Analyzer *analysis.Analyzer
 	// Backups makes and restores backup files.
 	Backups *backup.Backups
+	// Agents are Eyrie's agents on other hosts; nil: none yet, kept in
+	// memory only (for tests).
+	Agents *agents.Manager
 
 	now     func() time.Time
 	limiter *limiter
-	codes   *pendingCodes
-	sso     *sso.Client
-	hub     *hub
+	// enrollLimit limits failed agent enrollments per client address.
+	enrollLimit *limiter
+	codes       *pendingCodes
+	sso         *sso.Client
+	hub         *hub
 }
 
 // Handler returns the routes, wrapped in cross-origin protection and the
@@ -74,6 +81,21 @@ func (s *Server) Handler() http.Handler {
 		s.now = time.Now
 	}
 	s.limiter = newLimiter(5, 15*time.Minute)
+	s.enrollLimit = newLimiter(10, time.Minute)
+	if s.Agents == nil {
+		s.Agents = agents.New(s.Store, s.Log)
+		s.Agents.Now = s.now
+	}
+	if s.Agents.Changed == nil && s.Engine != nil {
+		// What an agent reports changed: check its monitors at once.
+		s.Agents.Changed = func(agent int64, keys []string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := s.Engine.CheckMatching(ctx, "agent", agents.Matcher(agent, keys)); err != nil {
+				s.Log.Warn("cannot check an agent's monitors", "err", err)
+			}
+		}
+	}
 	s.codes = &pendingCodes{m: map[string]*pendingCode{}}
 	s.sso = sso.New(s.Log)
 	s.hub = newHub()
@@ -125,6 +147,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/v1/backups/{name}", s.admin(s.storedBackup))
 
 	mux.Handle("GET /api/v1/audit", s.admin(s.listAudit))
+	mux.Handle("GET /api/v1/agents", s.admin(s.listAgents))
+	mux.Handle("POST /api/v1/agents", s.admin(s.addAgent))
+	mux.Handle("POST /api/v1/agents/{id}/token", s.admin(s.renewAgentToken))
+	mux.Handle("DELETE /api/v1/agents/{id}", s.admin(s.removeAgent))
+	mux.Handle("GET /api/v1/agents/{id}/workloads", s.admin(s.agentWorkloads))
+	mux.HandleFunc("POST "+agentauth.PathEnroll, s.agentEnroll)
+	mux.HandleFunc("POST "+agentauth.PathReport, s.agentReport)
+	mux.HandleFunc("POST "+agentauth.PathRotate, s.agentRotate)
 	mux.Handle("GET /api/v1/tokens", s.admin(s.listTokens))
 	mux.Handle("POST /api/v1/tokens", s.admin(s.createToken))
 	mux.Handle("DELETE /api/v1/tokens/{id}", s.admin(s.deleteToken))

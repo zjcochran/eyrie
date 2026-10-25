@@ -15,6 +15,9 @@ in, and keeps its data in SQLite or, for large installations, PostgreSQL.
   Oracle, MongoDB, Redis) and message brokers (MQTT, RabbitMQ, Kafka);
   pushes from jobs, manual monitors and groups. A live dashboard, uptime
   history, tags.
+- **Agents** on other hosts that report what runs there: Docker
+  containers, Docker Swarm services, Kubernetes workloads and Proxmox VE
+  containers and VMs, signed and read-only.
 - **Notifications** to ntfy, Gotify, Pushover, Telegram, Discord, email
   and signed webhooks, with certificate expiry warnings. Down alerts can
   carry an analysis of the failure by Claude (an API key or your Claude

@@ -23,12 +23,30 @@ variable.
 | `EYRIE_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`, in any case. The log is plain text (`key=value`) on standard error. `debug` adds a line per check and per HTTP request; [what is logged](security.md#logging). |
 | `TZ` | `UTC` | Time zone for the log and the time of day of [scheduled backups](../user/backup-and-restore.md#scheduled-backups), as an IANA name such as `Etc/UTC`. The zone database is built into the binary. Maintenance windows have their own. |
 
+## Agent settings
+
+Read by `eyrie agent` only; see [Agents](../user/agents.md#settings).
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `EYRIE_AGENT_URL` | (required) | Eyrie's address, `http://` or `https://`, without a query; a trailing `/` is removed. |
+| `EYRIE_AGENT_TOKEN` | empty | The one-time enrollment token from Settings → Agents. Needed to enroll; a token other than the one the agent enrolled with enrolls it again with a new key. |
+| `EYRIE_AGENT_PLATFORM` | `docker` | `docker`, `swarm`, `kubernetes` or `proxmox`. Anything else is refused. |
+| `EYRIE_AGENT_DIR` | `/data/agent` | The agent's folder (mode 0700): `key`, `state.json`, `heartbeat`, and `key.next` during a rotation. |
+| `DOCKER_HOST` | `unix:///var/run/docker.sock` | `docker` and `swarm`: the Docker engine, `unix:///path` or `tcp://host:port`. |
+| `EYRIE_AGENT_NAMESPACES` | empty: all | `kubernetes`: the namespaces to list, separated by commas. |
+| `PROXMOX_URL` | empty | `proxmox`: the API's address, `https://<host>:8006`. |
+| `PROXMOX_TOKEN_ID`, `PROXMOX_TOKEN_SECRET` | empty | `proxmox`: the API token, `user@realm!name`, and its secret. |
+| `PROXMOX_FINGERPRINT` | empty | `proxmox`: the SHA-256 fingerprint of the server's certificate, with or without colons, in any case. |
+| `EYRIE_LOG_LEVEL` | `info` | As for the server. |
+
 ## Command line
 
 | Command | What it does | Exit code |
 | --- | --- | --- |
 | `eyrie`, `eyrie serve` | Runs the server until SIGINT or SIGTERM, then stops it within 10 seconds. | 0 after a clean stop, 1 on an error |
-| `eyrie healthcheck` | `GET /healthz` on the running server, with a 3-second timeout. The address comes from `EYRIE_LISTEN`; an empty host, `0.0.0.0` or `::` becomes `127.0.0.1`. | 0 if it answered 200, else 1 |
+| `eyrie agent` | Runs as an [agent](../user/agents.md) until SIGINT or SIGTERM: no database, web app or port; it reports the workloads of its platform to Eyrie. Its settings are below. | 0 after a clean stop, 1 on an error (a bad setting, a refused enrollment, a Docker engine that is not a swarm manager for `swarm`) |
+| `eyrie healthcheck` | `GET /healthz` on the running server, with a 3-second timeout. The address comes from `EYRIE_LISTEN`; an empty host, `0.0.0.0` or `::` becomes `127.0.0.1`. When `EYRIE_AGENT_URL` is set, it checks the agent instead: that it reported to Eyrie within 90 seconds (the modification time of `heartbeat` in `EYRIE_AGENT_DIR`). | 0 if it answered 200 (the agent reported), else 1 |
 | `eyrie reset-password <user>` | Sets the user's password to the first line of standard input (at least 12 characters) and ends their sessions. The username is matched ignoring case. Also gives an account that signs in only with single sign-on a password. Uses the same database settings as the server, which may be running. | 0 when changed, else 1 |
 | `eyrie reset-2fa <user>` | Turns off the user's two-factor sign-in and deletes their recovery codes, for a lost phone. | 0, also when it was off; 1 for an unknown user |
 | `eyrie version` | Prints the version set at build time (`dev` otherwise). | 0 |
