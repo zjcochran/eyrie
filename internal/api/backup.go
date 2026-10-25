@@ -56,7 +56,7 @@ func (s *Server) makeBackup(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.Log.Info("backup downloaded", "history", meta.History, "by", sessionFrom(r).User.Username)
+	s.audit(r, "backup downloaded", "history", meta.History, "by", sessionFrom(r).User.Username)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+backup.Name(meta.Created)+`"`)
 	w.Header().Set("Cache-Control", "no-store")
@@ -119,7 +119,7 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request, setup bool) {
 	if sess := sessionFrom(r); sess != nil {
 		by = sess.User.Username
 	}
-	s.Log.Info("backup restored", "made", meta.Created, "version", meta.AppVersion, "history", meta.History, "by", by)
+	s.audit(r, "backup restored", "made", meta.Created, "version", meta.AppVersion, "history", meta.History, "by", by)
 	s.hub.publish("monitors", map[string]int64{})
 	// Every session ended with the users they belonged to.
 	s.clearCookie(w, r, sessionCookie, "/")
@@ -223,7 +223,7 @@ func (s *Server) saveSchedule(w http.ResponseWriter, r *http.Request) {
 		invalid(w, http.StatusUnprocessableEntity, capitalize(err.Error())+".")
 		return
 	}
-	s.Log.Info("backup schedule saved", "enabled", saved.Enabled, "time", saved.Time, "keep", saved.Keep,
+	s.audit(r, "backup schedule saved", "enabled", saved.Enabled, "time", saved.Time, "keep", saved.Keep,
 		"history", saved.History, "by", sessionFrom(r).User.Username)
 	s.getSchedule(w, r)
 }

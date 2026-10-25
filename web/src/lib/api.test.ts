@@ -182,6 +182,8 @@ describe('Client', () => {
         '/api/v1/settings/sso',
       ],
       [() => client.testSSO('https://id.example.com'), 'POST', '/api/v1/settings/sso/test'],
+      [() => client.audit({}), 'GET', '/api/v1/audit'],
+      [() => client.audit({ action: 'signed in', user: 'bob', before: 40 }), 'GET', '/api/v1/audit?action=signed+in&user=bob&before=40'],
       [() => client.createToken('ci'), 'POST', '/api/v1/tokens'],
       [() => client.deleteToken(3), 'DELETE', '/api/v1/tokens/3'],
       [() => client.monitorTypes(), 'GET', '/api/v1/monitor-types'],

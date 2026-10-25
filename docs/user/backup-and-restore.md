@@ -34,7 +34,7 @@ cannot be restored.
 | Part | Contents |
 | --- | --- |
 | Configuration (always) | Settings (history kept, certificate warning days, single sign-on with its client secret, alert analysis with its keys, the backup schedule with its passphrase); users with their roles, disabled flags, password hashes, two-factor secrets, recovery codes (hashed), single sign-on links and profile pictures; API tokens (hashed); notification channels with their URLs, tokens and users; tags; monitors with every setting, secrets included, their channels and tags; maintenance windows; status pages with their sections, logos and incidents |
-| History (optional) | Every monitor's current status, and its heartbeats, hourly and daily totals from the chosen period |
+| History (optional) | Every monitor's current status, and its heartbeats, hourly and daily totals from the chosen period; the audit log from the same period |
 
 Not included: sign-in sessions, the secret key and the backup files of the
 backup folder.

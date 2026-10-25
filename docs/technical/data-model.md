@@ -344,6 +344,20 @@ section names: primary key `(section_id, monitor_id)`, both `ON DELETE
 CASCADE`, index `status_page_monitors_monitor`. A section shows those and
 the monitors with its tag.
 
+### audit_log
+
+Who did what. Migration `00008_audit_log`. Index `audit_log_at` on `at`.
+Rows older than 400 days are deleted daily, with the daily stats.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `at` | `BIGINT` | |
+| `actor` | `TEXT` | The username who did it; for a failed sign-in, the one tried |
+| `ip` | `TEXT` | The client address |
+| `action` | `TEXT` | The log message, such as `monitor created` |
+| `details` | `TEXT` | The log line's other fields, `key=value`, quoted when they have spaces |
+
 ### incidents, incident_updates
 
 `incidents`: `id`, `page_id` (`ON DELETE CASCADE`), `title` (1 to 200

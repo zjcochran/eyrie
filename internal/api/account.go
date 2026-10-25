@@ -98,7 +98,7 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("password changed", "user", u.Username)
+	s.audit(r, "password changed", "user", u.Username)
 	sess, err := s.startSession(w, r, u)
 	if err != nil {
 		s.fail(w, r, err)
@@ -209,7 +209,7 @@ func (s *Server) enableTwoFactor(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.Log.Info("two-factor sign-in on", "user", me.Username)
+	s.audit(r, "two-factor sign-in on", "user", me.Username)
 	writeJSON(w, http.StatusOK, recoveryCodes{codes})
 }
 
@@ -235,7 +235,7 @@ func (s *Server) newRecoveryCodes(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.Log.Info("new recovery codes", "user", me.Username)
+	s.audit(r, "new recovery codes", "user", me.Username)
 	writeJSON(w, http.StatusOK, recoveryCodes{codes})
 }
 
@@ -254,7 +254,7 @@ func (s *Server) disableTwoFactor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if on {
-		s.Log.Info("two-factor sign-in off", "user", me.Username, "by", me.Username)
+		s.audit(r, "two-factor sign-in off", "user", me.Username, "by", me.Username)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

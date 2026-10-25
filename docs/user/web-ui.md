@@ -65,7 +65,8 @@ also have **Users**, **Single sign-on**, **API tokens**, **Tags** (see
 [Notifications](notifications.md)), **Alert
 analysis** (see [Alert analysis](alert-analysis.md)), **History**
 (how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history))
-and **Backup and restore** (see [Backup and restore](backup-and-restore.md)).
+**Backup and restore** (see [Backup and restore](backup-and-restore.md))
+and **Audit log**.
 
 ### Your account
 
@@ -155,6 +156,23 @@ It can only read: it cannot sign in or change anything.
 the token, which starts with `eyt_`, once: copy it then. The list shows who
 made each token, when, and when it was last used. **Revoke** stops a token
 at once.
+
+### Audit log
+
+![The audit log: who signed in, checked a monitor and made and deleted a tag](../images/audit-dark.png)
+
+Admins only. Who did what, newest first, 100 at a time (**Older** for the
+next): every sign-in (password, two-factor or single sign-on), failed
+sign-in and sign-out, and every change made in Eyrie (monitors, **Check
+now**, tags, maintenance windows, status pages and incidents, notification
+channels, users, API tokens, settings, backups and restores). Each entry
+has the time, the user (for a failed sign-in, the username tried), the
+action, its details (such as `monitor=Shop`) and the address it came from.
+Filter by **Action** and **User**. Changes made by single sign-on, such as
+an account it created, show the account's user and `via=sso`.
+
+The same lines are in Eyrie's log. Entries are kept 400 days, like the
+daily totals, and a backup with history includes them.
 
 ## Dark mode and phones
 

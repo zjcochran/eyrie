@@ -413,7 +413,7 @@ func (s *Server) createMonitor(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("monitor created", "monitor", m.Name, "type", m.Type, "by", sessionFrom(r).User.Username)
+	s.audit(r, "monitor created", "monitor", m.Name, "type", m.Type, "by", sessionFrom(r).User.Username)
 	s.engineChanged(w, r, http.StatusCreated, m)
 }
 
@@ -459,7 +459,7 @@ func (s *Server) updateMonitor(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("monitor changed", "monitor", m.Name, "by", sessionFrom(r).User.Username)
+	s.audit(r, "monitor changed", "monitor", m.Name, "by", sessionFrom(r).User.Username)
 	s.engineChanged(w, r, http.StatusOK, m)
 }
 
@@ -474,7 +474,7 @@ func (s *Server) setActive(active bool) http.HandlerFunc {
 			return
 		}
 		m.Active = active
-		s.Log.Info("monitor active", "monitor", m.Name, "active", active, "by", sessionFrom(r).User.Username)
+		s.audit(r, "monitor active", "monitor", m.Name, "active", active, "by", sessionFrom(r).User.Username)
 		s.engineChanged(w, r, http.StatusOK, m)
 	}
 }
@@ -493,7 +493,7 @@ func (s *Server) deleteMonitor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.hub.publish("monitors", map[string]int64{"id": m.ID})
-	s.Log.Info("monitor deleted", "monitor", m.Name, "by", sessionFrom(r).User.Username)
+	s.audit(r, "monitor deleted", "monitor", m.Name, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -507,7 +507,7 @@ func (s *Server) checkMonitor(w http.ResponseWriter, r *http.Request) {
 		invalid(w, http.StatusUnprocessableEntity, capitalize(err.Error())+".")
 		return
 	}
-	s.Log.Info("check now", "monitor", m.Name, "by", sessionFrom(r).User.Username)
+	s.audit(r, "check now", "monitor", m.Name, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusAccepted)
 }
 
@@ -528,7 +528,7 @@ func (s *Server) setManualStatus(w http.ResponseWriter, r *http.Request) {
 		invalid(w, http.StatusUnprocessableEntity, capitalize(err.Error())+".")
 		return
 	}
-	s.Log.Info("manual status", "monitor", m.Name, "status", b.Status, "by", sessionFrom(r).User.Username)
+	s.audit(r, "manual status", "monitor", m.Name, "status", b.Status, "by", sessionFrom(r).User.Username)
 	s.writeMonitor(w, r, http.StatusOK, m)
 }
 
@@ -670,6 +670,6 @@ func (s *Server) saveRetention(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.Log.Info("retention saved", "heartbeat_days", v.HeartbeatDays, "by", sessionFrom(r).User.Username)
+	s.audit(r, "retention saved", "heartbeat_days", v.HeartbeatDays, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, v)
 }

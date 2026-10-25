@@ -147,7 +147,7 @@ func (s *Server) saveWindow(w http.ResponseWriter, r *http.Request, id int64) {
 		s.fail(w, r, err)
 		return
 	}
-	s.Log.Info("maintenance window saved", "window", x.Title, "enabled", x.Enabled, "by", sessionFrom(r).User.Username)
+	s.audit(r, "maintenance window saved", "window", x.Title, "enabled", x.Enabled, "by", sessionFrom(r).User.Username)
 	writeJSON(w, code, s.viewWindow(x))
 }
 
@@ -177,6 +177,6 @@ func (s *Server) deleteWindow(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	s.Log.Info("maintenance window deleted", "window", x.Title, "by", sessionFrom(r).User.Username)
+	s.audit(r, "maintenance window deleted", "window", x.Title, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusNoContent)
 }

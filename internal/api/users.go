@@ -65,7 +65,7 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("user created", "user", u.Username, "role", u.Role, "by", sessionFrom(r).User.Username)
+	s.audit(r, "user created", "user", u.Username, "role", u.Role, "by", sessionFrom(r).User.Username)
 	o, err := s.ssoSettings(r)
 	if err != nil {
 		s.fail(w, r, err)
@@ -112,14 +112,14 @@ func (s *Server) updateUser(w http.ResponseWriter, r *http.Request) {
 			s.storeError(w, r, err)
 			return
 		}
-		s.Log.Info("role changed", "user", u.Username, "role", *body.Role, "by", me.Username)
+		s.audit(r, "role changed", "user", u.Username, "role", *body.Role, "by", me.Username)
 	}
 	if body.Disabled != nil {
 		if err := s.Store.SetUserDisabled(ctx, id, *body.Disabled); err != nil {
 			s.storeError(w, r, err)
 			return
 		}
-		s.Log.Info("user disabled", "user", u.Username, "disabled", *body.Disabled, "by", me.Username)
+		s.audit(r, "user disabled", "user", u.Username, "disabled", *body.Disabled, "by", me.Username)
 	}
 	s.writeUser(w, r, id)
 }
@@ -147,7 +147,7 @@ func (s *Server) resetPassword(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("password reset", "user", u.Username, "by", sessionFrom(r).User.Username)
+	s.audit(r, "password reset", "user", u.Username, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -169,7 +169,7 @@ func (s *Server) resetTwoFactor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if on {
-		s.Log.Info("two-factor sign-in off", "user", u.Username, "by", sessionFrom(r).User.Username)
+		s.audit(r, "two-factor sign-in off", "user", u.Username, "by", sessionFrom(r).User.Username)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -193,7 +193,7 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("user deleted", "user", u.Username, "by", me.Username)
+	s.audit(r, "user deleted", "user", u.Username, "by", me.Username)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -248,7 +248,7 @@ func (s *Server) createToken(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("api token created", "name", t.Name, "by", me.Username)
+	s.audit(r, "api token created", "name", t.Name, "by", me.Username)
 	writeJSON(w, http.StatusCreated, newToken{viewToken(t), secret})
 }
 
@@ -262,6 +262,6 @@ func (s *Server) deleteToken(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("api token revoked", "name", name, "by", sessionFrom(r).User.Username)
+	s.audit(r, "api token revoked", "name", name, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusNoContent)
 }

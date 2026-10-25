@@ -131,7 +131,7 @@ func (s *Server) createPage(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("status page created", "page", p.Slug, "by", sessionFrom(r).User.Username)
+	s.audit(r, "status page created", "page", p.Slug, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusCreated, viewPage(p))
 }
 
@@ -151,7 +151,7 @@ func (s *Server) updatePage(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("status page changed", "page", p.Slug, "published", p.Published, "by", sessionFrom(r).User.Username)
+	s.audit(r, "status page changed", "page", p.Slug, "published", p.Published, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, viewPage(p))
 }
 
@@ -164,7 +164,7 @@ func (s *Server) deletePage(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("status page deleted", "page", p.Slug, "by", sessionFrom(r).User.Username)
+	s.audit(r, "status page deleted", "page", p.Slug, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -273,7 +273,7 @@ func (s *Server) openIncident(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("incident opened", "page", p.Slug, "incident", in.Title, "by", me)
+	s.audit(r, "incident opened", "page", p.Slug, "incident", in.Title, "by", me)
 	writeJSON(w, http.StatusCreated, viewIncident(in, true))
 }
 
@@ -293,7 +293,7 @@ func (s *Server) updateIncident(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("incident updated", "incident", in.Title, "status", in.Status, "by", me)
+	s.audit(r, "incident updated", "incident", in.Title, "status", in.Status, "by", me)
 	writeJSON(w, http.StatusOK, viewIncident(in, true))
 }
 
@@ -323,6 +323,6 @@ func (s *Server) deleteIncident(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("incident deleted", "incident", id, "by", sessionFrom(r).User.Username)
+	s.audit(r, "incident deleted", "incident", id, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusNoContent)
 }

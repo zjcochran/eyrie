@@ -10,7 +10,9 @@ in sees them.
 ![The dashboard: monitors with their status, type, tags, last checks, uptime and response time](../images/dashboard-dark.png)
 
 The start page lists every monitor. Groups come first, each followed by its
-members (indented). Each row shows:
+members (indented). The arrow left of a group hides or shows its members;
+a hidden group shows how many it has, and its status still sums them up.
+This browser remembers which groups you hid. Each row shows:
 
 - the status: green **up**, red **down**, amber **pending**, violet
   **maintenance** (in a [maintenance window](maintenance.md)), grey

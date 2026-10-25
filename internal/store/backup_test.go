@@ -68,6 +68,7 @@ func fill(t *testing.T, s *Store) {
 	if err := s.Save(ctx, recs); err != nil {
 		t.Fatal(err)
 	}
+	s.AddAudit(ctx, AuditEntry{At: now, Actor: "alice", IP: "192.0.2.1", Action: "tag created", Details: "tag=prod"})
 }
 
 // roundTrip is a snapshot as it comes back out of a backup file.
@@ -292,6 +293,7 @@ func TestBackupOlderSchema(t *testing.T) {
 		for _, table := range []string{"status_pages", "status_page_logos", "status_page_sections", "status_page_monitors", "incidents", "incident_updates"} {
 			delete(old.Config, table) // added by 00006
 		}
+		delete(old.History, "audit_log") // added by 00008
 		if err := s.Import(ctx, old, false); err != nil {
 			t.Fatal(err)
 		}

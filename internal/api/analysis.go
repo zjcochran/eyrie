@@ -113,7 +113,7 @@ func (s *Server) saveAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Analyzer.SetSettings(next)
-	s.Log.Info("alert analysis settings saved", "enabled", next.Enabled, "provider", next.Provider, "model", next.Model,
+	s.audit(r, "alert analysis settings saved", "enabled", next.Enabled, "provider", next.Provider, "model", next.Model,
 		"base_url", next.BaseURL, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, s.analysisView(next))
 }

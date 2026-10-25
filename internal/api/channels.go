@@ -175,7 +175,7 @@ func (s *Server) saveChannel(w http.ResponseWriter, r *http.Request, c notify.Ch
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("notification channel saved", "channel", sc.Name, "kind", sc.Kind, "by", sessionFrom(r).User.Username)
+	s.audit(r, "notification channel saved", "channel", sc.Name, "kind", sc.Kind, "by", sessionFrom(r).User.Username)
 	if toAll {
 		s.hub.publish("monitors", map[string]int64{"id": 0})
 	}
@@ -201,7 +201,7 @@ func (s *Server) deleteChannel(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, r, err)
 		return
 	}
-	s.Log.Info("notification channel deleted", "channel", sc.Name, "by", sessionFrom(r).User.Username)
+	s.audit(r, "notification channel deleted", "channel", sc.Name, "by", sessionFrom(r).User.Username)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -248,6 +248,6 @@ func (s *Server) saveNotifySettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Notifier.SetSettings(v)
-	s.Log.Info("notification settings saved", "cert_expiry_days", v.CertExpiryDays, "by", sessionFrom(r).User.Username)
+	s.audit(r, "notification settings saved", "cert_expiry_days", v.CertExpiryDays, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, v)
 }
