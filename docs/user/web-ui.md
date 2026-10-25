@@ -160,6 +160,8 @@ at once.
 
 ### Agents
 
+![Settings → Agents: three agents online on Docker, Docker Swarm and Proxmox VE, and one waiting to enroll](../images/agents-dark.png)
+
 Admins only. Eyrie's [agents](agents.md) on other hosts: each one's status
 (**pending** until it enrolls, then **online** while it reports, or
 **offline** after 90 seconds without a report), where it runs (platform,

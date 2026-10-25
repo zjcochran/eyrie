@@ -16,6 +16,8 @@ reports.
 - The agent is the same image as Eyrie: `ghcr.io/zjcochran/eyrie`, with
   the command `agent`. Use the same version as Eyrie.
 
+![Settings → Agents: three agents online on Docker, Docker Swarm and Proxmox VE, and one waiting to enroll](../images/agents-dark.png)
+
 ## Adding an agent
 
 1. In Eyrie, **Settings → Agents → Add an agent**, with a name such as
