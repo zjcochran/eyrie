@@ -284,7 +284,7 @@
   }
   /* Room for every settings tab on one line. */
   main.wide {
-    max-width: 68rem;
+    max-width: 72rem;
   }
   main.narrow {
     max-width: 28rem;
