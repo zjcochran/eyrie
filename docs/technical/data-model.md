@@ -161,8 +161,9 @@ Unique index `api_tokens_hash` on `hash`.
 
 ### agents
 
-Eyrie's [agents](../user/agents.md). Migration `00009_agents`. `name` is
-unique. Times are milliseconds since the epoch, `0` for none.
+Eyrie's [agents](../user/agents.md). Migration `00009_agents`. Unique
+index `agents_name` on `name`. Times are milliseconds since the epoch, `0`
+for none.
 
 | Column | Type | Notes |
 | --- | --- | --- |

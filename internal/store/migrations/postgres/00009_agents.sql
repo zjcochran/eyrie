@@ -6,7 +6,7 @@
 -- report's list, as JSON; error is why the agent could not list them.
 CREATE TABLE agents (
     id            BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name          TEXT    NOT NULL UNIQUE,
+    name          TEXT    NOT NULL,
     platform      TEXT    NOT NULL DEFAULT '',
     hostname      TEXT    NOT NULL DEFAULT '',
     version       TEXT    NOT NULL DEFAULT '',
@@ -21,6 +21,7 @@ CREATE TABLE agents (
     workloads     TEXT    NOT NULL DEFAULT '[]',
     created_at    BIGINT  NOT NULL
 );
+CREATE UNIQUE INDEX agents_name ON agents (name);
 
 -- +goose Down
 DROP TABLE agents;
