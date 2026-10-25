@@ -39,6 +39,7 @@ services:
       TZ: Etc/UTC
     volumes:
       - eyrie-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock # for Docker container monitors
 
 volumes:
   eyrie-data:
@@ -47,6 +48,11 @@ volumes:
 ```sh
 docker compose up -d
 ```
+
+The Docker socket lets [Docker container](monitors.md#docker-container)
+monitors check this host's containers; leave it out if you do not need
+them. Whoever can use the socket controls the host. For containers on
+other hosts, use an [agent](agents.md) there.
 
 Open `http://<host>:8080` and create the first account, an admin (see
 [Using the web app](web-ui.md#first-start-setup)). Do it right away: until
@@ -71,6 +77,7 @@ services:
       PGPASSWORD: a-long-password
     volumes:
       - eyrie-data:/data # still holds the secret key
+      - /var/run/docker.sock:/var/run/docker.sock # for Docker container monitors
     depends_on:
       - db
 
@@ -111,9 +118,8 @@ To back it up, see [Backup and restore](backup-and-restore.md). Without
 `secret.key` (or the same `EYRIE_SECRET_KEY`), stored secrets cannot be
 decrypted and must be entered again; backup files do not need it.
 
-The container runs as the non-root user 65532, which owns `/data` in the
-image, so a new volume belongs to it too. A bind-mounted folder must be
-writable by that user: `sudo chown 65532:65532 ./data`.
+The container runs as root, as WAN Drawbridge does, so it can use the
+mounted Docker socket whatever group owns it on the host.
 
 ## Behind a reverse proxy
 

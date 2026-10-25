@@ -86,9 +86,6 @@ check() {
     fail "$svc: $asset is missing or not cached"
   pass "$svc: the embedded web app is served"
 
-  [ "$(docker inspect -f '{{.Config.User}}' "eyriesmoke-$svc-1")" = 65532:65532 ] || fail "$svc: runs as root"
-  pass "$svc: runs as a non-root user"
-
   local jar session csrf created id token
   jar=$(mktemp)
   curl -fsS "$url/api/v1/session" | grep -qF '"setup":true' || fail "$svc: a new instance does not ask for setup"

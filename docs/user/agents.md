@@ -44,13 +44,11 @@ services:
     image: ghcr.io/zjcochran/eyrie:latest
     command: agent
     restart: unless-stopped
-    group_add:
-      - "999" # the socket's group: stat -c %g /var/run/docker.sock
     environment:
       EYRIE_AGENT_URL: https://eyrie.example.com
       EYRIE_AGENT_TOKEN: eya_...
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       - eyrie-agent:/data
 
 volumes:
@@ -60,10 +58,9 @@ volumes:
 It reports every container on the host, running or not, by name, grouped
 by Compose project.
 
-The agent runs as user 65532, so it needs the socket's group:
-`stat -c %g /var/run/docker.sock` prints its ID. Whoever can use the
-Docker socket controls the host, and `:ro` does not change that: it stops
-the file being replaced, not requests through it. The agent only sends
+The agent runs as root, as Eyrie does, so it can use the socket whatever
+group owns it on the host. Whoever can use the Docker socket controls the
+host. The agent only sends
 `GET` requests to `/containers/json`, `/services`, `/info` and `/events`.
 To hold it to that, put a Docker socket proxy that allows only those in
 front of the socket, and point the agent at it with
@@ -85,14 +82,12 @@ services:
   agent:
     image: ghcr.io/zjcochran/eyrie:latest
     command: agent
-    group_add:
-      - "999" # the socket's group on the managers
     environment:
       EYRIE_AGENT_PLATFORM: swarm
       EYRIE_AGENT_URL: https://eyrie.example.com
       EYRIE_AGENT_TOKEN: eya_...
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       - agent:/data
     deploy:
       replicas: 1
@@ -209,6 +204,6 @@ refused agents.
 | The agent logs `Eyrie refuses this agent` | The agent was removed or given a new token in Eyrie, or its key is more than 90 days old: make a **New token** and start the agent with it. It tries again every 5 minutes |
 | The agent logs `the request's time is … from Eyrie's` | The two clocks differ by more than 5 minutes |
 | The agent is **offline** | It has not reported for 90 seconds: it stopped, or cannot reach Eyrie (see its log) |
-| An error under the agent's status, such as `cannot reach Docker: … permission denied` | The agent reports, but cannot list: here it lacks the socket's group (`group_add`) |
+| An error under the agent's status, such as `cannot reach Docker: … no such file or directory` | The agent reports, but cannot list: here the Docker socket is not mounted |
 | `this Docker engine is not a swarm manager` | `EYRIE_AGENT_PLATFORM=swarm` on a worker node |
 | `Kubernetes … 403 Forbidden` | The ServiceAccount is not bound to the ClusterRole in that namespace |

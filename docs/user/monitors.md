@@ -286,8 +286,8 @@ message gives its exit code.
   certificates are not supported; **Ignore TLS certificate errors** as for
   HTTP(S)).
 - In Docker, mount the socket into Eyrie's container
-  (`/var/run/docker.sock:/var/run/docker.sock:ro`) and give Eyrie's user
-  (UID 65532) access to it with `group_add` and the socket's group ID.
+  (`/var/run/docker.sock:/var/run/docker.sock`, as in the
+  [installation](installation.md#with-sqlite-the-default) examples).
   Whoever can use the socket controls the host: see
   [Security](../technical/security.md#monitor-checks).
 
