@@ -81,6 +81,18 @@ func (e *eyrie) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (e *eyrie) setRefuse(v bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.refuse = v
+}
+
+func (e *eyrie) last() agentauth.Report {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.reports[len(e.reports)-1]
+}
+
 func (e *eyrie) count() int {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -218,15 +230,18 @@ func TestReportOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	a.Lister.(*lister).err = errors.New("cannot reach Docker")
-	if a.reportOnce(ctx) != 0 || e.reports[len(e.reports)-1].Error != "cannot reach Docker" {
-		t.Errorf("list error: %+v", e.reports[len(e.reports)-1])
+	l := a.Lister.(*lister)
+	l.mu.Lock()
+	l.err = errors.New("cannot reach Docker")
+	l.mu.Unlock()
+	if a.reportOnce(ctx) != 0 || e.last().Error != "cannot reach Docker" {
+		t.Errorf("list error: %+v", e.last())
 	}
-	e.refuse = true
+	e.setRefuse(true)
 	if a.reportOnce(ctx) != refusedWait {
 		t.Error("a refusal does not wait")
 	}
-	e.refuse = false
+	e.setRefuse(false)
 	a.Cfg.URL = "http://192.0.2.1:1/x\x7f"
 	if a.reportOnce(ctx) != 0 {
 		t.Error("a bad URL")
@@ -307,7 +322,7 @@ func TestRotate(t *testing.T) {
 		t.Error("garbage key.next left")
 	}
 	// A refused rotation leaves the key alone.
-	e.refuse = true
+	e.setRefuse(true)
 	if err := a3.rotate(context.Background()); !errors.Is(err, errRefused) {
 		t.Errorf("refused rotation: %v", err)
 	}
