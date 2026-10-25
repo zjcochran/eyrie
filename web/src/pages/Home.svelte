@@ -187,18 +187,22 @@
   /* Over the row's left padding, so the row stays one link. */
   .toggle {
     position: absolute;
-    top: 0.55rem;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 1;
-    width: 1.4rem;
-    height: 1.4rem;
+    width: 1.5rem;
+    height: 1.5rem;
     padding: 0;
     border: 0;
+    border-radius: 4px;
     background: none;
     color: var(--muted);
+    font-size: 1rem;
     line-height: 1;
   }
   .toggle:hover {
     color: var(--fg);
+    background: var(--border);
   }
   .monitor:hover {
     background: var(--bg);
@@ -231,6 +235,11 @@
     .bar {
       grid-column: 1 / -1;
       grid-row: 2;
+    }
+    /* Level with the name, on the row's first line. */
+    .toggle {
+      top: 0.65rem;
+      transform: none;
     }
   }
 </style>
