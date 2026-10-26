@@ -605,7 +605,8 @@ export class Client {
   analysisSettings = () => this.request<AnalysisSettings>('GET', '/api/v1/settings/analysis');
   saveAnalysisSettings = (s: AnalysisSettingsChange) =>
     this.request<AnalysisSettings>('PUT', '/api/v1/settings/analysis', s);
-  testAnalysis = (s: AnalysisSettingsChange) =>
+  /** channel_id also sends the made-up alert, with the answer, to that saved channel. */
+  testAnalysis = (s: AnalysisSettingsChange & { channel_id?: number }) =>
     this.request<{ ok: boolean; message: string }>('POST', '/api/v1/settings/analysis/test', s);
   /** The models the form's provider offers, or why they could not be listed. */
   analysisModels = (s: AnalysisSettingsChange) =>

@@ -126,6 +126,39 @@ func TestAnalysisTest(t *testing.T) {
 	}
 }
 
+func TestAnalysisTestToChannel(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	h := newHook(t)
+	var c struct {
+		ID int64 `json:"id"`
+	}
+	admin.call("POST", "/api/v1/channels", webhookBody(h, nil), &c)
+	local := map[string]any{"provider": "local", "timeout_s": 10, "model": "llama3.2", "base_url": e.model.URL + "/v1", "channel_id": c.ID}
+	var res ssoTest
+	if admin.call("POST", "/api/v1/settings/analysis/test", local, &res); !res.OK || !strings.HasSuffix(res.Message, "Sent the alert, then the analysis, to Hooks.") {
+		t.Errorf("sent %+v", res)
+	}
+	<-e.prompts
+	var down, msg notify.Message
+	if len(h.messages()) != 2 || json.Unmarshal([]byte(h.messages()[0]), &down) != nil || json.Unmarshal([]byte(h.messages()[1]), &msg) != nil ||
+		!strings.HasSuffix(down.Title, "down (test)") || msg.Text != "The port is closed: the database is likely stopped." {
+		t.Fatalf("messages %v", h.messages())
+	}
+	refuse := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusForbidden) }))
+	defer refuse.Close()
+	admin.call("POST", "/api/v1/channels", map[string]any{"name": "Refuses", "kind": "webhook", "url": refuse.URL, "enabled": true}, &c)
+	local["channel_id"] = c.ID
+	if admin.call("POST", "/api/v1/settings/analysis/test", local, &res); res.OK || !strings.Contains(res.Message, "Sending to Refuses failed") {
+		t.Errorf("failed %+v", res)
+	}
+	<-e.prompts
+	local["channel_id"] = 999
+	if code, _ := admin.errorOf("POST", "/api/v1/settings/analysis/test", local); code != http.StatusNotFound {
+		t.Errorf("no channel: %d", code)
+	}
+}
+
 func TestAlertCarriesAnalysis(t *testing.T) {
 	e := newEnv(t)
 	admin := e.setup()
@@ -137,11 +170,12 @@ func TestAlertCarriesAnalysis(t *testing.T) {
 	eventually(t, "the first check", func() bool { return statusOf(admin, m.ID) == "up" })
 	e.up.Store(false)
 	admin.call("POST", fmt.Sprintf("/api/v1/monitors/%d/check", m.ID), nil, nil)
-	eventually(t, "the down notification", func() bool { return len(h.messages()) == 1 })
-	var msg notify.Message
-	json.Unmarshal([]byte(h.messages()[0]), &msg)
-	if msg.Event != notify.EventDown || msg.Analysis != "The port is closed: the database is likely stopped." {
-		t.Errorf("message %+v", msg)
+	eventually(t, "the down alert and its analysis", func() bool { return len(h.messages()) == 2 })
+	var down, msg notify.Message
+	json.Unmarshal([]byte(h.messages()[0]), &down)
+	json.Unmarshal([]byte(h.messages()[1]), &msg)
+	if down.Event != notify.EventDown || msg.Event != notify.EventAnalysis || msg.Text != "The port is closed: the database is likely stopped." {
+		t.Errorf("down %+v\nanalysis %+v", down, msg)
 	}
 	if p := <-e.prompts; !strings.Contains(p, "Monitor: DB (TCP port)") || !strings.Contains(p, "Address: db.example.com:5432") {
 		t.Errorf("prompt %s", p)

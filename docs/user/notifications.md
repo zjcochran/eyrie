@@ -59,13 +59,16 @@ channel removes it from every monitor.
 | Event | When | Title | Message | Priority |
 | --- | --- | --- | --- | --- |
 | `monitor_down` | The monitor goes down (after its retries) | `Shop website is down` | The check's message: `Status 503 Service Unavailable` | 4 |
+| `monitor_analysis` | The model answers about a down alert ([alert analysis](alert-analysis.md) on) | `Shop website is down: analysis` | `Likely cause: … Check first: …` | 3 |
 | `monitor_still_down` | Still down, every "Notify again every" checks (if set) | `Shop website is still down` | `Down for 3 h 5 min. Status 503 Service Unavailable` | 4 |
 | `monitor_up` | Back up after being down | `Shop website is up` | `Up again after 12 min down. 200 OK` | 3 |
 | `certificate_expiring` | The HTTPS certificate is within one of the warning days | `Shop website: the certificate expires in 14 days` | `The TLS certificate expires on 1 February 2027 at 12:00 UTC. Renew it before then.` | 4 within 7 days, else 3 |
 | `test` | **Send test** | `Test notification` | `Notifications from Eyrie reach this channel.` | 3 |
 
-With [alert analysis](alert-analysis.md) on, a `monitor_down` message
-also carries the model's explanation of the failure.
+With [alert analysis](alert-analysis.md) on, a `monitor_down` message is
+followed by a `monitor_analysis` message, `Shop website is down: analysis`,
+whose text is the model's explanation (priority 3). The down alert never
+waits for it, and none is sent when the model does not answer.
 
 A monitor that goes pending and recovers before its retries run out sends
 nothing. Paused monitors send nothing, nor do monitors in a
@@ -91,9 +94,7 @@ restarts.
 
 ## Message formats
 
-With an analysis, every kind gets it after the message as `Analysis: …`
-(email: as its own paragraph; webhooks: the `analysis`
-field). Messages are cut to fit Pushover (1024 characters), Discord (2000)
+Messages are cut to fit Pushover (1024 characters), Discord (2000)
 and Telegram (4096), ending in `…`.
 
 - **ntfy**: the message (and the link) as the body, with the `Title`,
@@ -128,8 +129,9 @@ Every HTTP request has the `User-Agent` `Eyrie/<version>`.
 ```
 
 Certificate warnings have `cert_expires` instead of `heartbeat`. `url` is
-left out without `EYRIE_BASE_URL`. A down alert with an
-[analysis](alert-analysis.md) has `"analysis": "<the model's explanation>"`.
+left out without `EYRIE_BASE_URL`. A `monitor_analysis` message has the
+model's explanation as `message`, and the `monitor` and `heartbeat` of
+the down alert it follows.
 
 With a **signing secret**, each request has the header
 `X-Hub-Signature-256: sha256=<hex>`: the HMAC-SHA256 of the request body

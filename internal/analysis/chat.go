@@ -16,6 +16,8 @@ type chatRequest struct {
 	Model    string    `json:"model"`
 	Messages []message `json:"messages"`
 	Stream   bool      `json:"stream"`
+	// Temperature 0 keeps a model's answers alike from one alert to the next.
+	Temperature float64 `json:"temperature"`
 }
 
 type chatResponse struct {

@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { type AnalysisSettings, type AnalysisSettingsChange, message } from '../lib/api.ts';
+  import { type AnalysisSettings, type AnalysisSettingsChange, type Channel, message } from '../lib/api.ts';
   import { api } from '../lib/session.svelte.ts';
 
   let saved = $state<AnalysisSettings | null>(null);
@@ -16,6 +16,9 @@
   });
   let notice = $state<{ ok: boolean; text: string } | null>(null);
   let test = $state<{ ok: boolean; message: string } | null>(null);
+  // The channels the test alert can go to; 0 only shows the answer here.
+  let channels = $state<Channel[]>([]);
+  let testChannel = $state(0);
   let busy = $state(false);
   // The provider's models; null until listed. modelsError says why not.
   let models = $state<string[] | null>(null);
@@ -61,6 +64,13 @@
       },
       (e) => (notice = { ok: false, text: message(e) }),
     );
+    api.channels().then(
+      (cs) => {
+        channels = cs;
+        testChannel = (cs.find((c) => c.enabled && c.default) ?? cs.find((c) => c.enabled))?.id ?? 0;
+      },
+      () => {},
+    );
   });
 
   let hasKey = $derived(saved ? (form.provider === 'api' ? saved.has_api_key : saved.has_local_api_key) : false);
@@ -84,7 +94,7 @@
     busy = true;
     test = null;
     try {
-      test = await api.testAnalysis({ ...form, timeout_s: Number(form.timeout_s) });
+      test = await api.testAnalysis({ ...form, timeout_s: Number(form.timeout_s), channel_id: testChannel });
     } catch (e) {
       test = { ok: false, message: message(e) };
     } finally {
@@ -98,11 +108,11 @@
 {#if saved}
   <section class="card">
     <p>
-      When a monitor goes down, Eyrie can ask a language model what most likely went wrong, and put the answer in the
-      alert: Claude with an Anthropic API key, or a model on your own server, such as Ollama. Eyrie sends the monitor's
-      name, description and settings (never header values, request bodies or a URL's password and query) and its
-      recent checks. Alerts wait at most the timeout, and go out without an analysis if the model has not answered by
-      then.
+      When a monitor goes down, Eyrie can ask a language model what most likely went wrong, and send the answer in a
+      second message after the down alert: Claude with an Anthropic API key, or a model on your own server, such as
+      Ollama. Eyrie sends the monitor's name, description and settings (never header values, request bodies or a URL's
+      password and query) and its recent checks. The down alert goes out at once and never waits for the model; no
+      analysis is sent if the model has not answered within the timeout.
     </p>
     <form onsubmit={save}>
       <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Analyse down alerts</label>
@@ -192,6 +202,13 @@
         <button type="button" onclick={loadModels}>List again</button>
       </p>
       <label>Timeout (seconds) <input type="number" min="5" max="300" bind:value={form.timeout_s} /></label>
+      <label
+        >Send the test alert to
+        <select bind:value={testChannel}>
+          <option value={0}>Nowhere: only show the answer here</option>
+          {#each channels as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
+        </select></label
+      >
       <div class="row">
         <button type="button" onclick={runTest} disabled={busy}>Test with a made-up alert</button>
         <button class="primary" disabled={busy}>Save</button>

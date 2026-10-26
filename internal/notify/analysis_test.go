@@ -25,69 +25,57 @@ func (s slowAnalyst) Analyze(store.Monitor, store.Beat) string {
 	return s.answer
 }
 
-func TestAnalysisWaitsAndKeepsOrder(t *testing.T) {
+func TestDownAlertDoesNotWaitForAnalysis(t *testing.T) {
 	n := newNotifier(t)
 	r := newReceiver(t)
 	link(t, n, Channel{Name: "A", Kind: KindWebhook, URL: r.srv.URL, Enabled: true})
-	a := slowAnalyst{make(chan struct{}), "The database is out of connections."}
+	a := slowAnalyst{make(chan struct{}), "Likely cause: the database is out of connections."}
 	n.Analyst = a
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go n.Run(ctx)
 	m := store.Monitor{ID: 1, Name: "DB"}
-	n.Monitor(m, store.Beat{MonitorID: 1, At: t0, Status: "down", Important: true, Latency: -1}, time.Time{})
+	n.Monitor(m, store.Beat{MonitorID: 1, At: t0, Status: "down", Important: true, Latency: -1, Message: "connection refused"}, time.Time{})
 	n.Monitor(m, store.Beat{MonitorID: 1, At: t0.Add(time.Minute), Status: "up", Important: true}, t0)
-	// Another monitor's message does not wait.
-	n.Monitor(store.Monitor{ID: 2, Name: "Other"}, store.Beat{MonitorID: 2, At: t0, Status: "up", Important: true}, t0)
-	time.Sleep(50 * time.Millisecond)
-	if got := r.got(); len(got) != 0 {
-		t.Fatalf("sent before the analysis: %v", got)
-	}
+	waitFor(t, "the down and up alerts", func() bool { return len(r.got()) == 2 })
 	close(a.release)
-	waitFor(t, "both messages", func() bool { return len(r.got()) == 2 })
-	var down, up Message
+	waitFor(t, "the analysis", func() bool { return len(r.got()) == 3 })
+	var down, up, analysis Message
 	json.Unmarshal([]byte(r.got()[0].body), &down)
 	json.Unmarshal([]byte(r.got()[1].body), &up)
-	if down.Event != EventDown || down.Analysis != a.answer || up.Event != EventUp || up.Analysis != "" {
+	json.Unmarshal([]byte(r.got()[2].body), &analysis)
+	if down.Event != EventDown || down.Text != "connection refused" || up.Event != EventUp {
 		t.Errorf("down %+v\nup %+v", down, up)
 	}
-	n.mu.Lock()
-	left := len(n.pending)
-	n.mu.Unlock()
-	if left != 0 {
-		t.Errorf("%d pending left", left)
+	if analysis.Event != EventAnalysis || analysis.Title != "DB is down: analysis" || analysis.Text != a.answer ||
+		analysis.Priority != 3 || analysis.Monitor == nil || analysis.Monitor.ID != 1 || analysis.Heartbeat == nil {
+		t.Errorf("analysis %+v", analysis)
 	}
 }
 
-func analysed() Message {
-	m := testMessage()
-	m.Analysis = "Port 5432 refuses connections: the database is likely stopped."
-	return m
-}
-
-func TestAnalysisInMessages(t *testing.T) {
+func TestNoAnswerNoAnalysisMessage(t *testing.T) {
 	n := newNotifier(t)
 	r := newReceiver(t)
-	for _, c := range []Channel{{Kind: KindNtfy, URL: "/t"}, {Kind: KindTelegram, Token: "1:a", To: "5"}, {Kind: KindDiscord, URL: "/d"}} {
-		if c.URL != "" || c.Kind == KindTelegram {
-			c.URL = r.srv.URL + c.URL
-		}
-		if err := n.send(context.Background(), c, analysed()); err != nil {
-			t.Fatal(err)
-		}
+	link(t, n, Channel{Name: "A", Kind: KindWebhook, URL: r.srv.URL, Enabled: true})
+	a := slowAnalyst{make(chan struct{}), ""}
+	close(a.release)
+	n.Analyst = a
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go n.Run(ctx)
+	n.Monitor(store.Monitor{ID: 1, Name: "DB"}, store.Beat{MonitorID: 1, At: t0, Status: "down", Important: true}, time.Time{})
+	waitFor(t, "the down alert", func() bool { return len(r.got()) == 1 })
+	time.Sleep(50 * time.Millisecond)
+	if got := r.got(); len(got) != 1 {
+		t.Errorf("sent %v", got)
 	}
-	want := "connection refused\n\nAnalysis: Port 5432 refuses connections: the database is likely stopped.\nhttps://eyrie.example.com/monitors/3"
-	hits := r.got()
-	if hits[0].body != want {
-		t.Errorf("ntfy %q", hits[0].body)
-	}
-	for _, h := range hits[1:] {
-		if !strings.Contains(h.body, "Analysis: Port 5432") {
-			t.Errorf("%s %s", h.path, h.body)
-		}
-	}
-	mail := string(mailMessage(mustAddr("eyrie@example.com"), nil, analysed()))
-	if !strings.Contains(mail, "Analysis:\r\nPort 5432 refuses connections: the database is likely stopped.") {
+}
+
+func TestMailLineBreaks(t *testing.T) {
+	m := testMessage()
+	m.Text = "Likely cause: the database stopped.\nCheck first: its service."
+	mail := string(mailMessage(mustAddr("eyrie@example.com"), nil, m))
+	if !strings.Contains(mail, "Likely cause: the database stopped.\r\nCheck first: its service.") {
 		t.Errorf("mail %s", mail)
 	}
 }
@@ -98,8 +86,8 @@ func TestLongMessagesFit(t *testing.T) {
 	old := PushoverURL
 	PushoverURL = r.srv.URL + "/p"
 	defer func() { PushoverURL = old }()
-	m := analysed()
-	m.Analysis = strings.Repeat("é", 5000)
+	m := testMessage()
+	m.Text = strings.Repeat("é", 5000)
 	for _, c := range []Channel{{Kind: KindPushover, Token: "t", User: "u"}, {Kind: KindDiscord, URL: r.srv.URL + "/d"},
 		{Kind: KindTelegram, URL: r.srv.URL, Token: "1:a", To: "5"}} {
 		if err := n.send(context.Background(), c, m); err != nil {

@@ -3,10 +3,12 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/zjcochran/eyrie/internal/analysis"
+	"github.com/zjcochran/eyrie/internal/notify"
 )
 
 // analysisView is the alert analysis settings as admins see them: never
@@ -55,6 +57,9 @@ type analysisBody struct {
 	TimeoutS    int    `json:"timeout_s"`
 	APIKey      string `json:"api_key"`
 	ClearAPIKey bool   `json:"clear_api_key"`
+	// ChannelID, when testing, is a saved channel the made-up alert goes
+	// to, followed by the answer; 0 only shows the answer.
+	ChannelID int64 `json:"channel_id"`
 }
 
 // analysisSettings builds the settings from a body and the saved ones, with
@@ -119,11 +124,25 @@ func (s *Server) saveAnalysis(w http.ResponseWriter, r *http.Request) {
 }
 
 // testAnalysis asks the model about a made-up alert with the form as it is,
-// without saving. The answer is the analysis or the error.
+// without saving. With a channel, the alert goes to it first, and the
+// answer follows in its own message, as on a real alert. The answer is the
+// analysis or the error.
 func (s *Server) testAnalysis(w http.ResponseWriter, r *http.Request) {
 	var b analysisBody
 	if !readJSON(w, r, &b) {
 		return
+	}
+	var c notify.Channel
+	if b.ChannelID != 0 {
+		sc, err := s.Store.ChannelByID(r.Context(), b.ChannelID)
+		if err != nil {
+			s.storeError(w, r, err)
+			return
+		}
+		if c, err = notify.FromStore(sc, s.Secrets); err != nil {
+			s.fail(w, r, err)
+			return
+		}
 	}
 	b.Enabled = true
 	next, key, ok := s.analysisSettings(w, r, b)
@@ -131,12 +150,27 @@ func (s *Server) testAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	*next.Key() = key
+	var sendErr error
+	if c.ID != 0 {
+		sendErr = s.Notifier.TestAlert(r.Context(), c)
+	}
 	text, err := s.Analyzer.Test(r.Context(), next)
 	if err != nil {
 		writeJSON(w, http.StatusOK, ssoTest{false, capitalize(err.Error()) + "."})
 		return
 	}
-	writeJSON(w, http.StatusOK, ssoTest{true, text})
+	if c.ID == 0 {
+		writeJSON(w, http.StatusOK, ssoTest{true, text})
+		return
+	}
+	if sendErr == nil {
+		sendErr = s.Notifier.TestAnalysis(r.Context(), c, text)
+	}
+	if sendErr != nil {
+		writeJSON(w, http.StatusOK, ssoTest{false, fmt.Sprintf("%s\n\nSending to %s failed: %s.", text, c.Name, sendErr)})
+		return
+	}
+	writeJSON(w, http.StatusOK, ssoTest{true, fmt.Sprintf("%s\n\nSent the alert, then the analysis, to %s.", text, c.Name)})
 }
 
 // modelsAnswer is the provider's models, or why they could not be listed.
