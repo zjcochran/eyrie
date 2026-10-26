@@ -354,6 +354,22 @@ func TestTest(t *testing.T) {
 	}
 }
 
+func TestTestAlert(t *testing.T) {
+	n := newNotifier(t)
+	r := newReceiver(t)
+	if err := n.TestAlert(context.Background(), Channel{ID: 3, Name: "Hook", Kind: KindWebhook, URL: r.srv.URL}, "Upstream down."); err != nil {
+		t.Fatal(err)
+	}
+	var m Message
+	json.Unmarshal([]byte(r.got()[0].body), &m)
+	if m.Event != "test" || m.Analysis != "Upstream down." || !strings.Contains(m.Title, "Shop website") {
+		t.Errorf("message %+v", m)
+	}
+	if res, ok := n.Last(3); !ok || res.Err != "" {
+		t.Errorf("last %+v %v", res, ok)
+	}
+}
+
 func TestStoreRoundTrip(t *testing.T) {
 	c := Channel{ID: 2, Name: "Mail", Kind: KindEmail, URL: "smtp://mail.example.com", Token: "pw", User: "alice",
 		To: "bob@example.com", From: "eyrie@example.com", Enabled: true, Default: true}

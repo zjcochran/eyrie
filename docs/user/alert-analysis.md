@@ -143,7 +143,10 @@ made-up alert** to see how long it takes.
 
 **Test with a made-up alert** sends a made-up down alert (a shop website
 answering 502 after slow responses) with the form as it is, saved or not,
-and shows the answer or the error.
+and shows the answer or the error. It then sends the alert, with the
+answer, to the channel chosen in **Send the test alert to** (at first an
+enabled default channel, or any enabled one), so you see the analysis as
+your alerts will carry it. Choose **Nowhere** to only see it on the page.
 
 ## What happens on an alert
 
@@ -158,8 +161,11 @@ and shows the answer or the error.
 - At most four analyses run at once. When more monitors go down together,
   as in a network outage, the others go out without an analysis
   (`alert analysis skipped: too many at once`).
-- The analysis is at most 800 characters (the model is asked for 500,
-  plain text, without Markdown). It follows the message as `Analysis: …`;
+- The analysis is at most 800 characters. The model is asked for the
+  same form every time, 300 to 500 characters of plain text without
+  Markdown, in two lines: `Likely cause: …` (with the evidence from the
+  data) and `Check first: …`. Models on your own server are asked with
+  temperature 0, so their answers stay alike. It follows the message as `Analysis: …`;
   email has it as its own paragraph and webhooks as the `analysis` field.
   See [Notifications](notifications.md#message-formats).
 - The metric `eyrie_alert_analyses_total{result="ok"|"failed"}` counts them.

@@ -341,10 +341,24 @@ func (n *Notifier) sendRetrying(ctx context.Context, c Channel, m Message) error
 // saved channel the result is recorded as its last delivery.
 func (n *Notifier) Test(ctx context.Context, c Channel) error {
 	n.init()
-	m := Message{
+	return n.sendTest(ctx, c, Message{
 		Event: "test", Title: "Test notification", Priority: 3, Time: time.Now().UTC(),
 		Text: "Notifications from Eyrie reach this channel.",
-	}
+	})
+}
+
+// TestAlert sends a channel the made-up down alert of the alert analysis
+// test, with the model's analysis, as Test sends its message.
+func (n *Notifier) TestAlert(ctx context.Context, c Channel, analysis string) error {
+	n.init()
+	return n.sendTest(ctx, c, Message{
+		Event: "test", Title: "Shop website is down (test)", Priority: 4, Time: time.Now().UTC(),
+		Text:     "Status 502 Bad Gateway. A made-up alert from the alert analysis settings.",
+		Analysis: analysis,
+	})
+}
+
+func (n *Notifier) sendTest(ctx context.Context, c Channel, m Message) error {
 	err := n.send(ctx, c, m)
 	if c.ID != 0 {
 		n.record(c.ID, c.Name, m, err)
