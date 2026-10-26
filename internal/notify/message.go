@@ -17,6 +17,7 @@ const (
 	EventStillDown = "monitor_still_down"
 	EventUp        = "monitor_up"
 	EventCert      = "certificate_expiring"
+	EventAnalysis  = "monitor_analysis"
 )
 
 // Message is what a channel receives. The webhook kind gets it as JSON.
@@ -31,9 +32,6 @@ type Message struct {
 	Heartbeat *BeatInfo    `json:"heartbeat,omitempty"`
 	// CertExpires is when the certificate expires (certificate warnings).
 	CertExpires *time.Time `json:"cert_expires,omitempty"`
-	// Analysis is the model's explanation of a down alert, when alert
-	// analysis is on and the model answered in time.
-	Analysis string `json:"analysis,omitempty"`
 }
 
 // MonitorInfo describes the monitor a message is about.
@@ -57,37 +55,28 @@ type BeatInfo struct {
 // one began (how long it was down, for "back up"), or when the down status
 // began (for "still down").
 //
-// With an Analyst, a down alert waits for its analysis. The monitor's later
-// messages wait for it too, so they never arrive before it.
+// With an Analyst, a down alert is followed by a second message with its
+// analysis, once the model answers. The down alert never waits for it.
 func (n *Notifier) Monitor(m store.Monitor, b store.Beat, since time.Time) {
 	n.init()
 	msg := n.statusMessage(m, b, since)
-	analyse := msg.Event == EventDown && n.Analyst != nil
-	n.mu.Lock()
-	prev := n.pending[m.ID]
-	if prev == nil && !analyse {
-		n.mu.Unlock()
-		n.enqueue(job{m.ID, msg})
+	n.enqueue(job{m.ID, msg})
+	if msg.Event != EventDown || n.Analyst == nil {
 		return
 	}
-	done := make(chan struct{})
-	n.pending[m.ID] = done
-	n.mu.Unlock()
 	go func() {
-		if analyse {
-			msg.Analysis = n.Analyst.Analyze(m, b)
+		if text := n.Analyst.Analyze(m, b); text != "" {
+			n.enqueue(job{m.ID, analysisMessage(msg, text)})
 		}
-		if prev != nil {
-			<-prev
-		}
-		n.enqueue(job{m.ID, msg})
-		n.mu.Lock()
-		if n.pending[m.ID] == done {
-			delete(n.pending, m.ID)
-		}
-		n.mu.Unlock()
-		close(done)
 	}()
+}
+
+// analysisMessage is the message that follows a down alert with the
+// model's explanation of it.
+func analysisMessage(down Message, text string) Message {
+	down.Event, down.Title, down.Priority, down.Text = EventAnalysis, down.Title+": analysis", 3, text
+	down.Time = time.Now().UTC()
+	return down
 }
 
 func (n *Notifier) statusMessage(m store.Monitor, b store.Beat, since time.Time) Message {

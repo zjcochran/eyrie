@@ -187,14 +187,13 @@ type Notifier struct {
 	Version string          // sent in the User-Agent
 	BaseURL string          // EYRIE_BASE_URL: messages link to the monitor when set
 	TLS     *tls.Config     // RootCAs for SMTP servers; nil uses the system's
-	// Analyst explains down alerts; nil sends them without an analysis.
+	// Analyst explains down alerts, in a message after each; nil sends none.
 	Analyst Analyst
 
 	queue        chan job
 	once         sync.Once
 	mu           sync.Mutex
 	last         map[int64]Result
-	pending      map[int64]chan struct{} // closed when a monitor's waiting message is queued
 	settings     atomic.Pointer[Settings]
 	sent, failed atomic.Uint64
 }
@@ -215,7 +214,6 @@ func (n *Notifier) init() {
 	n.once.Do(func() {
 		n.queue = make(chan job, 256)
 		n.last = map[int64]Result{}
-		n.pending = map[int64]chan struct{}{}
 		if n.Client == nil {
 			n.Client = &http.Client{Timeout: 10 * time.Second}
 		}
@@ -348,14 +346,25 @@ func (n *Notifier) Test(ctx context.Context, c Channel) error {
 }
 
 // TestAlert sends a channel the made-up down alert of the alert analysis
-// test, with the model's analysis, as Test sends its message.
-func (n *Notifier) TestAlert(ctx context.Context, c Channel, analysis string) error {
+// test, as Test sends its message.
+func (n *Notifier) TestAlert(ctx context.Context, c Channel) error {
 	n.init()
-	return n.sendTest(ctx, c, Message{
+	return n.sendTest(ctx, c, testDown())
+}
+
+// TestAnalysis sends a channel the analysis that follows TestAlert's alert.
+func (n *Notifier) TestAnalysis(ctx context.Context, c Channel, text string) error {
+	n.init()
+	m := analysisMessage(testDown(), text)
+	m.Event = "test"
+	return n.sendTest(ctx, c, m)
+}
+
+func testDown() Message {
+	return Message{
 		Event: "test", Title: "Shop website is down (test)", Priority: 4, Time: time.Now().UTC(),
-		Text:     "Status 502 Bad Gateway. A made-up alert from the alert analysis settings.",
-		Analysis: analysis,
-	})
+		Text: "Status 502 Bad Gateway. A made-up alert from the alert analysis settings.",
+	}
 }
 
 func (n *Notifier) sendTest(ctx context.Context, c Channel, m Message) error {
@@ -417,7 +426,7 @@ func request(ctx context.Context, c Channel, m Message) (*http.Request, error) {
 		}
 		return req, err
 	}
-	text := withAnalysis(m)
+	text := m.Text
 	if m.URL != "" {
 		text += "\n" + m.URL
 	}
@@ -449,7 +458,7 @@ func request(ctx context.Context, c Channel, m Message) (*http.Request, error) {
 		return req, nil
 	case KindPushover:
 		// Pushover takes at most 1024 characters.
-		form := url.Values{"token": {c.Token}, "user": {c.User}, "title": {m.Title}, "message": {shorten(withAnalysis(m), 1024)},
+		form := url.Values{"token": {c.Token}, "user": {c.User}, "title": {m.Title}, "message": {shorten(m.Text, 1024)},
 			"priority": {fmt.Sprint(pushoverPriority(m.Priority))}, "timestamp": {fmt.Sprint(m.Time.Unix())}}
 		if m.URL != "" {
 			form.Set("url", m.URL)
@@ -479,14 +488,6 @@ func request(ctx context.Context, c Channel, m Message) (*http.Request, error) {
 		}
 		return req, nil
 	}
-}
-
-// withAnalysis is the message's text followed by the analysis.
-func withAnalysis(m Message) string {
-	if m.Analysis == "" {
-		return m.Text
-	}
-	return m.Text + "\n\nAnalysis: " + m.Analysis
 }
 
 // shorten cuts s to at most n characters (Telegram and Discord limits),

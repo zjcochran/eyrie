@@ -20,7 +20,7 @@ in, and keeps its data in SQLite or, for large installations, PostgreSQL.
   containers and VMs, signed and read-only.
 - **Notifications** to ntfy, Gotify, Pushover, Telegram, Discord, email
   and signed webhooks, with certificate expiry warnings. Down alerts can
-  carry an analysis of the failure by Claude (an API key or your Claude
+  be followed by an analysis of the failure by Claude (an API key or your Claude
   subscription) or a model on your own server, such as Ollama (off by
   default).
 - **Maintenance windows** (once, weekly, monthly, every N days or by cron)

@@ -1,16 +1,20 @@
 # Alert analysis
 
 When a monitor goes down, Eyrie can ask a language model what most likely
-went wrong and what to check first, and put the answer in the down alert:
+went wrong and what to check first. The down alert goes out at once, as
+without analysis; the answer follows in a second message when the model
+has given it:
 
 ```text
 Shop website is down
 Status 502 Bad Gateway
+https://eyrie.example.com/monitors/3
+```
 
-Analysis: Response times climbed from 120 ms to 2.9 s over the three
-checks before the failure, then the proxy returned 502: the application
-behind it is likely overloaded or has crashed. Check the application's
-process and memory first, then the proxy's upstream logs.
+```text
+Shop website is down: analysis
+Likely cause: response times climbed from 120 ms to 2.9 s over the three checks before the failure, then the proxy returned 502: the application behind it is likely overloaded or has crashed.
+Check first: the application's process and memory, then the proxy's upstream logs.
 https://eyrie.example.com/monitors/3
 ```
 
@@ -139,35 +143,36 @@ made-up alert** to see how long it takes.
 | Server URL | Your own server only. Required to turn analysis on. |
 | API key | Claude with an API key: required to turn analysis on. Your own server: only if it needs one. Not used with your subscription. |
 | Model | Chosen from the models the provider lists (Claude: `GET /v1/models` with the API key; your own server: `GET <server URL>/models`), or typed in when the list cannot be loaded. Claude: blank is `claude-opus-5-5`. Your subscription: `opus`, `sonnet`, `haiku`, or blank for your account's default. Your own server: required. |
-| Timeout | 5 to 300 seconds, 60 by default: how long a down alert waits for the analysis. |
+| Timeout | 5 to 300 seconds, 60 by default: how long Eyrie waits for the model to answer. |
 
 **Test with a made-up alert** sends a made-up down alert (a shop website
 answering 502 after slow responses) with the form as it is, saved or not,
 and shows the answer or the error. It then sends the alert, with the
 answer, to the channel chosen in **Send the test alert to** (at first an
-enabled default channel, or any enabled one), so you see the analysis as
-your alerts will carry it. Choose **Nowhere** to only see it on the page.
+enabled default channel, or any enabled one): the alert before asking the
+model, then the analysis in its own message, as on a real alert. Choose **Nowhere** to only see it on the page.
 
 ## What happens on an alert
 
 - Only **down** alerts (`monitor_down`) are analysed. "Still down"
   reminders, "back up" messages, certificate warnings and tests are not.
-- The down alert waits for the analysis, at most the timeout. Without an
-  answer by then (an error, no answer in time, the model declining), the
-  alert goes out without one, and the failure is logged (`alert analysis
-  failed`).
-- The monitor's later messages, such as "back up", wait for the down alert,
-  so they never arrive before it. Other monitors' messages do not wait.
+- The down alert is sent at once and never waits for the analysis. The
+  analysis follows in its own message (`monitor_analysis`, priority 3,
+  titled `<monitor> is down: analysis`) to the same channels, when the
+  model answers within the timeout. Without an answer (an error, no answer
+  in time, the model declining), no analysis is sent, and the failure is
+  logged (`alert analysis failed`).
+- Nothing waits for the analysis: when the monitor is back up before the
+  model answers, "back up" arrives first and the analysis after it.
 - At most four analyses run at once. When more monitors go down together,
-  as in a network outage, the others go out without an analysis
+  as in a network outage, the others get no analysis
   (`alert analysis skipped: too many at once`).
 - The analysis is at most 800 characters. The model is asked for the
   same form every time, 300 to 500 characters of plain text without
   Markdown, in two lines: `Likely cause: …` (with the evidence from the
   data) and `Check first: …`. Models on your own server are asked with
-  temperature 0, so their answers stay alike. It follows the message as `Analysis: …`;
-  email has it as its own paragraph and webhooks as the `analysis` field.
-  See [Notifications](notifications.md#message-formats).
+  temperature 0, so their answers stay alike. It is the analysis message's
+  text. See [Notifications](notifications.md#message-formats).
 - The metric `eyrie_alert_analyses_total{result="ok"|"failed"}` counts them.
 
 With Claude and a model that supports it (`claude-opus-5-5`,

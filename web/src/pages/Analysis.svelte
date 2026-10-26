@@ -108,11 +108,11 @@
 {#if saved}
   <section class="card">
     <p>
-      When a monitor goes down, Eyrie can ask a language model what most likely went wrong, and put the answer in the
-      alert: Claude with an Anthropic API key, or a model on your own server, such as Ollama. Eyrie sends the monitor's
-      name, description and settings (never header values, request bodies or a URL's password and query) and its
-      recent checks. Alerts wait at most the timeout, and go out without an analysis if the model has not answered by
-      then.
+      When a monitor goes down, Eyrie can ask a language model what most likely went wrong, and send the answer in a
+      second message after the down alert: Claude with an Anthropic API key, or a model on your own server, such as
+      Ollama. Eyrie sends the monitor's name, description and settings (never header values, request bodies or a URL's
+      password and query) and its recent checks. The down alert goes out at once and never waits for the model; no
+      analysis is sent if the model has not answered within the timeout.
     </p>
     <form onsubmit={save}>
       <label class="check"><input type="checkbox" bind:checked={form.enabled} /> Analyse down alerts</label>

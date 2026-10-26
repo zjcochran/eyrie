@@ -66,9 +66,9 @@ Node.js is never installed on a developer's machine. It runs only:
   to the event stream, and logged when the status changed. Outcomes worth a
   notification go to `internal/notify`'s queue, as do certificate warnings,
   which the engine decides from each HTTPS result and the warning days. A
-  down alert, when alert analysis is on, first waits in its own goroutine
-  for `internal/analysis` (at most the timeout); the monitor's later
-  messages wait behind it.
+  down alert is queued at once; when alert analysis is on, a goroutine then
+  asks `internal/analysis` (at most the timeout) and queues the answer as a
+  second message.
 - Push monitors have a deadline instead of a check; manual monitors only
   change when set; groups are evaluated at their interval and when a
   member's status changes.
