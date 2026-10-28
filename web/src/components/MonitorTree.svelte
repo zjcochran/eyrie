@@ -272,7 +272,6 @@
             <span class="line">
               <StatusDot status={m.status.status} active={m.active} />
               <span class="name">{m.name}</span>
-              {#each m.tags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} />{/each}
               <span class="pct" title="Uptime, last 24 hours">{percent(m.uptime['24h'])}</span>
             </span>
             <span class="bar"><BeatBar beats={m.beats} slots={30} /></span>
