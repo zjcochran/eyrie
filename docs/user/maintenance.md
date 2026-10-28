@@ -27,11 +27,13 @@ admins add, change, turn off and delete them.
 ## What a window covers
 
 - **Every monitor**, or
-- the **monitors** ticked, and the monitors with one of the **tags** ticked
-  (see [Tags](monitors.md#tags)).
+- the **groups** ticked (every monitor in them, and in the groups inside
+  them; see [Groups](monitors.md#groups)), the **monitors** ticked, and the
+  monitors with one of the **tags** ticked (see [Tags](monitors.md#tags)).
 
-Covering a group covers its members, and their members. A monitor covered by
-several windows that are on shows the first one's title, by title.
+A monitor moved into or out of a covered group goes into or out of the
+maintenance at once. A monitor covered by several windows that are on shows
+the first one's title, by title.
 
 Turning a window off (**Turn off**) ends it at once; turning it back on
 starts it again if its schedule says it is on.

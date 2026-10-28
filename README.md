@@ -13,8 +13,9 @@ in, and keeps its data in SQLite or, for large installations, PostgreSQL.
   nodes, system services, PM2 processes, probes around the world
   (Globalping), databases (PostgreSQL, MySQL and MariaDB, SQL Server,
   Oracle, MongoDB, Redis) and message brokers (MQTT, RabbitMQ, Kafka);
-  pushes from jobs, manual monitors and groups. A live dashboard, uptime
-  history, tags.
+  pushes from jobs and manual monitors. A live dashboard with the list of
+  monitors beside the one you choose, arranged by dragging into nested
+  groups that can alert on their own; uptime history, tags.
 - **Agents** on other hosts that report what runs there: Docker
   containers, Docker Swarm services, Kubernetes workloads and Proxmox VE
   containers and VMs, signed and read-only.

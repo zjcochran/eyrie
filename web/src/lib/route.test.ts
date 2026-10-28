@@ -28,6 +28,8 @@ describe('pageFor', () => {
     assert.deepEqual(routeFor('/monitors/12/edit'), { page: 'edit-monitor', id: 12 });
     assert.equal(pageFor('/monitors/0'), 'not-found');
     assert.equal(pageFor('/monitors/x'), 'not-found');
+    assert.deepEqual(routeFor('/groups/3'), { page: 'group', id: 3 });
+    assert.equal(pageFor('/groups/0'), 'not-found');
   });
   it('reads status pages', () => {
     assert.deepEqual(routeFor('/status-pages'), { page: 'status-pages', id: 0 });

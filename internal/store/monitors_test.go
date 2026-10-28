@@ -25,7 +25,7 @@ func TestCreateMonitor(t *testing.T) {
 		want := newMonitor("Example", "http")
 		want.ID, want.CreatedAt, want.UpdatedAt = m.ID, t0, t0
 		if m.ID == 0 || m.Interval != want.Interval || m.RetryInterval != want.RetryInterval || m.Timeout != want.Timeout ||
-			string(m.Config) != string(want.Config) || !m.CreatedAt.Equal(t0) || m.ParentID != 0 || m.PushToken != "" {
+			string(m.Config) != string(want.Config) || !m.CreatedAt.Equal(t0) || m.GroupID != 0 || m.PushToken != "" {
 			t.Fatalf("created %+v", m)
 		}
 		m.Name, m.UpsideDown, m.Description = "Example site", true, "the home page"
@@ -60,7 +60,7 @@ func TestPauseListDelete(t *testing.T) {
 			t.Errorf("pause unknown: %v", err)
 		}
 		list, err := s.Monitors(ctx)
-		if err != nil || len(list) != 2 || list[0].Name != "Another" || list[1].Name != "Example" {
+		if err != nil || len(list) != 2 || list[0].Name != "Example" || list[1].Name != "Another" {
 			t.Fatalf("list %+v %v", list, err)
 		}
 		if err := s.DeleteMonitor(ctx, m.ID); err != nil {
@@ -106,43 +106,34 @@ func TestPushTokens(t *testing.T) {
 	})
 }
 
-func TestGroups(t *testing.T) {
+func TestMonitorGroup(t *testing.T) {
 	eachDB(t, func(t *testing.T, s *Store) {
 		ctx := context.Background()
-		outer, _ := s.CreateMonitor(ctx, newMonitor("Outer", "group"), t0)
-		inner := newMonitor("Inner", "group")
-		inner.ParentID = outer.ID
-		inner, err := s.CreateMonitor(ctx, inner, t0)
-		if err != nil || inner.ParentID != outer.ID {
-			t.Fatalf("inner %+v %v", inner, err)
+		g, _ := s.CreateGroup(ctx, Group{Name: "Web", Alert: AlertNone}, t0)
+		a := newMonitor("A", "http")
+		a.GroupID = g.ID
+		a, err := s.CreateMonitor(ctx, a, t0)
+		b := newMonitor("B", "http")
+		b.GroupID = g.ID
+		b, _ = s.CreateMonitor(ctx, b, t0)
+		if err != nil || a.GroupID != g.ID || a.Position != 0 || b.Position != 1 {
+			t.Fatalf("a %+v b %+v %v", a, b, err)
 		}
-		leaf := newMonitor("Leaf", "http")
-		leaf.ParentID = inner.ID
-		leaf, _ = s.CreateMonitor(ctx, leaf, t0)
-
 		var bad *InvalidError
-		for name, parent := range map[string]int64{"missing": 9999, "not a group": leaf.ID} {
-			m := newMonitor("x", "http")
-			m.ParentID = parent
-			if _, err := s.CreateMonitor(ctx, m, t0); !errors.As(err, &bad) {
-				t.Errorf("%s: %v", name, err)
-			}
+		m := newMonitor("x", "http")
+		m.GroupID = 9999
+		if _, err := s.CreateMonitor(ctx, m, t0); !errors.As(err, &bad) {
+			t.Errorf("missing group: %v", err)
 		}
-		// A cycle: outer into its own member.
-		outer.ParentID = inner.ID
-		if _, err := s.UpdateMonitor(ctx, outer, t0); !errors.As(err, &bad) {
-			t.Errorf("cycle: %v", err)
+		// Out of the group: after everything outside any group.
+		a.GroupID = 0
+		if a, err = s.UpdateMonitor(ctx, a, t0); err != nil || a.GroupID != 0 || a.Position != 1 {
+			t.Errorf("moved %+v %v", a, err)
 		}
-		outer.ParentID = outer.ID
-		if _, err := s.UpdateMonitor(ctx, outer, t0); !errors.As(err, &bad) {
-			t.Errorf("itself: %v", err)
-		}
-		// Deleting a group keeps its members, outside any group.
-		if err := s.DeleteMonitor(ctx, inner.ID); err != nil {
-			t.Fatal(err)
-		}
-		if l, _ := s.MonitorByID(ctx, leaf.ID); l.ParentID != 0 {
-			t.Errorf("leaf still in %d", l.ParentID)
+		// Unmoved, it keeps its place.
+		b.Name = "Bee"
+		if b, err = s.UpdateMonitor(ctx, b, t0); err != nil || b.Position != 1 {
+			t.Errorf("kept %+v %v", b, err)
 		}
 	})
 }

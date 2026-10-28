@@ -105,22 +105,23 @@ func TestMaintenanceWindow(t *testing.T) {
 func TestMaintenanceCoverage(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
-	group := h.add(monitor("Web", "group", `{}`))
+	outer, _ := h.st.CreateGroup(ctx, store.Group{Name: "Web", Alert: store.AlertNone}, t0)
+	group, _ := h.st.CreateGroup(ctx, store.Group{Name: "Shop", ParentID: outer.ID, Alert: store.AlertNone}, t0)
 	member := monitor("Shop", "port", portConfig)
-	member.ParentID = group.ID
+	member.GroupID = group.ID
 	member = h.add(member)
 	tagged := h.add(monitor("Tagged", "manual", `{}`))
 	other := h.add(monitor("Other", "manual", `{}`))
 	tag, _ := h.st.CreateTag(ctx, store.Tag{Name: "prod", Color: "#000000"}, t0)
 	h.st.SetMonitorTags(ctx, tagged.ID, []store.MonitorTag{{TagID: tag.ID}})
 	manual := json.RawMessage(`{"strategy":"manual"}`)
-	h.window(store.Window{Title: "Group", Enabled: true, Schedule: manual, MonitorIDs: []int64{group.ID}})
+	h.window(store.Window{Title: "Group", Enabled: true, Schedule: manual, GroupIDs: []int64{outer.ID}})
 	h.window(store.Window{Title: "Tag", Enabled: true, Schedule: manual, TagIDs: []int64{tag.ID}})
 	h.window(store.Window{Title: "Off", Enabled: false, Schedule: manual, AllMonitors: true})
 	h.window(store.Window{Title: "Broken", Enabled: true, Schedule: json.RawMessage(`{"strategy":"hourly"}`), AllMonitors: true})
 	h.start()
 	st := h.e.Statuses()
-	for id, want := range map[int64]string{group.ID: "Group", member.ID: "Group", tagged.ID: "Tag", other.ID: ""} {
+	for id, want := range map[int64]string{member.ID: "Group", tagged.ID: "Tag", other.ID: ""} {
 		if st[id].Maintenance != want {
 			t.Errorf("monitor %d in %q, want %q", id, st[id].Maintenance, want)
 		}
@@ -129,7 +130,7 @@ func TestMaintenanceCoverage(t *testing.T) {
 		t.Errorf("broken window not logged: %s", h.logged())
 	}
 	// Moving the member out of the group takes it out of maintenance.
-	member.ParentID = 0
+	member.GroupID = 0
 	h.e.Upsert(ctx, member)
 	if s := h.e.Statuses()[member.ID]; s.Maintenance != "" {
 		t.Errorf("left the group %+v", s)

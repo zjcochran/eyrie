@@ -12,11 +12,9 @@
   import Analysis from './pages/Analysis.svelte';
   import Audit from './pages/Audit.svelte';
   import Backup from './pages/Backup.svelte';
-  import Home from './pages/Home.svelte';
   import Login from './pages/Login.svelte';
   import Maintenance from './pages/Maintenance.svelte';
-  import MonitorForm from './pages/MonitorForm.svelte';
-  import MonitorPage from './pages/MonitorPage.svelte';
+  import Monitors from './pages/Monitors.svelte';
   import Notifications from './pages/Notifications.svelte';
   import PublicStatus from './pages/PublicStatus.svelte';
   import Retention from './pages/Retention.svelte';
@@ -36,6 +34,8 @@
   const signedIn = $derived(user !== null);
   const inSettings = $derived(settingsTabs.some((t) => t.page === page));
   const inStatusPages = $derived(page === 'status-pages' || page === 'status-page' || page === 'new-status-page');
+  // The list of monitors with what is chosen in it.
+  const inMonitors = $derived(['home', 'monitor', 'group', 'new-monitor', 'edit-monitor'].includes(page));
 
   // Monitors and their live updates, while signed in.
   $effect(() => {
@@ -121,19 +121,15 @@
       </div>
     </details>
   </header>
-  <main class:wide={inSettings}>
-    {#if page === 'home'}
-      <Home />
-    {:else if page === 'monitor'}
-      <MonitorPage id={route.id} />
+  <main class:wide={inSettings} class:split={inMonitors}>
+    {#if inMonitors}
+      <Monitors {route} admin={user.role === 'admin'} />
     {:else if page === 'maintenance'}
       <Maintenance />
     {:else if page === 'status-pages'}
       <StatusPages />
     {:else if page === 'status-page' || (page === 'new-status-page' && user.role === 'admin')}
       {#key route.id}<StatusPageEdit id={route.id} />{/key}
-    {:else if (page === 'new-monitor' || page === 'edit-monitor') && user.role === 'admin'}
-      {#key route.id}<MonitorForm id={route.id} />{/key}
     {:else if page === 'not-found' || !tabs.some((t) => t.page === page)}
       <h1>Not found</h1>
       <p><a href="/" onclick={link}>Back to the start</a></p>
@@ -288,6 +284,9 @@
   /* Room for every settings tab on one line. */
   main.wide {
     max-width: 78rem;
+  }
+  main.split {
+    max-width: 96rem;
   }
   main.narrow {
     max-width: 28rem;

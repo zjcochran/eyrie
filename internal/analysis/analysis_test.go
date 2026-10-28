@@ -93,12 +93,11 @@ func newAnalyzer(t *testing.T) *Analyzer {
 // seed makes a group and a monitor in it with a few heartbeats.
 func seed(t *testing.T, a *Analyzer) store.Monitor {
 	ctx := context.Background()
-	g, err := a.Store.CreateMonitor(ctx, store.Monitor{Name: "Web", Type: "group", Active: true, Interval: time.Minute,
-		RetryInterval: time.Minute, Timeout: time.Second, Config: json.RawMessage(`{}`)}, t0)
+	g, err := a.Store.CreateGroup(ctx, store.Group{Name: "Web", Alert: store.AlertNone}, t0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := a.Store.CreateMonitor(ctx, store.Monitor{Name: "Shop website", Type: "http", ParentID: g.ID, Active: true,
+	m, err := a.Store.CreateMonitor(ctx, store.Monitor{Name: "Shop website", Type: "http", GroupID: g.ID, Active: true,
 		Interval: time.Minute, RetryInterval: 30 * time.Second, Retries: 2, Timeout: 48 * time.Second, Description: "the shop",
 		Config: json.RawMessage(`{"url":"https://bob:` + "pw" + `@shop.example.com/health?key=k3y","method":"GET","headers":{"Authorization":"Bearer t0ken"},` +
 			`"accepted_status_codes":["200-299"],"max_redirects":10}`)}, t0)

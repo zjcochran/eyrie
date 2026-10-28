@@ -114,7 +114,7 @@ type Type struct {
 	Label string
 	// Scheduled types are checked at their interval by a Checker. The
 	// others are run by the engine: push waits for pushes, manual is set by
-	// people, group follows its members.
+	// people.
 	Scheduled bool
 	// settings returns a new, empty settings value of the type.
 	settings func() settings
@@ -171,7 +171,6 @@ func init() {
 	register(Type{"kafka-producer", "Kafka producer", true, func() settings { return &Kafka{} }})
 	register(Type{"push", "Push", false, func() settings { return &none{} }})
 	register(Type{"manual", "Manual", false, func() settings { return &none{} }})
-	register(Type{"group", "Group", false, func() settings { return &none{} }})
 }
 
 // Names are the type names, sorted.

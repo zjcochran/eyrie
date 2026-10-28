@@ -41,8 +41,11 @@ If you opened a page while signed out, you land on it after signing in.
 
 ## Monitors
 
-The start page is the dashboard of monitors; see [Monitors](monitors.md)
-for the dashboard, each monitor's page, adding monitors and every type.
+The start page is the dashboard of monitors: the list of groups and
+monitors on the left, and the monitor or group chosen in it on the right.
+Admins drag monitors and groups in the list to arrange it, and add a group
+with **New group**. See [Monitors](monitors.md) for the dashboard, groups,
+each monitor's page, adding monitors and every type.
 
 ## Status pages
 

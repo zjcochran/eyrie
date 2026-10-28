@@ -34,26 +34,30 @@ func fill(t *testing.T, s *Store) {
 		t.Fatal(err)
 	}
 	tag, _ := s.CreateTag(ctx, Tag{Name: "prod", Color: "#1f5fbf"}, now)
-	// A child made before its group, so the group's id is the larger one.
-	child, err := s.CreateMonitor(ctx, Monitor{Name: "DB", Type: "port", Active: true, Interval: time.Minute, RetryInterval: time.Minute,
-		Timeout: time.Second, Config: json.RawMessage(`{"host":"db.example.com","port":5432}`)}, now)
+	// A group made before its parent, so the parent's id is the larger one.
+	group, err := s.CreateGroup(ctx, Group{Name: "Shop", Alert: AlertSelected, Channels: []int64{ch.ID}}, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	group, _ := s.CreateMonitor(ctx, Monitor{Name: "Shop", Type: "group", Active: true, Interval: time.Minute,
-		RetryInterval: time.Minute, Timeout: time.Second, Config: json.RawMessage(`{}`)}, now)
-	child.ParentID = group.ID
-	if _, err := s.UpdateMonitor(ctx, child, now); err != nil {
+	outer, _ := s.CreateGroup(ctx, Group{Name: "Sites", Alert: AlertNone}, now)
+	group.ParentID = outer.ID
+	child, err := s.CreateMonitor(ctx, Monitor{Name: "DB", Type: "port", GroupID: group.ID, Active: true, Interval: time.Minute,
+		RetryInterval: time.Minute, Timeout: time.Second, Config: json.RawMessage(`{"host":"db.example.com","port":5432}`)}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	group.AlertMonitors = []int64{child.ID}
+	if _, err := s.UpdateGroup(ctx, group, now); err != nil {
 		t.Fatal(err)
 	}
 	s.SetMonitorChannels(ctx, child.ID, []int64{ch.ID})
 	s.SetMonitorTags(ctx, child.ID, []MonitorTag{{TagID: tag.ID, Value: "eu"}})
 	if _, err := s.CreateWindow(ctx, Window{Title: "Patch", Enabled: true, Schedule: json.RawMessage(`{"strategy":"manual"}`),
-		MonitorIDs: []int64{child.ID}, TagIDs: []int64{tag.ID}}, now); err != nil {
+		MonitorIDs: []int64{child.ID}, GroupIDs: []int64{outer.ID}, TagIDs: []int64{tag.ID}}, now); err != nil {
 		t.Fatal(err)
 	}
 	page, err := s.CreatePage(ctx, Page{Slug: "shop", Title: "Shop", Published: true, Theme: "auto",
-		Sections: []Section{{Title: "Core", TagID: tag.ID, MonitorIDs: []int64{group.ID}}}}, now)
+		Sections: []Section{{Title: "Core", TagID: tag.ID, MonitorIDs: []int64{child.ID}}}}, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +120,7 @@ func TestBackupAcrossDatabases(t *testing.T) {
 				if a, b := asJSON(t, snap), asJSON(t, again); a != b {
 					t.Errorf("restored data differs\nfrom %s\n  to %s", a, b)
 				}
-				// Sessions end; new rows get new ids; the parent survived.
+				// Sessions end; new rows get new ids; the groups survived.
 				if n, _ := dst.CountUsers(ctx); n != 2 {
 					t.Errorf("users %d", n)
 				}
@@ -125,17 +129,13 @@ func TestBackupAcrossDatabases(t *testing.T) {
 				ms, _ := dst.Monitors(ctx)
 				m, err := dst.CreateMonitor(ctx, Monitor{Name: "New", Type: "manual", Interval: time.Minute, RetryInterval: time.Minute,
 					Timeout: time.Second, Config: json.RawMessage(`{}`)}, time.Now())
-				if sessions != 0 || len(ms) != 2 || err != nil || m.ID <= ms[1].ID && m.ID <= ms[0].ID {
+				if sessions != 0 || len(ms) != 1 || err != nil || m.ID <= ms[0].ID {
 					t.Errorf("sessions %d, monitors %+v, new %d %v", sessions, ms, m.ID, err)
 				}
-				parents := 0
-				for _, x := range ms {
-					if x.ParentID != 0 {
-						parents++
-					}
-				}
-				if parents != 1 {
-					t.Errorf("parent lost: %+v", ms)
+				gs, _ := dst.Groups(ctx)
+				g, err := dst.CreateGroup(ctx, Group{Name: "New", Alert: AlertNone}, time.Now())
+				if len(gs) != 2 || ms[0].GroupID == 0 || gs[0].ParentID+gs[1].ParentID == 0 || err != nil || g.ID <= gs[0].ID || g.ID <= gs[1].ID {
+					t.Errorf("groups %+v, monitors %+v, new %+v %v", gs, ms, g, err)
 				}
 			})
 		}
@@ -168,7 +168,7 @@ func TestBackupHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	after, _ := s.Export(ctx, true, time.Time{})
-	if len(after.History["heartbeats"]) != 0 || len(after.Config["monitors"]) != 2 {
+	if len(after.History["heartbeats"]) != 0 || len(after.Config["monitors"]) != 1 {
 		t.Errorf("after: %d heartbeats", len(after.History["heartbeats"]))
 	}
 	if v, err := s.SchemaVersion(ctx); err != nil || v < 6 {
@@ -294,6 +294,7 @@ func TestBackupOlderSchema(t *testing.T) {
 			delete(old.Config, table) // added by 00006
 		}
 		delete(old.History, "audit_log") // added by 00008
+		withoutGroups(old)               // added by 00010
 		if err := s.Import(ctx, old, false); err != nil {
 			t.Fatal(err)
 		}
@@ -316,7 +317,7 @@ func TestBackupOlderSchema(t *testing.T) {
 		if days, _ := s.DailyTotals(ctx, time.Time{}); days[child].AvgLatency() != 2*time.Millisecond {
 			t.Errorf("days %+v", days)
 		}
-		if len(after.Config["status_pages"]) != 0 || len(after.Config["monitors"]) != 2 {
+		if len(after.Config["status_pages"]) != 0 || len(after.Config["monitors"]) != 1 {
 			t.Errorf("after: %d pages, %d monitors", len(after.Config["status_pages"]), len(after.Config["monitors"]))
 		}
 	})

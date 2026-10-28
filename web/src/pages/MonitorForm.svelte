@@ -3,15 +3,16 @@
   import { onMount } from 'svelte';
   import TagChip from '../components/TagChip.svelte';
   import { type Agent, type Channel, type Monitor, type MonitorChange, type Tag, type Workload, message } from '../lib/api.ts';
+  import { live, loadMonitors } from '../lib/live.svelte.ts';
   import { go, link } from '../lib/nav.svelte.ts';
   import { api } from '../lib/session.svelte.ts';
   import { fields, shown, toSettings, toValues } from '../lib/settings.ts';
+  import { buildTree, groupChoices } from '../lib/tree.ts';
 
   /** The monitor to edit; 0 makes a new one. */
   let { id = 0 }: { id?: number } = $props();
 
   let types = $state<{ name: string; label: string }[]>([]);
-  let groups = $state<Monitor[]>([]);
   let allChannels = $state<Channel[]>([]);
   // The channels ticked; for a new monitor, the default ones.
   let channels = $state<number[]>([]);
@@ -23,7 +24,9 @@
   let newTagName = $state('');
   let newTagColor = $state('#1f5fbf');
   let addingTag = $state(false);
-  // A group made on the spot: a monitor of the type group.
+  // The groups to choose from, nested.
+  const groups = $derived(groupChoices(buildTree(live.groups, live.monitors)));
+  // A group made on the spot, at the top level.
   let newGroupName = $state('');
   let addingGroup = $state(false);
   let existing = $state<Monitor | null>(null);
@@ -36,7 +39,7 @@
   let type = $state('http');
   let name = $state('');
   let description = $state('');
-  let parent = $state(0);
+  let groupID = $state(0);
   let active = $state(true);
   let interval = $state(60);
   let retryInterval = $state(60);
@@ -53,8 +56,6 @@
   onMount(async () => {
     try {
       types = await api.monitorTypes();
-      const all = await api.monitors();
-      groups = all.filter((m) => m.type === 'group' && m.id !== id);
       allChannels = await api.channels();
       allTags = await api.tags();
       agents = await api.agents();
@@ -65,7 +66,7 @@
         type = m.type;
         name = m.name;
         description = m.description;
-        parent = m.parent_id ?? 0;
+        groupID = m.group_id ?? 0;
         active = m.active;
         interval = m.interval;
         retryInterval = m.retry_interval;
@@ -114,7 +115,7 @@
     const change: MonitorChange = {
       name,
       type,
-      parent_id: parent || null,
+      group_id: groupID || null,
       active,
       interval,
       retry_interval: retryInterval,
@@ -161,22 +162,9 @@
     addingGroup = true;
     error = '';
     try {
-      const g = await api.createMonitor({
-        name: newGroupName.trim(),
-        type: 'group',
-        parent_id: null,
-        active: true,
-        interval: 0,
-        retry_interval: 0,
-        retries: 0,
-        resend_every: 0,
-        timeout: 0,
-        upside_down: false,
-        description: '',
-        settings: {},
-      });
-      groups = [...groups, g].sort((a, b) => a.name.localeCompare(b.name));
-      parent = g.id;
+      const g = await api.createGroup({ name: newGroupName.trim(), parent_id: null, alert: 'none', channels: [], alert_monitors: [] });
+      await loadMonitors();
+      groupID = g.id;
       newGroupName = '';
     } catch (e) {
       error = message(e);
@@ -186,7 +174,6 @@
   }
 </script>
 
-<p><a href={id ? `/monitors/${id}` : '/'} onclick={link}>← {id ? 'Back' : 'Monitors'}</a></p>
 <h1>{id ? `Edit ${existing?.name ?? ''}` : 'Add a monitor'}</h1>
 {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
@@ -281,8 +268,6 @@
     </p>
   {:else if type === 'manual'}
     <p class="muted">Its status is set by hand, on the monitor's page.</p>
-  {:else if type === 'group'}
-    <p class="muted">A group is down when one of its active members is down. Put monitors in it with their Group setting.</p>
   {:else if type === 'agent' && !agents.length}
     <p class="muted">No agents yet: add one in Settings → Agents, and run it where the workloads are.</p>
   {/if}
@@ -350,9 +335,9 @@
 
   <fieldset>
     <legend>Group</legend>
-    <select bind:value={parent} aria-label="Group">
+    <select bind:value={groupID} aria-label="Group">
       <option value={0}>None</option>
-      {#each groups as g (g.id)}<option value={g.id}>{g.name}</option>{/each}
+      {#each groups as c (c.group.id)}<option value={c.group.id}>{'\u00a0\u00a0'.repeat(c.depth)}{c.group.name}</option>{/each}
     </select>
     <div class="tag row">
       <input
@@ -369,7 +354,7 @@
       />
       <button type="button" disabled={addingGroup || !newGroupName.trim()} onclick={addGroup}>Add group</button>
     </div>
-    <span class="muted help">A group is a monitor of the type Group: up while its members are up.</span>
+    <span class="muted help">Groups keep the list in order; set a group's alerts on its page. You can also drag monitors into groups in the list.</span>
   </fieldset>
   <label>Description <input bind:value={description} maxlength="2000" /></label>
   <label class="check"><input type="checkbox" bind:checked={upsideDown} /> Upside down: up when the check fails</label>

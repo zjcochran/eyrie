@@ -95,20 +95,13 @@ func (e *Engine) evaluate() {
 	}
 }
 
-// coveredBy is the title of the first window in on that covers a monitor
-// or one of the groups it is in; "" for none.
+// coveredBy is the title of the first window in on that covers a monitor,
+// by itself, by a tag or through a group it is in; "" for none.
 func (e *Engine) coveredBy(en *entry, on []*window) string {
 	for _, w := range on {
-		id := en.m.ID
-		for depth := 0; id != 0 && depth < 20; depth++ {
-			if w.AllMonitors || slices.Contains(w.MonitorIDs, id) || shares(w.TagIDs, e.tags[id]) {
-				return w.Title
-			}
-			p, ok := e.mons[id]
-			if !ok {
-				break
-			}
-			id = p.m.ParentID
+		if w.AllMonitors || slices.Contains(w.MonitorIDs, en.m.ID) || shares(w.TagIDs, e.tags[en.m.ID]) ||
+			slices.ContainsFunc(w.GroupIDs, func(g int64) bool { return e.inGroup(en.m, g) }) {
+			return w.Title
 		}
 	}
 	return ""

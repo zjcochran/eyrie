@@ -170,7 +170,8 @@ export interface Beat {
 export interface MonitorChange {
   name: string;
   type?: string;
-  parent_id: number | null;
+  /** The group it is in; null for none. */
+  group_id: number | null;
   active: boolean;
   interval: number;
   retry_interval: number;
@@ -208,6 +209,8 @@ export interface MonitorTag {
 
 export interface Monitor extends Omit<MonitorChange, 'type' | 'channels' | 'tags'> {
   id: number;
+  /** Its place among the groups and monitors in its group. */
+  position: number;
   channels: number[];
   tags: MonitorTag[];
   type: string;
@@ -229,6 +232,34 @@ export interface Monitor extends Omit<MonitorChange, 'type' | 'channels' | 'tags
   };
   uptime: { '24h': number | null; '30d': number | null; '1y': number | null; avg_latency_24h_ms: number | null };
   beats?: Beat[];
+}
+
+/** When a group alerts its channels: never, when its first member goes down, or when one of alert_monitors does. */
+export type GroupAlert = 'none' | 'any' | 'selected';
+
+/** A group's settings, as created or changed. */
+export interface GroupChange {
+  name: string;
+  /** The group it is in; null for none. */
+  parent_id: number | null;
+  alert: GroupAlert;
+  channels: number[];
+  alert_monitors: number[];
+}
+
+/** A folder of monitors and other groups. */
+export interface Group extends GroupChange {
+  id: number;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Where a group or monitor goes: into group_id (null for none), in the order of the list. */
+export interface LayoutItem {
+  type: 'group' | 'monitor';
+  id: number;
+  group_id: number | null;
 }
 
 /** When a maintenance window is on; docs/user/maintenance.md. */
@@ -255,6 +286,7 @@ export interface WindowChange {
   schedule: Schedule;
   all_monitors: boolean;
   monitors: number[];
+  groups: number[];
   tags: number[];
 }
 
@@ -567,6 +599,12 @@ export class Client {
   checkMonitor = (id: number) => this.request<void>('POST', `/api/v1/monitors/${id}/check`);
   setManualStatus = (id: number, status: 'up' | 'down', message: string) =>
     this.request<Monitor>('POST', `/api/v1/monitors/${id}/status`, { status, message });
+  groups = () => this.request<Group[]>('GET', '/api/v1/groups');
+  createGroup = (g: GroupChange) => this.request<Group>('POST', '/api/v1/groups', g);
+  updateGroup = (id: number, g: GroupChange) => this.request<Group>('PUT', `/api/v1/groups/${id}`, g);
+  deleteGroup = (id: number) => this.request<void>('DELETE', `/api/v1/groups/${id}`);
+  /** Moves groups and monitors: each item into its group, in the list's order. */
+  arrange = (items: LayoutItem[]) => this.request<void>('PUT', '/api/v1/layout', { items });
   tags = () => this.request<Tag[]>('GET', '/api/v1/tags');
   createTag = (name: string, color: string) => this.request<Tag>('POST', '/api/v1/tags', { name, color });
   updateTag = (id: number, name: string, color: string) =>

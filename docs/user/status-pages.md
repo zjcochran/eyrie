@@ -41,7 +41,8 @@ section shows, by name:
   the page, and taking the tag off takes it off;
 - the monitors ticked.
 
-A group shows as one monitor, with the group's status.
+Sections list monitors, not [groups](monitors.md#groups); a group a page
+showed in an earlier version was replaced by the monitors in it.
 
 ## What the page shows
 

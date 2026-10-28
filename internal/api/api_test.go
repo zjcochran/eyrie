@@ -121,6 +121,7 @@ func newEnv(t *testing.T) *env {
 	e.notifier = &notify.Notifier{Store: st, Secrets: box, Log: log, Version: "v1.2.3", BaseURL: "https://eyrie.example.com",
 		Retry: []time.Duration{time.Millisecond}, Analyst: e.analyzer}
 	eng.OnNotify, eng.OnCert, eng.CertDays = e.notifier.Monitor, e.notifier.CertExpiring, e.notifier.CertDays
+	eng.OnGroup = func(a engine.GroupAlert) { e.notifier.Group(a.Group, a.Down, a.Members, a.Since, time.Now()) }
 	e.s = &Server{
 		Engine: eng, Env: checkEnv, MetricsToken: "m3trics", Notifier: e.notifier, Analyzer: e.analyzer,
 		Backups: &backup.Backups{Store: st, Secrets: box, Dir: filepath.Join(t.TempDir(), "backups"), Version: "v1.2.3", Log: log, Now: e.clock},

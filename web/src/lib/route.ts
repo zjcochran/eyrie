@@ -4,6 +4,7 @@
 export type Page =
   | 'home'
   | 'monitor'
+  | 'group'
   | 'new-monitor'
   | 'edit-monitor'
   | 'account'
@@ -24,7 +25,7 @@ export type Page =
   | 'status'
   | 'not-found';
 
-/** A page, with the ID of monitor and status page pages, and the address of a public status page. */
+/** A page, with the ID of monitor, group and status page pages, and the address of a public status page. */
 export interface Route {
   page: Page;
   id: number;
@@ -59,6 +60,8 @@ export function routeFor(path: string): Route {
   if (sp) return { page: 'status-page', id: Number(sp[1]) };
   const pub = /^\/status\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(p);
   if (pub) return { page: 'status', id: 0, slug: pub[1] };
+  const g = /^\/groups\/([1-9][0-9]*)$/.exec(p);
+  if (g) return { page: 'group', id: Number(g[1]) };
   const m = /^\/monitors\/([1-9][0-9]*)(\/edit)?$/.exec(p);
   if (m) return { page: m[2] ? 'edit-monitor' : 'monitor', id: Number(m[1]) };
   return { page: settingsTabs.find((t) => t.path === p)?.page ?? 'not-found', id: 0 };

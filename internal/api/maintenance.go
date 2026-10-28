@@ -25,6 +25,7 @@ type windowView struct {
 	Schedule    maintenance.Schedule `json:"schedule"`
 	AllMonitors bool                 `json:"all_monitors"`
 	Monitors    []int64              `json:"monitors"`
+	Groups      []int64              `json:"groups"`
 	Tags        []int64              `json:"tags"`
 	State       string               `json:"state"`
 	Change      *time.Time           `json:"change"`
@@ -34,7 +35,7 @@ type windowView struct {
 
 func (s *Server) viewWindow(w store.Window) windowView {
 	v := windowView{ID: w.ID, Title: w.Title, Description: w.Description, Enabled: w.Enabled, AllMonitors: w.AllMonitors,
-		Monitors: w.MonitorIDs, Tags: w.TagIDs, CreatedAt: w.CreatedAt, UpdatedAt: w.UpdatedAt}
+		Monitors: w.MonitorIDs, Groups: w.GroupIDs, Tags: w.TagIDs, CreatedAt: w.CreatedAt, UpdatedAt: w.UpdatedAt}
 	json.Unmarshal(w.Schedule, &v.Schedule) //nolint:errcheck,gosec // saved by saveWindow, which checked it
 	plan, err := maintenance.Compile(v.Schedule)
 	switch {
@@ -92,13 +93,14 @@ type windowBody struct {
 	Schedule    maintenance.Schedule `json:"schedule"`
 	AllMonitors bool                 `json:"all_monitors"`
 	Monitors    []int64              `json:"monitors"`
+	Groups      []int64              `json:"groups"`
 	Tags        []int64              `json:"tags"`
 }
 
 // toWindow checks a body. Errors are meant for people.
 func toWindow(b windowBody) (store.Window, error) {
 	w := store.Window{Title: strings.TrimSpace(b.Title), Description: strings.TrimSpace(b.Description), Enabled: true,
-		AllMonitors: b.AllMonitors, MonitorIDs: b.Monitors, TagIDs: b.Tags}
+		AllMonitors: b.AllMonitors, MonitorIDs: b.Monitors, GroupIDs: b.Groups, TagIDs: b.Tags}
 	if b.Enabled != nil {
 		w.Enabled = *b.Enabled
 	}
@@ -108,11 +110,11 @@ func toWindow(b windowBody) (store.Window, error) {
 	if len(w.Description) > 2000 {
 		return w, errors.New("the description must be at most 2000 characters")
 	}
-	if !w.AllMonitors && len(w.MonitorIDs) == 0 && len(w.TagIDs) == 0 {
-		return w, errors.New("choose what the window covers: every monitor, some monitors or some tags")
+	if !w.AllMonitors && len(w.MonitorIDs) == 0 && len(w.GroupIDs) == 0 && len(w.TagIDs) == 0 {
+		return w, errors.New("choose what the window covers: every monitor, some monitors, groups or tags")
 	}
 	if w.AllMonitors {
-		w.MonitorIDs, w.TagIDs = nil, nil
+		w.MonitorIDs, w.GroupIDs, w.TagIDs = nil, nil, nil
 	}
 	if _, err := maintenance.Compile(b.Schedule); err != nil {
 		return w, err

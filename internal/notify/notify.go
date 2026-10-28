@@ -204,10 +204,12 @@ type Analyst interface {
 	Analyze(m store.Monitor, b store.Beat) string
 }
 
-// job is a message for a monitor's channels.
+// job is a message for a monitor's channels, or with groupID for a
+// group's.
 type job struct {
 	monitorID int64
 	msg       Message
+	groupID   int64
 }
 
 func (n *Notifier) init() {
@@ -286,9 +288,15 @@ func (n *Notifier) Last(id int64) (Result, bool) {
 }
 
 func (n *Notifier) deliver(ctx context.Context, j job) {
-	chans, err := n.Store.ChannelsForMonitor(ctx, j.monitorID)
+	var chans []store.Channel
+	var err error
+	if j.groupID != 0 {
+		chans, err = n.Store.ChannelsForGroup(ctx, j.groupID)
+	} else {
+		chans, err = n.Store.ChannelsForMonitor(ctx, j.monitorID)
+	}
 	if err != nil {
-		n.Log.Error("cannot read the monitor's channels", "err", err)
+		n.Log.Error("cannot read the channels", "err", err)
 		return
 	}
 	var wg sync.WaitGroup

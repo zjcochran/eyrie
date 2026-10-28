@@ -264,7 +264,7 @@
           {#each i.updates as u, n (n)}
             <li>
               <strong>{incidentLabels[u.status]}</strong>
-              <span class="muted">· {when(u.created_at)}{#if u.author} · {u.author}{/if}</span>
+              <span class="muted">· {when(u.created_at)}{u.author ? ` · ${u.author}` : ''}</span>
               <p class="text">{u.message}</p>
             </li>
           {/each}

@@ -52,7 +52,10 @@ the next message.
 
 In a monitor's settings, **Notify** lists every channel; tick the ones it
 uses. A new monitor starts with the default channels ticked. Deleting a
-channel removes it from every monitor.
+channel removes it from every monitor and group.
+
+A [group](monitors.md#a-groups-alerts) with alerts sends its own to the
+channels chosen on its page, besides what its monitors send to theirs.
 
 ## What is sent
 
@@ -63,6 +66,8 @@ channel removes it from every monitor.
 | `monitor_still_down` | Still down, every "Notify again every" checks (if set) | `Shop website is still down` | `Down for 3 h 5 min. Status 503 Service Unavailable` | 4 |
 | `monitor_up` | Back up after being down | `Shop website is up` | `Up again after 12 min down. 200 OK` | 3 |
 | `certificate_expiring` | The HTTPS certificate is within one of the warning days | `Shop website: the certificate expires in 14 days` | `The TLS certificate expires on 1 February 2027 at 12:00 UTC. Renew it before then.` | 4 within 7 days, else 3 |
+| `group_down` | A group with alerts: its first counted monitor goes down | `Shop is down` | `Down: Cart, Checkout` (the counted monitors down) | 4 |
+| `group_up` | That group: none of its counted monitors is down any more | `Shop is up` | `Every member is up again after 12 min down.` | 3 |
 | `test` | **Send test** | `Test notification` | `Notifications from Eyrie reach this channel.` | 3 |
 
 With [alert analysis](alert-analysis.md) on, a `monitor_down` message is
@@ -75,7 +80,8 @@ nothing. Paused monitors send nothing, nor do monitors in a
 [maintenance window](maintenance.md), whose status changes neither start
 nor end: when the window ends, they take back the status they had, without
 a message. Certificate warnings are still sent during maintenance. When
-`EYRIE_BASE_URL` is set, every message links to the monitor's page.
+`EYRIE_BASE_URL` is set, every message links to the monitor's page (a
+group's alerts: to the group's page).
 
 Priorities are on ntfy's 1 to 5 scale. Gotify gets them as 8 and 5;
 Pushover as 1 and 0 (Pushover's emergency priority, which repeats until
@@ -131,7 +137,8 @@ Every HTTP request has the `User-Agent` `Eyrie/<version>`.
 Certificate warnings have `cert_expires` instead of `heartbeat`. `url` is
 left out without `EYRIE_BASE_URL`. A `monitor_analysis` message has the
 model's explanation as `message`, and the `monitor` and `heartbeat` of
-the down alert it follows.
+the down alert it follows. A group's alerts have `"group": {"id": 2, "name":
+"Shop"}` instead of `monitor` and `heartbeat`.
 
 With a **signing secret**, each request has the header
 `X-Hub-Signature-256: sha256=<hex>`: the HMAC-SHA256 of the request body

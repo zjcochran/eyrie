@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zjcochran/eyrie/internal/store"
@@ -18,6 +19,8 @@ const (
 	EventUp        = "monitor_up"
 	EventCert      = "certificate_expiring"
 	EventAnalysis  = "monitor_analysis"
+	EventGroupDown = "group_down"
+	EventGroupUp   = "group_up"
 )
 
 // Message is what a channel receives. The webhook kind gets it as JSON.
@@ -29,6 +32,7 @@ type Message struct {
 	Time      time.Time    `json:"time"`
 	URL       string       `json:"url,omitempty"` // the monitor's page, when EYRIE_BASE_URL is set
 	Monitor   *MonitorInfo `json:"monitor,omitempty"`
+	Group     *GroupInfo   `json:"group,omitempty"` // group alerts
 	Heartbeat *BeatInfo    `json:"heartbeat,omitempty"`
 	// CertExpires is when the certificate expires (certificate warnings).
 	CertExpires *time.Time `json:"cert_expires,omitempty"`
@@ -40,6 +44,12 @@ type MonitorInfo struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Description string `json:"description,omitempty"`
+}
+
+// GroupInfo is the group a group alert is about.
+type GroupInfo struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 // BeatInfo is the heartbeat that caused a message.
@@ -60,13 +70,13 @@ type BeatInfo struct {
 func (n *Notifier) Monitor(m store.Monitor, b store.Beat, since time.Time) {
 	n.init()
 	msg := n.statusMessage(m, b, since)
-	n.enqueue(job{m.ID, msg})
+	n.enqueue(job{monitorID: m.ID, msg: msg})
 	if msg.Event != EventDown || n.Analyst == nil {
 		return
 	}
 	go func() {
 		if text := n.Analyst.Analyze(m, b); text != "" {
-			n.enqueue(job{m.ID, analysisMessage(msg, text)})
+			n.enqueue(job{monitorID: m.ID, msg: analysisMessage(msg, text)})
 		}
 	}()
 }
@@ -114,7 +124,7 @@ func (n *Notifier) statusMessage(m store.Monitor, b store.Beat, since time.Time)
 // CertExpiring queues a certificate warning for the channels a monitor
 // uses: days whole days are left until expires.
 func (n *Notifier) CertExpiring(m store.Monitor, expires time.Time, days int) {
-	n.enqueue(job{m.ID, n.certMessage(m, expires, days)})
+	n.enqueue(job{monitorID: m.ID, msg: n.certMessage(m, expires, days)})
 }
 
 func (n *Notifier) certMessage(m store.Monitor, expires time.Time, days int) Message {
@@ -134,6 +144,31 @@ func (n *Notifier) certMessage(m store.Monitor, expires time.Time, days int) Mes
 		msg.Title = m.Name + ": the certificate expires in " + strconv.Itoa(days) + " days"
 	}
 	msg.Text = "The TLS certificate expires on " + e.Format("2 January 2006 at 15:04 UTC") + ". Renew it before then."
+	return msg
+}
+
+// Group queues a group's alert for its channels: down, with the names of
+// its counted members down, or back up after being down since since.
+func (n *Notifier) Group(g store.Group, down bool, members []string, since, at time.Time) {
+	n.init()
+	n.enqueue(job{groupID: g.ID, msg: n.groupMessage(g, down, members, since, at)})
+}
+
+func (n *Notifier) groupMessage(g store.Group, down bool, members []string, since, at time.Time) Message {
+	msg := Message{Time: at.UTC(), Group: &GroupInfo{ID: g.ID, Name: g.Name}}
+	if n.BaseURL != "" {
+		msg.URL = n.BaseURL + "/groups/" + strconv.FormatInt(g.ID, 10)
+	}
+	if down {
+		msg.Event, msg.Title, msg.Priority = EventGroupDown, g.Name+" is down", 4
+		msg.Text = "Down: " + strings.Join(members, ", ")
+		return msg
+	}
+	msg.Event, msg.Title, msg.Priority = EventGroupUp, g.Name+" is up", 3
+	msg.Text = "Every member is up again."
+	if !since.IsZero() && at.After(since) {
+		msg.Text = fmt.Sprintf("Every member is up again after %s down.", Duration(at.Sub(since)))
+	}
 	return msg
 }
 

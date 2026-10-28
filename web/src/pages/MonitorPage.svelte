@@ -5,7 +5,7 @@
   import TagChip from '../components/TagChip.svelte';
   import { type Beat, type Monitor, message } from '../lib/api.ts';
   import { ago, daysUntil, duration, millis, percent, type Point } from '../lib/format.ts';
-  import { onBeat } from '../lib/live.svelte.ts';
+  import { live, onBeat } from '../lib/live.svelte.ts';
   import { go, link } from '../lib/nav.svelte.ts';
   import { api, app } from '../lib/session.svelte.ts';
 
@@ -123,16 +123,17 @@
   }
 </script>
 
-<p><a href="/" onclick={link}>← Monitors</a></p>
 {#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
 
 {#if monitor}
   {@const m = monitor}
+  {@const group = live.groups.find((g) => g.id === m.group_id)}
   <div class="head">
     <div>
       <h1><StatusDot status={m.status.status} active={m.active} /> {m.name}</h1>
       <p class="muted">
         {m.type} · every {duration(m.interval)}
+        {#if group}· in <a href="/groups/{group.id}" onclick={link}>{group.name}</a>{/if}
         {#if !m.active}· paused{/if}
         {#if m.description}· {m.description}{/if}
       </p>

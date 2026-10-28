@@ -58,7 +58,7 @@ func TestCreateMonitorDefaults(t *testing.T) {
 	if code := admin.call("POST", "/api/v1/monitors", portMonitor("DB"), &m); code != http.StatusCreated {
 		t.Fatalf("create: %d", code)
 	}
-	if m.Interval != 60 || m.RetryInterval != 60 || m.Timeout != 48 || !m.Active || m.Retries != 0 || m.ParentID != nil ||
+	if m.Interval != 60 || m.RetryInterval != 60 || m.Timeout != 48 || !m.Active || m.Retries != 0 || m.GroupID != nil ||
 		string(m.Settings) != `{"host":"db.example.com","port":5432}` || m.PushURL != "" {
 		t.Errorf("defaults %+v", m)
 	}
@@ -76,8 +76,8 @@ func TestCreateMonitorDefaults(t *testing.T) {
 func TestMonitorValidation(t *testing.T) {
 	e := newEnv(t)
 	admin := e.setup()
-	group := create(t, admin, map[string]any{"name": "Site", "type": "group"})
-	db := create(t, admin, portMonitor("DB"))
+	var group groupView
+	admin.call("POST", "/api/v1/groups", map[string]any{"name": "Site"}, &group)
 	for _, c := range []struct {
 		change map[string]any
 		want   string
@@ -92,8 +92,8 @@ func TestMonitorValidation(t *testing.T) {
 		{map[string]any{"resend_every": 10001}, "resend"},
 		{map[string]any{"description": strings.Repeat("x", 2001)}, "description"},
 		{map[string]any{"settings": map[string]any{"host": "db.example.com", "port": 0}}, "port"},
-		{map[string]any{"parent_id": db.ID}, "is not a group"},
-		{map[string]any{"parent_id": 9999}, "does not exist"},
+		{map[string]any{"type": "group"}, "type must be one of"},
+		{map[string]any{"group_id": 9999}, "no group"},
 	} {
 		body := portMonitor("X")
 		for k, v := range c.change {
@@ -105,9 +105,9 @@ func TestMonitorValidation(t *testing.T) {
 		}
 	}
 	body := portMonitor("In the group")
-	body["parent_id"] = group.ID
-	if m := create(t, admin, body); m.ParentID == nil || *m.ParentID != group.ID {
-		t.Errorf("parent %+v", m.ParentID)
+	body["group_id"] = group.ID
+	if m := create(t, admin, body); m.GroupID == nil || *m.GroupID != group.ID {
+		t.Errorf("group %+v", m.GroupID)
 	}
 }
 
@@ -131,9 +131,9 @@ func TestUpdateMonitor(t *testing.T) {
 	if code, _ := admin.errorOf("PUT", path, change); code != http.StatusUnprocessableEntity {
 		t.Errorf("no name: %d", code)
 	}
-	change["name"], change["parent_id"] = "Database", m.ID
+	change["name"], change["group_id"] = "Database", 9999
 	if code, _ := admin.errorOf("PUT", path, change); code != http.StatusUnprocessableEntity {
-		t.Errorf("into itself: %d", code)
+		t.Errorf("into no group: %d", code)
 	}
 	if code := admin.call("PUT", "/api/v1/monitors/9999", portMonitor("x"), nil); code != http.StatusNotFound {
 		t.Errorf("unknown: %d", code)
@@ -193,7 +193,7 @@ func TestMonitorAccess(t *testing.T) {
 		t.Errorf("signed out: %d", code)
 	}
 	var types []struct{ Name, Label string }
-	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 35 || types[0].Name != "agent" {
+	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 34 || types[0].Name != "agent" {
 		t.Errorf("types %+v", types)
 	}
 }
