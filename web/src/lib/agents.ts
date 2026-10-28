@@ -30,7 +30,8 @@ ${env}
       - eyrie-agent:/data
 
 volumes:
-  eyrie-agent:`;
+  eyrie-agent:
+    name: eyrie-agent`;
     case 'swarm':
       return `# eyrie-agent.yaml, then: docker stack deploy -c eyrie-agent.yaml eyrie
 services:
@@ -49,7 +50,8 @@ ${env}
         constraints: [node.role == manager]
 
 volumes:
-  agent:`;
+  agent:
+    name: eyrie-agent`;
     case 'kubernetes':
       return `# deploy/kubernetes/eyrie-agent.yaml is in Eyrie's source code.
 kubectl create namespace eyrie
@@ -75,6 +77,7 @@ ${env}
       - eyrie-agent:/data
 
 volumes:
-  eyrie-agent:`;
+  eyrie-agent:
+    name: eyrie-agent`;
   }
 }

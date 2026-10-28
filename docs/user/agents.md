@@ -53,6 +53,7 @@ services:
 
 volumes:
   eyrie-agent:
+    name: eyrie-agent
 ```
 
 It reports every container on the host, running or not, by name, grouped
@@ -96,6 +97,7 @@ services:
 
 volumes:
   agent:
+    name: eyrie-agent
 ```
 
 ```sh
@@ -164,6 +166,7 @@ services:
 
 volumes:
   eyrie-agent:
+    name: eyrie-agent
 ```
 
 Proxmox certificates are usually self-signed, so the agent checks the

@@ -43,11 +43,18 @@ services:
 
 volumes:
   eyrie-data:
+    name: eyrie-data
 ```
 
 ```sh
 docker compose up -d
 ```
+
+The volume's `name` keeps it `eyrie-data` whatever folder the file is in;
+without it, Compose puts the project's name in front (`<folder>_eyrie-data`).
+If your Eyrie already runs from a file without `name`, keep the file as it
+is (`docker volume ls` shows the volume it uses): adding `name` would start
+Eyrie on a new, empty volume.
 
 The Docker socket lets [Docker container](monitors.md#docker-container)
 monitors check this host's containers; leave it out if you do not need
@@ -93,7 +100,9 @@ services:
 
 volumes:
   eyrie-data:
+    name: eyrie-data
   eyrie-db:
+    name: eyrie-db
 ```
 
 Choose your own password. Keep it out of the URL: Eyrie's PostgreSQL
