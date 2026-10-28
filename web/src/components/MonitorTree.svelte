@@ -265,7 +265,7 @@
             <span class="line">
               <StatusDot status={s.status} />
               <span class="name">{item.group.name}</span>
-              <span class="muted small">{s.total} {s.total === 1 ? 'monitor' : 'monitors'}{#if s.down} · {s.down} down{/if}</span>
+              <span class="muted small">{s.total} {s.total === 1 ? 'monitor' : 'monitors'}{s.down ? ` · ${s.down} down` : ''}</span>
             </span>
           {:else}
             {@const m = item.monitor}

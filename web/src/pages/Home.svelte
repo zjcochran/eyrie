@@ -29,7 +29,7 @@
             <li>
               <StatusDot status={m.status.status} />
               <a href="/monitors/{m.id}" onclick={link}>{m.name}</a>
-              <span class="muted">{m.status.message}{#if m.status.since} · {ago(m.status.since)}{/if}</span>
+              <span class="muted">{m.status.message}{m.status.since ? ` · ${ago(m.status.since)}` : ''}</span>
             </li>
           {/each}
         </ul>
