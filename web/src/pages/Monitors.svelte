@@ -45,13 +45,16 @@
     gap: 1.5rem;
     align-items: start;
   }
-  /* The list keeps its place while the page beside it scrolls. */
+  /* The list keeps its place while the page beside it scrolls. Scrolling
+     clips at the padding's edge, so the padding leaves room for focus rings
+     and the margin takes it back. */
   .side {
     position: sticky;
     top: 1rem;
     max-height: calc(100vh - 2rem);
     overflow-y: auto;
-    padding: 0 0.25rem 0.5rem 0;
+    padding: 0.25rem 0.25rem 0.5rem;
+    margin: -0.25rem 0 0 -0.25rem;
   }
   .pane {
     min-width: 0;
@@ -68,6 +71,7 @@
       max-height: none;
       overflow: visible;
       padding: 0;
+      margin: 0;
     }
     .chosen .side,
     .split:not(.chosen) .pane {

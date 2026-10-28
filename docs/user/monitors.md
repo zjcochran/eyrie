@@ -24,7 +24,7 @@ groups you hid. A monitor's row shows:
 - the status: green **up**, red **down**, amber **pending**, violet
   **maintenance** (in a [maintenance window](maintenance.md)), grey
   **unknown** (not checked yet) or **paused**;
-- its [tags](#tags) and its uptime over the last 24 hours;
+- its uptime over the last 24 hours;
 - the last 30 checks as a bar, oldest on the left (hover a check for its
   time, response time and message).
 
