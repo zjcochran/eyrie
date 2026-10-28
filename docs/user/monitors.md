@@ -53,6 +53,8 @@ It is not a monitor: nothing is checked, and it has no history of its own.
   deletes it: what was in it moves to the group's own parent (or the top
   level), and no monitor is deleted.
 
+![A group's page: the monitors in it, and its settings with the alerts](../images/group-dark.png)
+
 ### A group's alerts
 
 A group can send alerts of its own, to the
