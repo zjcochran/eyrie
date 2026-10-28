@@ -174,7 +174,6 @@
   }
 </script>
 
-<p><a href={id ? `/monitors/${id}` : '/'} onclick={link}>← {id ? 'Back' : 'Monitors'}</a></p>
 <h1>{id ? `Edit ${existing?.name ?? ''}` : 'Add a monitor'}</h1>
 {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
