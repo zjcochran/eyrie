@@ -2,7 +2,7 @@
 // Run with Node.js's test runner (npm test), which strips the types.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ApiError, type ChannelChange, Client, fileName, message, type MonitorChange, type Session } from './api.ts';
+import { ApiError, type ChannelChange, Client, fileName, type GroupChange, message, type MonitorChange, type Session } from './api.ts';
 
 interface Call {
   path: string;
@@ -125,7 +125,7 @@ describe('Client', () => {
     const change: MonitorChange = {
       name: 'DB',
       type: 'port',
-      parent_id: null,
+      group_id: null,
       active: true,
       interval: 60,
       retry_interval: 60,
@@ -136,6 +136,7 @@ describe('Client', () => {
       description: '',
       settings: { host: 'db.example.com', port: 5432 },
     };
+    const group: GroupChange = { name: 'Shop', parent_id: null, alert: 'any', channels: [2], alert_monitors: [] };
     const channel: ChannelChange = {
       name: 'Phone',
       kind: 'ntfy',
@@ -208,6 +209,11 @@ describe('Client', () => {
       [() => client.resumeMonitor(4), 'POST', '/api/v1/monitors/4/resume'],
       [() => client.checkMonitor(4), 'POST', '/api/v1/monitors/4/check'],
       [() => client.setManualStatus(4, 'down', 'outage'), 'POST', '/api/v1/monitors/4/status'],
+      [() => client.groups(), 'GET', '/api/v1/groups'],
+      [() => client.createGroup(group), 'POST', '/api/v1/groups'],
+      [() => client.updateGroup(3, group), 'PUT', '/api/v1/groups/3'],
+      [() => client.deleteGroup(3), 'DELETE', '/api/v1/groups/3'],
+      [() => client.arrange([{ type: 'monitor', id: 4, group_id: 3 }]), 'PUT', '/api/v1/layout'],
       [() => client.retention(), 'GET', '/api/v1/settings/retention'],
       [() => client.channelKinds(), 'GET', '/api/v1/channel-kinds'],
       [() => client.channels(), 'GET', '/api/v1/channels'],

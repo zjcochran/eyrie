@@ -11,8 +11,8 @@ import (
 
 // Window is a maintenance window. Schedule is the JSON that package
 // maintenance reads. It covers every monitor (AllMonitors), or the
-// monitors in MonitorIDs and those with a tag in TagIDs; covering a group
-// covers its members.
+// monitors in MonitorIDs, those with a tag in TagIDs and those in the
+// groups in GroupIDs (and in the groups inside them).
 type Window struct {
 	ID          int64
 	Title       string
@@ -21,6 +21,7 @@ type Window struct {
 	Schedule    json.RawMessage
 	AllMonitors bool
 	MonitorIDs  []int64
+	GroupIDs    []int64
 	TagIDs      []int64
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -70,8 +71,8 @@ func (s *Store) UpdateWindow(ctx context.Context, w Window, now time.Time) (Wind
 	if n, _ := res.RowsAffected(); n == 0 {
 		return Window{}, ErrNotFound
 	}
-	for _, table := range []string{"maintenance_monitors", "maintenance_tags"} {
-		// The table name is one of the two constants above.
+	for _, table := range []string{"maintenance_monitors", "maintenance_groups", "maintenance_tags"} {
+		// The table name is one of the constants above.
 		// nosemgrep
 		if _, err := tx.ExecContext(ctx, s.q(`DELETE FROM `+table+` WHERE window_id = ?`), w.ID); err != nil {
 			return Window{}, err
@@ -86,7 +87,7 @@ func (s *Store) UpdateWindow(ctx context.Context, w Window, now time.Time) (Wind
 	return s.WindowByID(ctx, w.ID)
 }
 
-// setCoverage saves the monitors and tags a window covers.
+// setCoverage saves the monitors, groups and tags a window covers.
 func (s *Store) setCoverage(ctx context.Context, tx *sql.Tx, w Window) error {
 	for _, c := range []struct {
 		ids          []int64
@@ -94,6 +95,7 @@ func (s *Store) setCoverage(ctx context.Context, tx *sql.Tx, w Window) error {
 		column, what string
 	}{
 		{w.MonitorIDs, "maintenance_monitors", "monitors", "monitor_id", "monitor"},
+		{w.GroupIDs, "maintenance_groups", "monitor_groups", "group_id", "group"},
 		{w.TagIDs, "maintenance_tags", "tags", "tag_id", "tag"},
 	} {
 		seen := map[int64]bool{}
@@ -163,6 +165,8 @@ func (s *Store) windows(ctx context.Context, where string, args ...any) ([]Windo
 	}{
 		{`SELECT window_id, monitor_id FROM maintenance_monitors ORDER BY monitor_id`,
 			func(w *Window, id int64) { w.MonitorIDs = append(w.MonitorIDs, id) }},
+		{`SELECT window_id, group_id FROM maintenance_groups ORDER BY group_id`,
+			func(w *Window, id int64) { w.GroupIDs = append(w.GroupIDs, id) }},
 		{`SELECT window_id, tag_id FROM maintenance_tags ORDER BY tag_id`,
 			func(w *Window, id int64) { w.TagIDs = append(w.TagIDs, id) }},
 	} {
@@ -196,7 +200,7 @@ func (s *Store) windowRows(ctx context.Context, where string, args ...any) ([]Wi
 			return nil, err
 		}
 		w.Schedule, w.CreatedAt, w.UpdatedAt = json.RawMessage(schedule), fromMillis(created), fromMillis(updated)
-		w.MonitorIDs, w.TagIDs = []int64{}, []int64{}
+		w.MonitorIDs, w.GroupIDs, w.TagIDs = []int64{}, []int64{}, []int64{}
 		out = append(out, w)
 	}
 	return out, rows.Err()

@@ -92,7 +92,8 @@ type monitorView struct {
 	ID            int64            `json:"id"`
 	Name          string           `json:"name"`
 	Type          string           `json:"type"`
-	ParentID      *int64           `json:"parent_id"`
+	GroupID       *int64           `json:"group_id"`
+	Position      int              `json:"position"` // its place among the groups and monitors in its group
 	Active        bool             `json:"active"`
 	Interval      float64          `json:"interval"` // seconds
 	RetryInterval float64          `json:"retry_interval"`
@@ -161,7 +162,7 @@ func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status,
 	v := monitorView{ID: m.ID, Name: m.Name, Type: m.Type, Active: m.Active, Interval: m.Interval.Seconds(),
 		RetryInterval: m.RetryInterval.Seconds(), Retries: m.Retries, ResendEvery: m.ResendEvery,
 		Timeout: m.Timeout.Seconds(), UpsideDown: m.UpsideDown, Description: m.Description,
-		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt, Channels: st.channels[m.ID]}
+		CreatedAt: m.CreatedAt, UpdatedAt: m.UpdatedAt, Channels: st.channels[m.ID], Position: m.Position}
 	if v.Channels == nil {
 		v.Channels = []int64{}
 	}
@@ -171,9 +172,9 @@ func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status,
 		t := st.tagByID[mt.TagID]
 		v.Tags = append(v.Tags, monitorTagView{ID: t.ID, Name: t.Name, Color: t.Color, Value: mt.Value})
 	}
-	if m.ParentID != 0 {
-		p := m.ParentID
-		v.ParentID = &p
+	if m.GroupID != 0 {
+		g := m.GroupID
+		v.GroupID = &g
 	}
 	// The push URL lets its holder report the monitor's status: admins only.
 	if sess := sessionFrom(r); m.PushToken != "" && sess != nil && sess.User.IsAdmin() {
@@ -262,7 +263,7 @@ func (s *Server) getMonitor(w http.ResponseWriter, r *http.Request) {
 type monitorBody struct {
 	Name           string          `json:"name"`
 	Type           string          `json:"type"`
-	ParentID       *int64          `json:"parent_id"`
+	GroupID        *int64          `json:"group_id"`
 	Active         *bool           `json:"active"`
 	Interval       float64         `json:"interval"`
 	RetryInterval  float64         `json:"retry_interval"`
@@ -327,9 +328,9 @@ func (s *Server) apply(b monitorBody, m *store.Monitor) error {
 	if b.Active != nil {
 		m.Active = *b.Active
 	}
-	m.ParentID = 0
-	if b.ParentID != nil {
-		m.ParentID = *b.ParentID
+	m.GroupID = 0
+	if b.GroupID != nil {
+		m.GroupID = *b.GroupID
 	}
 	cfg, err := check.Prepare(s.Env, m.Type, b.Settings, m.Config, b.ClearSecrets)
 	if err != nil {

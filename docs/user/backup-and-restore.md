@@ -33,7 +33,7 @@ cannot be restored.
 
 | Part | Contents |
 | --- | --- |
-| Configuration (always) | Settings (history kept, certificate warning days, single sign-on with its client secret, alert analysis with its keys, the backup schedule with its passphrase); users with their roles, disabled flags, password hashes, two-factor secrets, recovery codes (hashed), single sign-on links and profile pictures; API tokens (hashed); agents with their public keys and last reports, so they keep reporting after a restore; notification channels with their URLs, tokens and users; tags; monitors with every setting, secrets included, their channels and tags; maintenance windows; status pages with their sections, logos and incidents |
+| Configuration (always) | Settings (history kept, certificate warning days, single sign-on with its client secret, alert analysis with its keys, the backup schedule with its passphrase); users with their roles, disabled flags, password hashes, two-factor secrets, recovery codes (hashed), single sign-on links and profile pictures; API tokens (hashed); agents with their public keys and last reports, so they keep reporting after a restore; notification channels with their URLs, tokens and users; tags; groups with their alerts and channels; monitors with every setting, secrets included, their channels, tags and place in the list; maintenance windows; status pages with their sections, logos and incidents |
 | History (optional) | Every monitor's current status, and its heartbeats, hourly and daily totals from the chosen period; the audit log from the same period |
 
 Not included: sign-in sessions, the secret key and the backup files of the
@@ -99,7 +99,8 @@ backup's. A configuration-only backup leaves no history: the history belongs
 to the monitors it replaces.
 
 Afterwards everyone is signed out, you too; sign in with an account from the
-backup. Monitors start at once with their restored status and settings, and
+backup. A backup from a version that had group monitors gets real groups,
+as described in [Groups](monitors.md#arranging-the-list). Monitors start at once with their restored status and settings, and
 restored notification and alert analysis settings take effect.
 
 A restore is refused, and nothing changes, when:

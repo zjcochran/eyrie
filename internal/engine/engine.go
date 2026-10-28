@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
-	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -89,6 +87,9 @@ type Engine struct {
 	CertDays func() []int
 	// OnCert warns that a monitor's certificate expires in days whole days.
 	OnCert func(m store.Monitor, expires time.Time, days int)
+	// OnGroup is called when a group with alerts goes down or comes back
+	// up; may be nil.
+	OnGroup func(GroupAlert)
 
 	cmds    chan func()
 	results chan result
@@ -96,10 +97,11 @@ type Engine struct {
 	flushes chan chan struct{} // the writer saves what it holds, then closes the channel
 	// epoch counts Replace calls; results of checks started before one are
 	// dropped.
-	epoch int
-	mons  map[int64]*entry
-	sem   chan struct{}
-	ready chan struct{}
+	epoch  int
+	mons   map[int64]*entry
+	groups map[int64]*groupEntry
+	sem    chan struct{}
+	ready  chan struct{}
 	// windows are the maintenance windows, tags each monitor's tag IDs, and
 	// maintNext when a window next starts or ends (zero: never).
 	windows   []window
@@ -151,6 +153,7 @@ func (e *Engine) init() {
 	e.writes = make(chan store.Record, 10000)
 	e.flushes = make(chan chan struct{})
 	e.mons = map[int64]*entry{}
+	e.groups = map[int64]*groupEntry{}
 	e.sem = make(chan struct{}, Workers)
 	e.snap = map[int64]Status{}
 	e.ready = make(chan struct{})
@@ -240,12 +243,16 @@ func (e *Engine) load(ctx context.Context) error {
 			en.next = now.Add(spread(m.ID, m.Interval))
 		}
 	}
+	if e.groups, err = e.readGroups(ctx); err != nil {
+		return err
+	}
 	windows, tags, err := e.readMaintenance(ctx)
 	if err != nil {
 		return err
 	}
 	e.windows, e.tags = windows, tags
 	e.evaluate()
+	e.evalGroups(false)
 	e.publishAll()
 	return nil
 }
@@ -298,8 +305,6 @@ func (e *Engine) runDue() {
 		case "push":
 			e.record(en, now, check.Result{Latency: -1,
 				Message: fmt.Sprintf("No push received in %s", en.m.Interval)})
-		case "group":
-			e.record(en, now, e.groupResult(en))
 		default:
 			en.running = true
 			e.setSnap(en)
@@ -425,35 +430,11 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
 	if e.Publish != nil {
 		e.Publish(Event{Beat: b})
 	}
-	// A member's change can change its group.
-	if o.Important && en.m.ParentID != 0 {
-		if g, ok := e.mons[en.m.ParentID]; ok && g.m.Active && !g.running {
-			g.next = now
-		}
+	// A member's change can change its groups. They alert with the
+	// member's own alerts, not when maintenance starts or ends.
+	if o.Important {
+		e.evalGroups(o.Notify)
 	}
-}
-
-// groupResult is a group's status from its active members: down when one
-// is down. Pending members do not count yet.
-func (e *Engine) groupResult(g *entry) check.Result {
-	var down, members []string
-	for _, en := range e.mons {
-		if en.m.ParentID != g.m.ID || !en.m.Active {
-			continue
-		}
-		members = append(members, en.m.Name)
-		if en.st.Status == state.Down {
-			down = append(down, en.m.Name)
-		}
-	}
-	slices.Sort(down)
-	switch {
-	case len(down) > 0:
-		return check.Result{Message: "Down: " + strings.Join(down, ", "), Latency: -1}
-	case len(members) == 0:
-		return check.Result{OK: true, Message: "No active members", Latency: -1}
-	}
-	return check.Result{OK: true, Message: fmt.Sprintf("All %d members up", len(members)), Latency: -1}
 }
 
 // writer saves heartbeats in batches until writes is closed.
@@ -587,20 +568,17 @@ func (e *Engine) Upsert(ctx context.Context, m store.Monitor) error {
 		en.running = false
 		err := e.configure(en, m)
 		e.evaluate() // its group may have changed
+		e.evalGroups(false)
 		e.setSnap(en)
 		return err
 	})
 }
 
-// Remove stops a deleted monitor. Members of a deleted group leave it.
+// Remove stops a deleted monitor.
 func (e *Engine) Remove(ctx context.Context, id int64) error {
 	return e.do(ctx, func() error {
 		delete(e.mons, id)
-		for _, en := range e.mons {
-			if en.m.ParentID == id {
-				en.m.ParentID = 0
-			}
-		}
+		e.evalGroups(false)
 		e.mu.Lock()
 		delete(e.snap, id)
 		e.mu.Unlock()
@@ -608,7 +586,7 @@ func (e *Engine) Remove(ctx context.Context, id int64) error {
 	})
 }
 
-// CheckNow checks a monitor at once (a group: re-evaluates it).
+// CheckNow checks a monitor at once.
 func (e *Engine) CheckNow(ctx context.Context, id int64) error {
 	return e.do(ctx, func() error {
 		en, ok := e.mons[id]

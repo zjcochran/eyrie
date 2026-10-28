@@ -54,7 +54,7 @@ func TestParse(t *testing.T) {
 		*h.MaxRedirects != 10 {
 		t.Errorf("defaults %s", out)
 	}
-	for _, typ := range []string{"push", "manual", "group"} {
+	for _, typ := range []string{"push", "manual"} {
 		out, c, err := Parse(env, typ, nil)
 		if err != nil || c != nil || string(out) != "{}" {
 			t.Errorf("%s: %s %v %v", typ, out, c, err)
@@ -69,7 +69,7 @@ func TestParse(t *testing.T) {
 	if _, _, err := Parse(env, "http", json.RawMessage(`{"url":"https://example.com","colour":"red"}`)); err == nil {
 		t.Error("unknown setting accepted")
 	}
-	if len(Names()) != 35 || Names()[0] != "agent" {
+	if len(Names()) != 34 || Names()[0] != "agent" {
 		t.Errorf("names %v", Names())
 	}
 }

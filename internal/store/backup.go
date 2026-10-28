@@ -32,8 +32,9 @@ type Snapshot struct {
 // keys. Sessions are never copied: they belong to the running instance.
 var ConfigTables = []string{
 	"settings", "users", "oidc_identities", "recovery_codes", "user_pictures", "api_tokens", "agents",
-	"notification_channels", "tags", "monitors", "monitor_channels", "monitor_tags",
-	"maintenance_windows", "maintenance_monitors", "maintenance_tags",
+	"notification_channels", "tags", "monitor_groups", "monitors", "monitor_channels", "monitor_tags",
+	"group_channels", "group_alert_monitors",
+	"maintenance_windows", "maintenance_monitors", "maintenance_groups", "maintenance_tags",
 	"status_pages", "status_page_logos", "status_page_sections", "status_page_monitors", "incidents", "incident_updates",
 }
 
@@ -76,7 +77,7 @@ func fillMicros(ctx context.Context, tx *sql.Tx) error {
 
 // selfRefs are columns that name a row of their own table: they are set
 // once every row is in.
-var selfRefs = map[string]string{"monitors": "parent_id"}
+var selfRefs = map[string]string{"monitors": "parent_id", "monitor_groups": "parent_id"}
 
 // Errors Import returns.
 var (
@@ -370,6 +371,10 @@ func (s *Store) Import(ctx context.Context, snap Snapshot, empty bool) error {
 		}
 	}
 	if err := s.loadHistory(ctx, tx, snap.History); err != nil {
+		return err
+	}
+	// A backup from before groups has group monitors.
+	if err := s.convertGroupMonitors(ctx, tx); err != nil {
 		return err
 	}
 	if err := s.resetIdentities(ctx, tx); err != nil {

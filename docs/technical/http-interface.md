@@ -236,13 +236,13 @@ The keys themselves are never returned. `claude_code` is `null` unless
 | Method and path | Access | Body | Answer |
 | --- | --- | --- | --- |
 | `GET /api/v1/monitor-types` | read | | `200` `[{"name":"dns","label":"DNS"},…]`, by name |
-| `GET /api/v1/monitors?beats=<n>` | read | | `200` list of [monitors](#monitor), by name. With `beats` (1 to 100), each has its last `n` heartbeats, oldest first. |
+| `GET /api/v1/monitors?beats=<n>` | read | | `200` list of [monitors](#monitor), by `position`, then name. With `beats` (1 to 100), each has its last `n` heartbeats, oldest first. |
 | `GET /api/v1/monitors/{id}` | read | | `200` monitor |
 | `GET /api/v1/monitors/{id}/heartbeats?since=<time>&limit=<n>` | read | | `200` [heartbeats](#heartbeat), newest first, from `since` (RFC 3339; default 24 hours ago), at most `limit` (default and most 10000). `400` for a bad `since`. |
 | `GET /api/v1/monitors/{id}/hours?days=<n>` | read | | `200` `[{"start","up","down","avg_latency_ms"}]`: hourly counts for the last `n` days (default 7, most 35), oldest first; hours without checks are left out |
 | `POST /api/v1/monitors` | admin | [monitor settings](#monitor-settings) | `201` monitor. `422` with the reason for a bad setting. |
 | `PUT /api/v1/monitors/{id}` | admin | monitor settings; `type` may be left out but not changed | `200` monitor |
-| `DELETE /api/v1/monitors/{id}` | admin | | `204`, with its heartbeats and stats; members of a deleted group leave it |
+| `DELETE /api/v1/monitors/{id}` | admin | | `204`, with its heartbeats and stats |
 | `POST /api/v1/monitors/{id}/pause` | admin | | `200` monitor, paused |
 | `POST /api/v1/monitors/{id}/resume` | admin | | `200` monitor, checked at once |
 | `POST /api/v1/monitors/{id}/check` | admin | | `202`: checked at once; the result arrives as an event. `422` for paused, push and manual monitors. |
@@ -259,7 +259,8 @@ The keys themselves are never returned. `claude_code` is `null` unless
   "id": 3,
   "name": "Example site",
   "type": "http",
-  "parent_id": null,
+  "group_id": null,
+  "position": 0,
   "active": true,
   "interval": 60,
   "retry_interval": 60,
@@ -296,13 +297,15 @@ milliseconds (`latency_ms`). `status.status` is `unknown` (never checked),
 `status.maintenance`, `""` otherwise); a paused monitor keeps its last
 status with `active` false. `settings` never include secret settings
 (passwords, keys, tokens; they are `""`): `secrets_set` names those that are
-set. `tags` are by tag name. `push_url` is only on push monitors, only for admins, and uses
+set. `tags` are by tag name. `group_id` is the [group](#groups) it is in
+(`null` for none), and `position` its place among the groups and monitors
+in that group (or at the top level). `push_url` is only on push monitors, only for admins, and uses
 `EYRIE_BASE_URL` or the request's address. Uptime shares are from 0 to 1,
 `null` without checks in the period. `beats` is only there with `?beats=`.
 
 #### Monitor settings
 
-`{"name","type","parent_id","active","interval","retry_interval","retries","resend_every","timeout","upside_down","description","settings","reset_push_token","clear_secrets"}`.
+`{"name","type","group_id","active","interval","retry_interval","retries","resend_every","timeout","upside_down","description","settings","reset_push_token","clear_secrets"}`.
 Missing numbers take their defaults (interval 60, retry interval the
 interval, timeout 80% of the interval up to 48, the rest 0) and `active`
 defaults to true. The limits and each type's `settings` are in
@@ -313,7 +316,45 @@ the notification channels to use; left out, a new monitor gets the default
 channels and a changed one keeps its own (`422` for an unknown channel).
 `tags`, `[{"id","value"}]`, are its tags with their values (`""` for none,
 up to 100 characters); left out, a changed monitor keeps its own (`422` for
-an unknown tag or one given twice).
+an unknown tag or one given twice). `group_id` is the group to put it in
+(`null` or left out for none; `422` for an unknown group). A new monitor,
+or one moved to another group, goes after everything in that group.
+
+### Groups
+
+Folders of monitors; see [Groups](../user/monitors.md#groups).
+
+| Method and path | Access | Body | Answer |
+| --- | --- | --- | --- |
+| `GET /api/v1/groups` | read | | `200` list of groups, by `position`, then name |
+| `GET /api/v1/groups/{id}` | read | | `200` group |
+| `POST /api/v1/groups` | admin | `{"name","parent_id","alert","channels","alert_monitors"}` | `201` group, after everything in its parent |
+| `PUT /api/v1/groups/{id}` | admin | the same | `200` group; moved to another parent, it goes after everything there |
+| `DELETE /api/v1/groups/{id}` | admin | | `204`; the groups and monitors in it move to its parent (or the top level), after what is there |
+| `PUT /api/v1/layout` | admin | `{"items":[{"type":"group"\|"monitor","id","group_id"}]}` | `204`: each item goes into its `group_id` (`null` for the top level), and the items with the same `group_id` take the positions 0, 1, 2… in the list's order. Send every group and monitor, as the web app does; one left out keeps its position. At most 10000 items. |
+
+```json
+{
+  "id": 2,
+  "name": "Shop",
+  "parent_id": null,
+  "position": 1,
+  "alert": "selected",
+  "channels": [2],
+  "alert_monitors": [3, 5],
+  "created_at": "2027-01-15T08:00:00Z",
+  "updated_at": "2027-01-15T08:00:00Z"
+}
+```
+
+`name` is 1 to 100 characters. `parent_id` is the group it is in (`null`
+for none), never itself or a group inside it, at most 20 deep. `alert` is
+`none` (left out: the default), `any` (when its first monitor goes down)
+or `selected` (when one of `alert_monitors` goes down; `alert_monitors` is
+then required and kept, and dropped for the others); its alerts go to
+`channels`. `422` with the reason for a bad value, an unknown parent,
+channel or monitor, or a loop. A group has no status: the web app sums up
+its monitors'.
 
 ### Tags
 
@@ -332,7 +373,7 @@ See [Maintenance windows](../user/maintenance.md).
 | --- | --- | --- | --- |
 | `GET /api/v1/maintenance` | read | | `200` list of windows, by title |
 | `GET /api/v1/maintenance/{id}` | read | | `200` window |
-| `POST /api/v1/maintenance` | admin | `{"title","description","enabled","schedule","all_monitors","monitors","tags"}` | `201` window; it applies at once. `422` for a title not 1 to 100 characters, a description over 2000, covering nothing (no `all_monitors`, `monitors` or `tags`), an unknown monitor or tag, or a bad schedule. `enabled` left out is true. |
+| `POST /api/v1/maintenance` | admin | `{"title","description","enabled","schedule","all_monitors","monitors","groups","tags"}` | `201` window; it applies at once. `422` for a title not 1 to 100 characters, a description over 2000, covering nothing (no `all_monitors`, `monitors`, `groups` or `tags`), an unknown monitor, group or tag, or a bad schedule. `enabled` left out is true. |
 | `PUT /api/v1/maintenance/{id}` | admin | the same | `200` window |
 | `DELETE /api/v1/maintenance/{id}` | admin | | `204`; its monitors come out of maintenance at once |
 
@@ -345,6 +386,7 @@ See [Maintenance windows](../user/maintenance.md).
   "schedule": { "strategy": "weekdays", "time_zone": "Etc/UTC", "weekdays": [0], "from": "22:00", "to": "02:00" },
   "all_monitors": false,
   "monitors": [3],
+  "groups": [2],
   "tags": [1],
   "state": "scheduled",
   "change": "2027-01-17T22:00:00Z",
@@ -579,7 +621,7 @@ A binary built without the tag `ui` answers every app path with `503` and a
 page saying it has no web interface.
 
 The app's pages: `/` (monitors), `/monitors/new`, `/monitors/{id}`,
-`/monitors/{id}/edit`, `/maintenance`, `/status-pages`,
+`/monitors/{id}/edit`, `/groups/{id}`, `/maintenance`, `/status-pages`,
 `/status-pages/new`, `/status-pages/{id}`, `/status/{address}` (a public
 status page), `/login`, `/settings` (the same as `/settings/account`),
 `/settings/account`, `/settings/users`, `/settings/sso`,

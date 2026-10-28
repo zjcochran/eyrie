@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// The monitors and their latest heartbeats, kept up to date by the server's
-// event stream (/api/v1/events).
-import type { Beat, Monitor } from './api.ts';
+// The monitors, their groups and latest heartbeats, kept up to date by the
+// server's event stream (/api/v1/events).
+import type { Beat, Group, Monitor } from './api.ts';
 import { api } from './session.svelte.ts';
 
 /** How many recent heartbeats each monitor keeps for its bar. */
 export const recent = 50;
 
-export const live = $state<{ monitors: Monitor[]; loaded: boolean; error: string }>({
+export const live = $state<{ monitors: Monitor[]; groups: Group[]; loaded: boolean; error: string }>({
   monitors: [],
+  groups: [],
   loaded: false,
   error: '',
 });
@@ -16,10 +17,12 @@ export const live = $state<{ monitors: Monitor[]; loaded: boolean; error: string
 const listeners = new Set<(b: Beat) => void>();
 let source: EventSource | null = null;
 
-/** Loads every monitor with its recent heartbeats. */
+/** Loads every monitor with its recent heartbeats, and every group. */
 export async function loadMonitors() {
   try {
-    live.monitors = await api.monitors(recent);
+    const [monitors, groups] = await Promise.all([api.monitors(recent), api.groups()]);
+    live.monitors = monitors;
+    live.groups = groups;
     live.error = '';
   } catch (e) {
     live.error = e instanceof Error ? e.message : String(e);
@@ -44,6 +47,7 @@ export function disconnect() {
   source?.close();
   source = null;
   live.monitors = [];
+  live.groups = [];
   live.loaded = false;
 }
 

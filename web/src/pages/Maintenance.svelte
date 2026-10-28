@@ -30,7 +30,7 @@
   ];
 
   function blank(): WindowChange {
-    return { title: '', description: '', enabled: true, schedule: blankSchedule(), all_monitors: false, monitors: [], tags: [] };
+    return { title: '', description: '', enabled: true, schedule: blankSchedule(), all_monitors: false, monitors: [], groups: [], tags: [] };
   }
 
   function blankSchedule(): Required<Schedule> {
@@ -61,7 +61,7 @@
 
   function edit(w: Window | null) {
     editing = w ?? ({ id: 0 } as Window);
-    form = w ? { ...w, monitors: [...w.monitors], tags: [...w.tags] } : blank();
+    form = w ? { ...w, monitors: [...w.monitors], groups: [...w.groups], tags: [...w.tags] } : blank();
     sched = { ...blankSchedule(), ...(w?.schedule ?? {}) } as Required<Schedule>;
   }
 
@@ -124,6 +124,7 @@
   }
 
   const monitorName = (id: number) => live.monitors.find((m) => m.id === id)?.name ?? `#${id}`;
+  const groupName = (id: number) => `${live.groups.find((g) => g.id === id)?.name ?? `#${id}`} (group)`;
   const tagOf = (id: number) => tags.find((t) => t.id === id);
   const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : '');
 
@@ -171,7 +172,7 @@
               <td>{describeSchedule(w.schedule)}</td>
               <td>
                 {#if w.all_monitors}Every monitor{:else}
-                  {w.monitors.map(monitorName).join(', ')}
+                  {[...w.groups.map(groupName), ...w.monitors.map(monitorName)].join(', ')}
                   {#each w.tags as id (id)}
                     {@const t = tagOf(id)}
                     {#if t}<TagChip name={t.name} color={t.color} />{/if}
@@ -265,7 +266,14 @@
         <legend>Covers</legend>
         <label class="check"><input type="checkbox" bind:checked={form.all_monitors} /> Every monitor</label>
         {#if !form.all_monitors}
-          <p class="muted small">The monitors and tags ticked, and the members of the groups among them.</p>
+          <p class="muted small">The groups (with what is in them), tags and monitors ticked.</p>
+          {#if live.groups.length}
+            <div class="monitors">
+              {#each live.groups as g (g.id)}
+                <label class="check"><input type="checkbox" bind:group={form.groups} value={g.id} /> {g.name} <span class="muted">(group)</span></label>
+              {/each}
+            </div>
+          {/if}
           {#if tags.length}
             <div class="days">
               {#each tags as t (t.id)}

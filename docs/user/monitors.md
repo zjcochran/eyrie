@@ -7,32 +7,92 @@ in sees them.
 
 ## The dashboard
 
-![The dashboard: monitors with their status, type, tags, last checks, uptime and response time](../images/dashboard-dark.png)
+![The dashboard: the list of groups and monitors on the left, a monitor's page on the right](../images/dashboard-dark.png)
 
-The start page lists every monitor. Groups come first, each followed by its
-members (indented). The arrow left of a group hides or shows its members;
-a hidden group shows how many it has, and its status still sums them up.
-This browser remembers which groups you hid. Each row shows:
+The **Monitors** page has the list of every [group](#groups) and monitor on
+the left, and what you click in it on the right: a monitor's page, a
+group's page, or the form to add or change a monitor. With nothing chosen,
+the right shows what is down, pending or in maintenance. The list stays in
+place while the right side scrolls. On a narrow screen they take turns: the
+list, then what you chose, with **← Monitors** to go back.
+
+The list is in the order admins give it (see [Arranging the
+list](#arranging-the-list)). What is in a group is indented under it; the
+arrow left of a group hides or shows it, and this browser remembers which
+groups you hid. A monitor's row shows:
 
 - the status: green **up**, red **down**, amber **pending**, violet
   **maintenance** (in a [maintenance window](maintenance.md)), grey
   **unknown** (not checked yet) or **paused**;
-- its type and [tags](#tags);
-- the last 50 checks as a bar, oldest on the left (hover a check for its
-  time, response time and message);
-- the uptime over the last 24 hours and the last response time.
+- its [tags](#tags) and its uptime over the last 24 hours;
+- the last 30 checks as a bar, oldest on the left (hover a check for its
+  time, response time and message).
+
+A group's row shows the status of the monitors in it (and in the groups
+inside it): **down** when one is down, else **pending** when one is, else
+**up**; paused monitors do not count. It also says how many monitors it has
+and how many are down.
 
 The counts above the list add up the statuses. When monitors have tags, a
 row of them above the list filters it: click a tag to see only the monitors
-with it (without groups' nesting), **All** or the tag again for every
-monitor. Everything updates live: the page listens to Eyrie's event stream
-and needs no reload.
+with it (without groups), **All** or the tag again for everything.
+Everything updates live: the page listens to Eyrie's event stream and needs
+no reload.
+
+## Groups
+
+A group keeps monitors together in the list, and can be in another group.
+It is not a monitor: nothing is checked, and it has no history of its own.
+
+- **New group**, above the list (admins), asks only for a name and makes
+  the group at the end of the list; its page opens.
+- **Add group** under a monitor's **Group** setting makes one on the spot
+  and puts the monitor in it.
+- A group's page lists the monitors in it with their status. Admins change
+  its name, the group it is in, and its alerts there, and **Delete group**
+  deletes it: what was in it moves to the group's own parent (or the top
+  level), and no monitor is deleted.
+
+### A group's alerts
+
+A group can send alerts of its own, to the
+[channels](notifications.md) chosen on its page, on top of what its
+monitors send to theirs:
+
+| Alerts | When |
+| --- | --- |
+| No alerts (the default) | Never: only its monitors alert. |
+| When its first monitor goes down | One `group_down` message when a monitor in it goes down while none was, and one `group_up` when none is down any more. |
+| When one of the chosen monitors goes down | The same, counting only the monitors ticked. |
+
+Monitors in groups inside the group count too; paused ones do not. A group
+alerts with its monitors' own alerts, so it waits for their retries and is
+not alerted by a maintenance window starting or ending. Changing a group
+alerts nobody. See [what is sent](notifications.md#what-is-sent).
+
+### Arranging the list
+
+Admins drag a monitor or a group in the list: onto the top or bottom of a
+row to put it before or after that row, onto the middle of a group's row to
+move it into that group (at the end), or onto **Drop here for the top
+level** below the list. A group cannot go into itself or a group inside it.
+Dragging is off while the list is filtered by a tag. A new monitor or
+group, or one moved to another group in its settings, goes at the end of
+its group.
+
+Earlier versions made groups as monitors of the type **Group**. Eyrie turns
+those into groups when it starts, and when it restores a backup made by one
+of those versions. They keep their IDs, names and what was in them; a group
+monitor's notification channels become the group's, with alerts **when its
+first monitor goes down**, as it alerted before; maintenance windows that
+covered it cover the group; on a status page, the monitors in it take its
+place. Its own history, tags and badges go.
 
 ## A monitor's page
 
 Click a monitor for its page:
 
-- its tags;
+- its tags, and the group it is in;
 - its status and since when (in maintenance, the window's title), the last
   check and its message;
 - the last and the 24-hour average response time;
@@ -66,13 +126,13 @@ cannot change later.
 | --- | --- | --- |
 | Name | | 1 to 100 characters |
 | Check every | 60 s | 20 seconds to 1 day, whole seconds. For push monitors: how often a push is expected. |
-| Timeout | 80% of the interval, at most 48 s | How long a check may take, from 0.1 seconds to the interval. Not used by push, manual and group monitors. |
+| Timeout | 80% of the interval, at most 48 s | How long a check may take, from 0.1 seconds to the interval. Not used by push and manual monitors. |
 | Retries before down | 0 | Failed checks in a row that leave the monitor **pending** before it goes **down**. 0: down at the first failure. |
 | Retry every | the interval | How soon a pending monitor is checked again. |
 | Notify again every | 0 (never) | While down, notify again every this many checks. |
 | Notify | the default channels | The [notification channels](notifications.md) it sends to. |
 | Tags | none | Its [tags](#tags), each with an optional value. **Add tag** under them makes a new tag (a name and a colour) and gives it to the monitor. |
-| Group | none | The [group](#group) the monitor is in. **Add group** under it makes a new group monitor (with every setting at its default) and puts the monitor in it. |
+| Group | none | The [group](#groups) the monitor is in. **Add group** under it makes a new group (with no alerts) and puts the monitor in it. |
 | Description | | Shown on the monitor's page. |
 | Upside down | off | A failed check counts as up and a successful one as down: for things that must *not* answer. |
 | Active | on | Unticked, the monitor is paused: not checked, its status kept. |
@@ -571,17 +631,6 @@ Eyrie does not check anything: an admin sets it **up** or **down**, with an
 optional message, on the monitor's page. Use it for things nothing can
 check, such as a supplier's outage.
 
-### Group
-
-A group is a monitor too: add one with **Add a monitor** and the type
-**Group**, or with **Add group** in another monitor's form; then put
-monitors in it with their **Group** setting. A group's status follows its active members: down when at least one is
-down, up otherwise (pending members do not count). It is evaluated at its
-interval and whenever a member's status changes. Its message names the
-members that are down. A group can be in another group, but not in itself
-or in one of its own members. Deleting a group keeps its members, outside
-any group.
-
 ## Uptime and history
 
 - Every check is a heartbeat: time, status, response time, message.
@@ -604,3 +653,5 @@ any group.
 | Set a manual monitor | | yes | |
 | See tags and maintenance windows | yes | yes | yes, through the API |
 | Add, change and delete tags and maintenance windows | | yes | |
+| See groups | yes | yes | yes, through the API |
+| Add, change, arrange and delete groups | | yes | |

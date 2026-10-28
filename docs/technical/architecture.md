@@ -70,8 +70,14 @@ Node.js is never installed on a developer's machine. It runs only:
   asks `internal/analysis` (at most the timeout) and queues the answer as a
   second message.
 - Push monitors have a deadline instead of a check; manual monitors only
-  change when set; groups are evaluated at their interval and when a
-  member's status changes.
+  change when set.
+- Groups (`monitor_groups`) are not checked. The engine reads them at start
+  and whenever the API changes a group or where monitors are; after a
+  monitor's status change that notifies, it works out which groups are
+  down (one of their counted monitors down), and a group with alerts that
+  went down or came back up goes to `internal/notify`, to the group's own
+  channels. Maintenance starting or ending, and changes to groups, update
+  that silently.
 - Maintenance: the engine keeps the windows (their schedules compiled by
   `internal/maintenance`) and every monitor's tags, read at start and again
   when the API changes a window, a tag or a monitor's tags. It also wakes

@@ -43,12 +43,12 @@ func (a *Analyzer) prompt(ctx context.Context, m store.Monitor, b store.Beat) (s
 		return "", err
 	}
 	group := ""
-	if m.ParentID != 0 {
-		p, err := a.Store.MonitorByID(ctx, m.ParentID)
+	if m.GroupID != 0 {
+		g, err := a.Store.GroupByID(ctx, m.GroupID)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
 			return "", err
 		}
-		group = p.Name
+		group = g.Name
 	}
 	return render(m, b, group, check.Describe(m.Type, m.Config), beats, totals[m.ID]), nil
 }

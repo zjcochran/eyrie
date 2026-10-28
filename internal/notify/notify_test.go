@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -314,7 +315,7 @@ func TestDeliveryProblems(t *testing.T) {
 	n.Store.CreateMonitor(context.Background(), store.Monitor{Name: "DB", Type: "port", Active: true, Interval: time.Minute,
 		RetryInterval: time.Minute, Timeout: time.Second, Config: json.RawMessage(`{}`)}, t0)
 	n.Store.SetMonitorChannels(context.Background(), 1, []int64{sc.ID})
-	n.deliver(context.Background(), job{1, testMessage()})
+	n.deliver(context.Background(), job{monitorID: 1, msg: testMessage()})
 	if r, ok := n.Last(sc.ID); !ok || r.Err == "" {
 		t.Errorf("broken channel: %+v %v", r, ok)
 	}
@@ -334,7 +335,7 @@ func TestDeliveryProblems(t *testing.T) {
 		t.Error("retried after the context ended")
 	}
 	n.Store.Close()
-	n.deliver(context.Background(), job{1, testMessage()}) // logged, not a panic
+	n.deliver(context.Background(), job{monitorID: 1, msg: testMessage()}) // logged, not a panic
 }
 
 func TestTest(t *testing.T) {
@@ -437,4 +438,37 @@ func TestRunWithoutDatabase(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	n.Run(ctx) // logs, returns
+}
+
+func TestGroupAlert(t *testing.T) {
+	n := newNotifier(t)
+	n.BaseURL = "https://eyrie.example.com"
+	r := newReceiver(t)
+	ctx := context.Background()
+	sc := link(t, n, Channel{Name: "A", Kind: KindWebhook, URL: r.srv.URL, Enabled: true})
+	g, err := n.Store.CreateGroup(ctx, store.Group{Name: "Shop", Alert: store.AlertAny, Channels: []int64{sc.ID}}, t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctxRun, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go n.Run(ctxRun)
+	n.Group(g, true, []string{"Cart", "Pay"}, time.Time{}, t0)
+	n.Group(g, false, nil, t0, t0.Add(12*time.Minute))
+	n.Group(store.Group{ID: g.ID, Name: "Shop"}, false, nil, time.Time{}, t0)
+	waitFor(t, "the group alerts", func() bool { return len(r.got()) == 3 })
+	var down, up, plain Message
+	json.Unmarshal([]byte(r.got()[0].body), &down)
+	json.Unmarshal([]byte(r.got()[1].body), &up)
+	json.Unmarshal([]byte(r.got()[2].body), &plain)
+	if down.Event != EventGroupDown || down.Title != "Shop is down" || down.Text != "Down: Cart, Pay" || down.Priority != 4 ||
+		down.Group == nil || down.Group.ID != g.ID || down.Monitor != nil || down.URL != "https://eyrie.example.com/groups/"+strconv.FormatInt(g.ID, 10) {
+		t.Errorf("down %+v", down)
+	}
+	if up.Event != EventGroupUp || up.Text != "Every member is up again after 12 min down." || up.Priority != 3 {
+		t.Errorf("up %+v", up)
+	}
+	if plain.Text != "Every member is up again." {
+		t.Errorf("plain %+v", plain)
+	}
 }

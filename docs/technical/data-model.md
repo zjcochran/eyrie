@@ -34,8 +34,10 @@ base64), so it restores into either. Every table but `sessions` is
 copied; `monitor_state`, `heartbeats`, `stats_hourly` and `stats_daily` only
 with history. A restore deletes the rows of every one of these tables and
 `sessions`, children first, and inserts the backup's with their ids, in one
-transaction; `monitors.parent_id` is set once every monitor is in, and
-PostgreSQL's identity sequences are moved past the restored ids. Only
+transaction; `monitors.parent_id` and `monitor_groups.parent_id` are set
+once every row of their table is in, group monitors from a backup of an
+earlier version are turned into groups (below), and PostgreSQL's identity
+sequences are moved past the restored ids. Only
 known tables and columns are accepted, and the schema version of a backup
 must not be newer than the database's. A backup of an older schema
 leaves out the columns added since, which take their defaults.
@@ -57,6 +59,13 @@ Rules, enforced by tests in `internal/store`:
 - Within a major version they only add tables, indexes, and columns that
   are nullable or have a default, so older backup files restore
   (`TestBackupOlderSchema`).
+- After the migrations, and after every restore, earlier versions' group
+  monitors (`type` `group`) are turned into `monitor_groups` rows with the
+  same ids (`convertGroupMonitors`): their members' `parent_id` becomes
+  `group_id`, their channels `group_channels` (with `alert` `any`, else
+  `none`), their maintenance windows `maintenance_groups`, their place in a
+  status page section goes to the monitors in them, and the group monitors
+  are deleted. It does nothing once there are none.
 - Eyrie refuses to start on a database migrated past the newest migration
   it has, that is by a newer version (`ErrNewerDatabase`,
   `TestNewerDatabaseRefused`).
@@ -182,16 +191,19 @@ for none.
 
 ### monitors
 
-Migration `00003_monitors`. Index `monitors_parent` on `parent_id`; unique
-index `monitors_push_token` on `push_token` (`NULL` for other types, so it
-does not collide).
+Migration `00003_monitors`. Indexes `monitors_parent` on `parent_id` and
+`monitors_group` on `group_id` (`00010_groups`); unique index
+`monitors_push_token` on `push_token` (`NULL` for other types, so it does
+not collide).
 
 | Column | Type | Notes |
 | --- | --- | --- |
 | `id` | `INTEGER` / `BIGINT` | Primary key |
 | `name` | `TEXT` | 1 to 100 characters |
-| `type` | `TEXT` | One of the [monitor types](../user/monitors.md#types), such as `http`, `docker`, `agent`, `push`, `manual` or `group`; never changes |
-| `parent_id` | `BIGINT` | The group it is in, `NULL` for none; `ON DELETE SET NULL`. Must be a group, and not the monitor itself or one of its members. |
+| `type` | `TEXT` | One of the [monitor types](../user/monitors.md#types), such as `http`, `docker`, `agent`, `push` or `manual`; never changes. Earlier versions also had `group`, turned into groups at start. |
+| `parent_id` | `BIGINT` | No longer used, always `NULL`: earlier versions' group monitor it was in |
+| `group_id` | `BIGINT` | The [group](#monitor_groups) it is in, `NULL` for none; `ON DELETE SET NULL` (`00010_groups`) |
+| `position` | `INTEGER` | Its place among the groups and monitors with the same parent; default 0 (`00010_groups`) |
 | `active` | `BOOLEAN` | False: paused |
 | `interval_s`, `retry_interval_s` | `INTEGER` | Seconds |
 | `retries`, `resend_every` | `INTEGER` | |
@@ -289,6 +301,29 @@ Which channels each monitor notifies. Primary key
 `(monitor_id, channel_id)`, both `ON DELETE CASCADE`; index
 `monitor_channels_channel` on `channel_id`.
 
+### monitor_groups
+
+Migration `00010_groups`. Folders of monitors; see
+[Groups](../user/monitors.md#groups). Index `monitor_groups_parent` on
+`parent_id`.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `INTEGER` / `BIGINT` | Primary key |
+| `name` | `TEXT` | 1 to 100 characters |
+| `parent_id` | `BIGINT` | The group it is in, `NULL` for none; `ON DELETE SET NULL`. Never itself or a group inside it, at most 20 deep. Deleting a group through the app first moves what is in it to its parent. |
+| `position` | `INTEGER` | Its place among the groups and monitors with the same parent |
+| `alert` | `TEXT` | `none` (default), `any` (its first member down) or `selected` (one of `group_alert_monitors` down) |
+| `created_at`, `updated_at` | `BIGINT` | |
+
+### group_channels, group_alert_monitors
+
+The channels a group's alerts go to, and the monitors that count with
+`alert` `selected`. Primary keys `(group_id, channel_id)` and
+`(group_id, monitor_id)`, all `ON DELETE CASCADE`; indexes
+`group_channels_channel` on `channel_id` and `group_alert_monitors_monitor`
+on `monitor_id`.
+
 ### tags
 
 Migration `00005_tags_maintenance`. Unique index `tags_name` on
@@ -322,17 +357,18 @@ Migration `00005_tags_maintenance`.
 | `description` | `TEXT` | Up to 2000 characters |
 | `enabled` | `BOOLEAN` | False: turned off, never on |
 | `schedule` | `TEXT` | JSON, read by package `maintenance`: `strategy` (`manual`, `once`, `interval`, `weekdays`, `monthdays`, `cron`), `time_zone`, and the strategy's fields (`start`, `end`, `from`, `to`, `every_days`, `weekdays`, `month_days`, `cron`, `duration_minutes`, `first_day`, `last_day`); see [HTTP interface](http-interface.md#maintenance-windows) |
-| `all_monitors` | `BOOLEAN` | It covers every monitor; the two tables below are then empty |
+| `all_monitors` | `BOOLEAN` | It covers every monitor; the tables below are then empty |
 | `created_at`, `updated_at` | `BIGINT` | |
 
-### maintenance_monitors, maintenance_tags
+### maintenance_monitors, maintenance_groups, maintenance_tags
 
-The monitors and the tags a window covers (with the members of the groups
-among the monitors, and the monitors with the tags). Primary keys
-`(window_id, monitor_id)` and `(window_id, tag_id)`, all `ON DELETE
-CASCADE`, so deleting a monitor or a tag takes it out of windows; indexes
-`maintenance_monitors_monitor` on `monitor_id` and `maintenance_tags_tag`
-on `tag_id`.
+The monitors, groups and tags a window covers (with the monitors in the
+groups, and in the groups inside them, and the monitors with the tags).
+Primary keys `(window_id, monitor_id)`, `(window_id, group_id)` and
+`(window_id, tag_id)`, all `ON DELETE CASCADE`, so deleting a monitor, a
+group or a tag takes it out of windows; indexes
+`maintenance_monitors_monitor` on `monitor_id`, `maintenance_groups_group`
+on `group_id` (`00010_groups`) and `maintenance_tags_tag` on `tag_id`.
 
 ### status_pages
 

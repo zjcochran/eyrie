@@ -262,10 +262,18 @@ func (s *Server) pageMaintenance(ctx context.Context, now time.Time, shown map[i
 	if err != nil {
 		return out, err
 	}
+	gs, err := s.Store.Groups(ctx)
+	if err != nil {
+		return out, err
+	}
+	parents := map[int64]int64{}
+	for _, g := range gs {
+		parents[g.ID] = g.ParentID
+	}
 	for _, w := range ws {
 		v := s.viewWindow(w)
 		upcoming := v.State == "scheduled" && v.Change != nil && v.Change.Sub(now) <= upcomingFor
-		if (v.State != "on" && !upcoming) || !coversAny(w, shown, mons, tags) {
+		if (v.State != "on" && !upcoming) || !coversAny(w, shown, mons, parents, tags) {
 			continue
 		}
 		out = append(out, publicMaintenance{Title: w.Title, Description: w.Description, State: v.State, Change: v.Change})
@@ -274,15 +282,19 @@ func (s *Server) pageMaintenance(ctx context.Context, now time.Time, shown map[i
 }
 
 // coversAny says whether a window covers one of the monitors shown: by
-// itself, by a tag, or through a group it is in.
-func coversAny(w store.Window, shown map[int64]bool, mons map[int64]store.Monitor, tags map[int64][]store.MonitorTag) bool {
+// itself, by a tag, or through a group it is in (parents: each group's
+// parent).
+func coversAny(w store.Window, shown map[int64]bool, mons map[int64]store.Monitor, parents map[int64]int64,
+	tags map[int64][]store.MonitorTag) bool {
 	for id := range shown {
-		for m, depth := id, 0; m != 0 && depth < 20; depth++ {
-			hasTag := slices.ContainsFunc(tags[m], func(t store.MonitorTag) bool { return slices.Contains(w.TagIDs, t.TagID) })
-			if w.AllMonitors || slices.Contains(w.MonitorIDs, m) || hasTag {
+		hasTag := slices.ContainsFunc(tags[id], func(t store.MonitorTag) bool { return slices.Contains(w.TagIDs, t.TagID) })
+		if w.AllMonitors || slices.Contains(w.MonitorIDs, id) || hasTag {
+			return true
+		}
+		for g, depth := mons[id].GroupID, 0; g != 0 && depth < 20; g, depth = parents[g], depth+1 {
+			if slices.Contains(w.GroupIDs, g) {
 				return true
 			}
-			m = mons[m].ParentID
 		}
 	}
 	return false

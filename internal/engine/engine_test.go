@@ -375,47 +375,6 @@ func TestManual(t *testing.T) {
 	}
 }
 
-func TestGroup(t *testing.T) {
-	h := newHarness(t)
-	h.start()
-	g := h.add(monitor("Site", "group", `{}`))
-	if b := h.next(); b.Status != "up" || b.Message != "No active members" {
-		t.Errorf("empty group %+v", b)
-	}
-	a := monitor("Web", "port", portConfig)
-	a.ParentID = g.ID
-	a = h.add(a)
-	if b := h.next(); b.MonitorID != a.ID {
-		t.Fatalf("member %+v", b)
-	}
-	// The member's first check was a change: the group is checked again.
-	if b := h.next(); b.MonitorID != g.ID || b.Message != "All 1 members up" {
-		t.Errorf("group %+v", b)
-	}
-	h.up.Store(false)
-	if err := h.e.CheckNow(context.Background(), a.ID); err != nil {
-		t.Fatal(err)
-	}
-	if b := h.next(); b.MonitorID != a.ID || b.Status != "down" {
-		t.Fatalf("member down %+v", b)
-	}
-	if b := h.next(); b.MonitorID != g.ID || b.Status != "down" || b.Message != "Down: Web" {
-		t.Errorf("group down %+v", b)
-	}
-	// Deleting the group lets its members go on alone.
-	if err := h.e.Remove(context.Background(), g.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := h.e.Statuses()[g.ID]; ok {
-		t.Error("removed group still listed")
-	}
-	h.clock.Advance(time.Minute)
-	if b := h.next(); b.MonitorID != a.ID {
-		t.Errorf("after the group went %+v", b)
-	}
-	h.none()
-}
-
 func TestCommands(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()

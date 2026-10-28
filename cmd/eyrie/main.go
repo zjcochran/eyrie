@@ -142,6 +142,7 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	}
 	notifier := &notify.Notifier{Store: st, Secrets: box, Log: log, Version: version, BaseURL: cfg.BaseURL, Analyst: analyzer}
 	eng.OnNotify, eng.OnCert, eng.CertDays = notifier.Monitor, notifier.CertExpiring, notifier.CertDays
+	eng.OnGroup = func(a engine.GroupAlert) { notifier.Group(a.Group, a.Down, a.Members, a.Since, time.Now()) }
 	go notifier.Run(ctx)
 	backups := &backup.Backups{Store: st, Secrets: box, Dir: cfg.BackupDir, Version: version, Log: log}
 	go backups.Run(ctx)

@@ -76,6 +76,10 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 		s.db.Close()
 		return nil, fmt.Errorf("migrate the %s database: %w", s.dialect, err)
 	}
+	if err := s.convertOnOpen(ctx); err != nil {
+		s.db.Close()
+		return nil, fmt.Errorf("turn group monitors into groups: %w", err)
+	}
 	return s, nil
 }
 
