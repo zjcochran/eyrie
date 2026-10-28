@@ -20,6 +20,7 @@ export function agentSetup(platform: Platform, url: string, token: string): stri
       return `# compose.yaml on the Docker host
 services:
   eyrie-agent:
+    container_name: eyrie-agent
     image: ${image}
     command: agent
     restart: unless-stopped
@@ -63,6 +64,7 @@ kubectl apply -f eyrie-agent.yaml`;
       return `# compose.yaml on any host that reaches Proxmox's API
 services:
   eyrie-agent:
+    container_name: eyrie-agent
     image: ${image}
     command: agent
     restart: unless-stopped

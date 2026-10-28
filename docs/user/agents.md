@@ -41,6 +41,7 @@ On the Docker host:
 ```yaml
 services:
   eyrie-agent:
+    container_name: eyrie-agent
     image: ghcr.io/zjcochran/eyrie:latest
     command: agent
     restart: unless-stopped
@@ -150,6 +151,7 @@ The last command prints the token's secret. Then:
 ```yaml
 services:
   eyrie-agent:
+    container_name: eyrie-agent
     image: ghcr.io/zjcochran/eyrie:latest
     command: agent
     restart: unless-stopped
