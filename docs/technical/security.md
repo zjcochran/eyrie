@@ -134,10 +134,13 @@ Revoking deletes it at once.
 
 ## Agents
 
-[Agents](../user/agents.md) only read, and Eyrie sends them nothing to
-do, so an agent's host never runs anything on Eyrie's word. What an agent
-can do to Eyrie is report: a false report can bring its own workloads'
-monitors up or down, and nothing else.
+[Agents](../user/agents.md) run the checks of the monitors an admin put on
+them, as Eyrie runs its own: the same monitor types, with the same limits
+(a check runs only the fixed program of its type, never a shell). An
+agent's host runs nothing else on Eyrie's word. What an agent can do to
+Eyrie is report and answer: a false report or result can bring its own
+monitors up or down, and nothing else; a result for another agent's
+check is dropped.
 
 - An agent enrolls with a one-time token, `eya_` + 32 random bytes
   (base64url), made by an admin, valid for an hour and shown once. Eyrie
@@ -151,8 +154,12 @@ monitors up or down, and nothing else.
   every 30 days, the new key proving itself with a signature; Eyrie refuses
   keys older than 90 days. **New token** or **Remove** shuts an agent out
   at once.
-- Reports are not encrypted by the agent: over `http://` they can be read
-  on the way, and the agent warns at start.
+- The checks Eyrie hands an agent carry the monitors' settings with their
+  secrets (passwords, tokens) opened, as the agent needs them. They are
+  protected by HTTPS only: over `http://` they and the reports can be read
+  on the way, and the agent warns at start. Eyrie's answers are not
+  signed, so over `http://` someone on the way could also hand the agent
+  checks of their own.
 - With Docker, the agent needs the Docker socket, and whoever can use the
   socket controls the host. The examples mount it `:ro`, which keeps the
   socket file from being replaced but does not limit what is sent through

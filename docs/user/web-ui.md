@@ -190,7 +190,7 @@ Proxmox VE), with Eyrie's address and the token filled in.
 
 **New token** makes a new enrollment token and forgets the agent's key:
 the agent is refused until it enrolls again with the new token. **Remove**
-deletes the agent; the monitors of its workloads go down.
+deletes the agent; the monitors that run on it go down.
 
 ### Audit log
 

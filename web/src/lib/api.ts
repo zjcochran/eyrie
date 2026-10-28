@@ -138,6 +138,14 @@ export interface Agent {
 }
 
 /** Something an agent reports: a container, service, Kubernetes workload or Proxmox guest. */
+/** A monitor type; agents: it can be checked on an agent, agent_only: only there. */
+export interface MonitorType {
+  name: string;
+  label: string;
+  agents: boolean;
+  agent_only: boolean;
+}
+
 export interface Workload {
   key: string;
   name: string;
@@ -177,6 +185,8 @@ export interface MonitorChange {
   type?: string;
   /** The group it is in; null for none. */
   group_id: number | null;
+  /** The agent it is checked on; null for Eyrie. */
+  agent_id: number | null;
   active: boolean;
   interval: number;
   retry_interval: number;
@@ -219,6 +229,8 @@ export interface Monitor extends Omit<MonitorChange, 'type' | 'channels' | 'tags
   channels: number[];
   tags: MonitorTag[];
   type: string;
+  /** The name of the agent it is checked on, unless that was removed. */
+  agent_name?: string;
   push_url?: string;
   /** The secret settings that are set; settings never include them. */
   secrets_set: string[];
@@ -590,7 +602,7 @@ export class Client {
   testSSO = (issuer: string) =>
     this.request<{ ok: boolean; message: string }>('POST', '/api/v1/settings/sso/test', { issuer });
 
-  monitorTypes = () => this.request<{ name: string; label: string }[]>('GET', '/api/v1/monitor-types');
+  monitorTypes = () => this.request<MonitorType[]>('GET', '/api/v1/monitor-types');
   monitors = (beats = 0) => this.request<Monitor[]>('GET', `/api/v1/monitors${beats ? `?beats=${beats}` : ''}`);
   monitor = (id: number) => this.request<Monitor>('GET', `/api/v1/monitors/${id}`);
   heartbeats = (id: number, since: Date) =>

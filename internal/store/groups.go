@@ -421,14 +421,22 @@ func (s *Store) convertGroupMonitors(ctx context.Context, tx *sql.Tx) error {
 	return nil
 }
 
-// convertOnOpen runs convertGroupMonitors in a transaction of its own.
+// convertOld turns what earlier versions saved into what this one uses.
+func (s *Store) convertOld(ctx context.Context, tx *sql.Tx) error {
+	if err := s.convertGroupMonitors(ctx, tx); err != nil {
+		return err
+	}
+	return s.convertAgentMonitors(ctx, tx)
+}
+
+// convertOnOpen runs convertOld in a transaction of its own.
 func (s *Store) convertOnOpen(ctx context.Context) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback() //nolint:errcheck // a no-op after Commit
-	if err := s.convertGroupMonitors(ctx, tx); err != nil {
+	if err := s.convertOld(ctx, tx); err != nil {
 		return err
 	}
 	return tx.Commit()

@@ -4,7 +4,7 @@
 //
 //	eyrie                       run the server (the default)
 //	eyrie serve                 the same
-//	eyrie agent                 run as an agent, reporting another host's workloads
+//	eyrie agent                 run as an agent: check monitors from another host
 //	eyrie healthcheck           exit 0 if the running server answers (or the
 //	                            agent reported lately), for Docker
 //	eyrie reset-password <user> set a user's password from standard input
@@ -47,7 +47,7 @@ import (
 const usage = `usage:
   eyrie                       run the server
   eyrie serve                 the same
-  eyrie agent                 run as an agent: report another host's workloads to Eyrie
+  eyrie agent                 run as an agent: check monitors from another host for Eyrie
   eyrie healthcheck           exit 0 if the running server answers (or the agent reported lately)
   eyrie reset-password <user> set a user's password, read from standard input
   eyrie reset-2fa <user>      turn off a user's two-factor sign-in
@@ -128,8 +128,9 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	}
 	go agentsMgr.Watch(ctx, 15*time.Second)
 	env := check.DefaultEnv("Eyrie/" + version)
-	env.Secrets, env.Agents = box, agentsMgr
+	env.Secrets = box
 	eng := engine.New(st, env, log)
+	eng.Agents = agentsMgr
 	analyzer := &analysis.Analyzer{Store: st, Secrets: box, Log: log, Version: version}
 	if cfg.ClaudeCode {
 		analyzer.Claude = &analysis.ClaudeCode{Dir: filepath.Join(cfg.DataDir, "claude-code"), Log: log}
@@ -303,7 +304,8 @@ func resetTwoFactor(getenv func(string) string, name string, stdout io.Writer) e
 }
 
 // runAgent runs agent mode: no database, web app or port; it reports this
-// host's workloads to Eyrie until ctx ends.
+// host's workloads to Eyrie and runs the checks of the monitors on it until
+// ctx ends.
 func runAgent(ctx context.Context, getenv func(string) string, stderr io.Writer) error {
 	cfg, err := agent.ConfigFromEnv(getenv, version)
 	if err != nil {
@@ -318,7 +320,10 @@ func runAgent(ctx context.Context, getenv func(string) string, stderr io.Writer)
 	if err != nil {
 		return err
 	}
-	return agent.New(cfg, lister, events, log).Run(ctx)
+	a := agent.New(cfg, lister, events, log)
+	a.Env = check.DefaultEnv("Eyrie/" + version)
+	a.Env.Workloads, a.Env.DockerHost = lister, cfg.DockerHost
+	return a.Run(ctx)
 }
 
 // healthcheck asks the running server for /healthz, for Docker's

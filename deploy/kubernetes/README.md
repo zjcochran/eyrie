@@ -1,8 +1,9 @@
 # Eyrie's agent in Kubernetes
 
 [`eyrie-agent.yaml`](eyrie-agent.yaml) runs Eyrie's agent in a cluster. It
-reports the cluster's Deployments, StatefulSets and DaemonSets to Eyrie,
-where Agent workload monitors follow them. See [Agents](../../docs/user/agents.md).
+checks the Kubernetes workload monitors that run on it (and any other
+monitor on it, from inside the cluster), and reports the cluster's
+Deployments, StatefulSets and DaemonSets to Eyrie. See [Agents](../../docs/user/agents.md).
 
 1. In Eyrie, **Settings → Agents → Add an agent**, and choose
    **Kubernetes**. Eyrie shows the commands with the agent's one-time

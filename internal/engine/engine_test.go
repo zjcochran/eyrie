@@ -558,18 +558,55 @@ func TestCheckMatching(t *testing.T) {
 	if b := h.next(); b.MonitorID != a.ID {
 		t.Fatalf("first check %+v", b)
 	}
-	if err := h.e.CheckMatching(ctx, "port", func(json.RawMessage) bool { return false }); err != nil {
-		t.Fatal(err)
-	}
-	if err := h.e.CheckMatching(ctx, "http", func(json.RawMessage) bool { return true }); err != nil {
+	if err := h.e.CheckMatching(ctx, func(store.Monitor) bool { return false }); err != nil {
 		t.Fatal(err)
 	}
 	h.none()
-	var seen json.RawMessage
-	if err := h.e.CheckMatching(ctx, "port", func(c json.RawMessage) bool { seen = c; return true }); err != nil {
+	var seen store.Monitor
+	if err := h.e.CheckMatching(ctx, func(m store.Monitor) bool { seen = m; return true }); err != nil {
 		t.Fatal(err)
 	}
-	if b := h.next(); b.MonitorID != a.ID || string(seen) == "" {
-		t.Errorf("matched %+v %s", b, seen)
+	if b := h.next(); b.MonitorID != a.ID || seen.ID != a.ID {
+		t.Errorf("matched %+v %+v", b, seen)
+	}
+}
+
+// fakeAgents checks monitors on agents with a fixed result.
+type fakeAgents struct{ res check.Result }
+
+func (f fakeAgents) Checker(_ *check.Env, m store.Monitor) (check.Checker, error) {
+	if m.Name == "Cache" {
+		return nil, errors.New("cannot open the secrets")
+	}
+	return f, nil
+}
+
+func (f fakeAgents) Check(context.Context) check.Result { return f.res }
+
+func TestAgentMonitors(t *testing.T) {
+	h := newHarness(t)
+	h.start()
+	m := monitor("Edge", "port", portConfig)
+	m.AgentID = 7
+	a := h.add(m)
+	if b := h.next(); b.MonitorID != a.ID || b.Status != "down" || b.Message != "Agents are not available here" {
+		t.Errorf("without agents %+v", b)
+	}
+
+	h = newHarness(t)
+	h.e.Agents = fakeAgents{check.Result{OK: true, Message: "Checked on the agent", Latency: 3 * time.Millisecond}}
+	h.start()
+	a = h.add(m)
+	if b := h.next(); b.MonitorID != a.ID || b.Status != "up" || b.Message != "Checked on the agent" || b.Latency != 3*time.Millisecond {
+		t.Errorf("on the agent %+v", b)
+	}
+	bad := monitor("Cache", "port", portConfig)
+	bad.AgentID = 7
+	bad, err := h.st.CreateMonitor(context.Background(), bad, t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := h.e.Upsert(context.Background(), bad); err == nil || err.Error() != "cannot open the secrets" {
+		t.Errorf("upsert %v", err)
 	}
 }

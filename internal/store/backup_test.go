@@ -295,6 +295,9 @@ func TestBackupOlderSchema(t *testing.T) {
 		}
 		delete(old.History, "audit_log") // added by 00008
 		withoutGroups(old)               // added by 00010
+		for _, r := range old.Config["monitors"] {
+			delete(r, "agent_id") // added by 00012
+		}
 		if err := s.Import(ctx, old, false); err != nil {
 			t.Fatal(err)
 		}

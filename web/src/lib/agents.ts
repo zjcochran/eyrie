@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// How to run an agent on each platform, with its enrollment token.
+// How to run an agent on each platform, with its enrollment token, and
+// what the workloads it reports suggest for the monitor form.
+
+import type { Workload } from './api.ts';
+import type { Suggest } from './settings.ts';
 
 export const platforms = [
   { id: 'docker', label: 'Docker' },
@@ -82,4 +86,21 @@ volumes:
   eyrie-agent:
     name: eyrie-agent`;
   }
+}
+
+/** The values a field suggests from an agent's workloads, sorted. */
+export function suggestions(kind: Suggest, workloads: Workload[]): string[] {
+  const kinds: Record<Suggest, string[]> = {
+    container: ['container'],
+    service: ['service'],
+    kubernetes: ['deployment', 'statefulset', 'daemonset'],
+    proxmox: ['lxc', 'vm'],
+  };
+  const out = new Set<string>();
+  for (const w of workloads) {
+    if (!kinds[kind].includes(w.kind)) continue;
+    // A Proxmox VE guest is chosen by its ID: lxc/101 or qemu/101.
+    out.add(kind === 'proxmox' ? w.key.slice(w.key.indexOf('/') + 1) : w.name);
+  }
+  return [...out].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }

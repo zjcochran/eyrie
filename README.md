@@ -16,9 +16,10 @@ in, and keeps its data in SQLite or, for large installations, PostgreSQL.
   pushes from jobs and manual monitors. A live dashboard with the list of
   monitors beside the one you choose, arranged by dragging into nested
   groups that can alert on their own; uptime history, tags.
-- **Agents** on other hosts that report what runs there: Docker
-  containers, Docker Swarm services, Kubernetes workloads and Proxmox VE
-  containers and VMs, signed and read-only.
+- **Agents** on other hosts and networks: any monitor can be checked from
+  one, including Docker containers, Docker Swarm services, Kubernetes
+  workloads and Proxmox VE containers and VMs there; signed, and opening
+  no port.
 - **Notifications** to ntfy, Gotify, Pushover, Telegram, Discord, email
   and signed webhooks, with certificate expiry warnings. Down alerts can
   be followed by an analysis of the failure by Claude (an API key or your Claude

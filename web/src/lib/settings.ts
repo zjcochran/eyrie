@@ -5,7 +5,13 @@
 /** Shows a field only while another field has one of some values. */
 export type When = { key: string; values: string[] };
 
-type Base = { key: string; label: string; help?: string; when?: When };
+/**
+ * What a field can suggest from the workloads the chosen agent reports:
+ * containers, Swarm services, Kubernetes workloads or Proxmox VE guests.
+ */
+export type Suggest = 'container' | 'service' | 'kubernetes' | 'proxmox';
+
+type Base = { key: string; label: string; help?: string; when?: When; suggest?: Suggest };
 
 export type Field = Base &
   (
@@ -15,9 +21,6 @@ export type Field = Base &
     | { kind: 'number'; min: number; max: number; placeholder?: string }
     | { kind: 'check' }
     | { kind: 'select'; options: string[] }
-    /** One of Eyrie's agents, and a workload it reports. */
-    | { kind: 'agent' }
-    | { kind: 'workload' }
   );
 
 const http: Field[] = [
@@ -141,15 +144,24 @@ export const fields: Record<string, Field[]> = {
     v3({ key: 'context_name', label: 'Context name', kind: 'text', help: 'Optional' }),
   ],
   docker: [
-    { key: 'container', label: 'Container', kind: 'text', placeholder: 'shop', help: 'Its name or ID' },
+    { key: 'container', label: 'Container', kind: 'text', placeholder: 'shop', help: 'Its name or ID', suggest: 'container' },
     {
       key: 'docker_host',
       label: 'Docker host',
       kind: 'text',
       placeholder: 'unix:///var/run/docker.sock',
-      help: 'unix:///path, tcp://host:port or https://host:port',
+      help: "unix:///path, tcp://host:port or https://host:port; on an agent, the default is the agent's DOCKER_HOST",
     },
     ignoreTLS,
+  ],
+  'docker-swarm': [{ key: 'service', label: 'Service', kind: 'text', placeholder: 'shop_web', help: 'Its name', suggest: 'service' }],
+  kubernetes: [
+    { key: 'namespace', label: 'Namespace', kind: 'text', placeholder: 'default' },
+    { key: 'kind', label: 'Kind', kind: 'select', options: ['deployment', 'statefulset', 'daemonset'] },
+    { key: 'name', label: 'Name', kind: 'text', placeholder: 'web', suggest: 'kubernetes' },
+  ],
+  proxmox: [
+    { key: 'vmid', label: 'VM ID', kind: 'number', min: 100, max: 999999999, placeholder: '101', help: 'Of an LXC container or a VM', suggest: 'proxmox' },
   ],
   'sip-options': [
     { key: 'host', label: 'Host', kind: 'text', placeholder: 'pbx.example.com' },
@@ -161,10 +173,6 @@ export const fields: Record<string, Field[]> = {
   'tailscale-ping': [{ key: 'host', label: 'Tailscale node', kind: 'text', placeholder: 'nas', help: 'Its name or Tailscale IP address' }],
   'system-service': [{ key: 'service', label: 'Service', kind: 'text', placeholder: 'nginx', help: 'systemd on Linux, services on Windows' }],
   pm2: [{ key: 'process', label: 'PM2 process', kind: 'text', placeholder: 'api', help: 'Its name or id' }],
-  agent: [
-    { key: 'agent', label: 'Agent', kind: 'agent', help: 'Add agents in Settings → Agents' },
-    { key: 'workload', label: 'Workload', kind: 'workload', help: 'What the agent reports, as of its last report' },
-  ],
   globalping: [
     { key: 'kind', label: 'Measurement', kind: 'select', options: ['ping', 'http'] },
     { key: 'target', label: 'Target', kind: 'text', placeholder: 'example.com, or https://example.com/health for http' },
@@ -327,7 +335,7 @@ export function toSettings(type: string, values: Values): Record<string, unknown
     // Secrets are sent as typed: spaces can be part of a password.
     const text = f.kind === 'secret' ? String(v ?? '') : String(v ?? '').trim();
     if (text === '') continue;
-    if (f.kind === 'number' || f.kind === 'agent') {
+    if (f.kind === 'number') {
       out[f.key] = Number(text);
     } else if (maps.includes(f.key)) {
       const headers: Record<string, string> = {};

@@ -2,18 +2,16 @@
 
 // Package agents is Eyrie's side of its agents: adding them, enrolling
 // them, checking their signed requests, keeping what they report, and
-// telling agent monitors what each workload is doing. See
+// handing them the checks of the monitors that run on them. See
 // docs/technical/agent-protocol.md.
 package agents
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -21,7 +19,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/zjcochran/eyrie/internal/agentauth"
-	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/store"
 	"github.com/zjcochran/eyrie/internal/workload"
 )
@@ -54,11 +51,14 @@ type Manager struct {
 	offline map[int64]bool
 	refused map[int64]time.Time // when a refusal was last logged
 	nonces  agentauth.Nonces
+	queues  map[int64]*queue   // each agent's jobs not yet fetched
+	waiting map[string]*waiter // jobs waiting for their result, by ID
 }
 
 // New returns a manager; Load fills it.
 func New(st *store.Store, log *slog.Logger) *Manager {
-	return &Manager{Store: st, Log: log, Now: time.Now, agents: map[int64]*store.Agent{}, offline: map[int64]bool{}, refused: map[int64]time.Time{}}
+	return &Manager{Store: st, Log: log, Now: time.Now, agents: map[int64]*store.Agent{}, offline: map[int64]bool{}, refused: map[int64]time.Time{},
+		queues: map[int64]*queue{}, waiting: map[string]*waiter{}}
 }
 
 // Load reads the agents from the store, at start and after a restore.
@@ -150,6 +150,7 @@ func (m *Manager) Remove(ctx context.Context, id int64) (string, error) {
 	m.mu.Lock()
 	delete(m.agents, id)
 	delete(m.offline, id)
+	m.dropJobs(id)
 	m.mu.Unlock()
 	m.changed(id, nil)
 	return name, nil
@@ -363,28 +364,6 @@ func (m *Manager) Rotate(ctx context.Context, a store.Agent, signedWith agentaut
 	return nil
 }
 
-// Workload returns what an agent last reported about a workload, for agent
-// monitors; the error says why there is nothing to go by.
-func (m *Manager) Workload(agent int64, key string) (workload.Workload, error) {
-	a, ok := m.Get(agent)
-	switch {
-	case !ok:
-		return workload.Workload{}, errors.New("the agent was removed from Eyrie")
-	case a.PublicKey == "":
-		return workload.Workload{}, fmt.Errorf("the agent %s is not enrolled", a.Name)
-	case !Online(a, m.Now()):
-		return workload.Workload{}, fmt.Errorf("the agent %s has not reported for %s", a.Name, m.Now().Sub(a.LastSeen).Round(time.Second))
-	case a.Error != "":
-		return workload.Workload{}, fmt.Errorf("the agent %s cannot list its workloads: %s", a.Name, a.Error)
-	}
-	for _, w := range a.Workloads {
-		if w.Key == key {
-			return w, nil
-		}
-	}
-	return workload.Workload{}, fmt.Errorf("the agent %s reports no %s", a.Name, key)
-}
-
 // Watch notices agents that stop reporting, every interval until ctx
 // ends, so their monitors go down without waiting for their next check.
 func (m *Manager) Watch(ctx context.Context, interval time.Duration) {
@@ -414,14 +393,5 @@ func (m *Manager) sweep() {
 	for _, a := range gone {
 		m.Log.Warn("agent stopped reporting", "agent", a.Name, "last_seen", a.LastSeen.UTC().Format(time.RFC3339))
 		m.changed(a.ID, nil)
-	}
-}
-
-// Matcher matches the settings of the agent monitors of agent's workloads
-// in keys (nil: every one), for Engine.CheckMatching.
-func Matcher(agent int64, keys []string) func(json.RawMessage) bool {
-	return func(raw json.RawMessage) bool {
-		a, k, ok := check.AgentTarget(raw)
-		return ok && a == agent && (keys == nil || slices.Contains(keys, k))
 	}
 }

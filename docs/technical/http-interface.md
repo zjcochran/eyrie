@@ -166,8 +166,8 @@ under `/api/agent/v1/`, are in [Agent protocol](agent-protocol.md#routes).
 | `GET /api/v1/agents` | | `200` `[{"id","name","status","platform","hostname","version","last_seen","last_address","error","workloads","key","key_created","token_expires","created_at"}]` by name. `status` is `pending` (not enrolled), `online` (reported within 90 seconds) or `offline`; `workloads` how many the last report had; `key` the key's fingerprint (`""` when not enrolled); `token_expires` `null` when no enrollment token waits |
 | `POST /api/v1/agents` | `{"name"}`, 1 to 64 characters | `201` `{"agent":{…},"token":"eya_…"}`, the one-time enrollment token, valid for an hour and only shown here; `422` for a name in use |
 | `POST /api/v1/agents/{id}/token` | | `200` the same, with a new token; the agent's key is forgotten, so it is refused until it enrolls again |
-| `DELETE /api/v1/agents/{id}` | | `204`; its monitors go down |
-| `GET /api/v1/agents/{id}/workloads` | | `200` `[{"key","name","kind","group","up","status"}]`, the last report's |
+| `DELETE /api/v1/agents/{id}` | | `204`; the monitors on it stay on it, and go down |
+| `GET /api/v1/agents/{id}/workloads` | | `200` `[{"key","name","kind","group","up","status"}]`, the last report's, for the monitor form's suggestions |
 
 ### Notification channels
 
@@ -235,7 +235,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
 
 | Method and path | Access | Body | Answer |
 | --- | --- | --- | --- |
-| `GET /api/v1/monitor-types` | read | | `200` `[{"name":"dns","label":"DNS"},…]`, by name |
+| `GET /api/v1/monitor-types` | read | | `200` `[{"name":"dns","label":"DNS","agents":true,"agent_only":false},…]`, by name: `agents` when it can be checked on an agent, `agent_only` when only there |
 | `GET /api/v1/monitors?beats=<n>` | read | | `200` list of [monitors](#monitor), by `position`, then name. With `beats` (1 to 100), each has its last `n` heartbeats, oldest first. |
 | `GET /api/v1/monitors/{id}` | read | | `200` monitor |
 | `GET /api/v1/monitors/{id}/heartbeats?since=<time>&limit=<n>` | read | | `200` [heartbeats](#heartbeat), newest first, from `since` (RFC 3339; default 24 hours ago), at most `limit` (default and most 10000). `400` for a bad `since`. |
@@ -261,6 +261,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
   "name": "Example site",
   "type": "http",
   "group_id": null,
+  "agent_id": null,
   "position": 0,
   "active": true,
   "interval": 60,
@@ -300,13 +301,15 @@ status with `active` false. `settings` never include secret settings
 (passwords, keys, tokens; they are `""`): `secrets_set` names those that are
 set. `tags` are by tag name. `group_id` is the [group](#groups) it is in
 (`null` for none), and `position` its place among the groups and monitors
-in that group (or at the top level). `push_url` is only on push monitors, only for admins, and uses
+in that group (or at the top level). `agent_id` is the
+[agent](../user/agents.md#monitors-on-an-agent) it is checked on (`null`:
+Eyrie), with `agent_name` when that agent exists. `push_url` is only on push monitors, only for admins, and uses
 `EYRIE_BASE_URL` or the request's address. Uptime shares are from 0 to 1,
 `null` without checks in the period. `beats` is only there with `?beats=`.
 
 #### Monitor settings
 
-`{"name","type","group_id","active","interval","retry_interval","retries","resend_every","timeout","upside_down","description","settings","reset_push_token","clear_secrets"}`.
+`{"name","type","group_id","agent_id","active","interval","retry_interval","retries","resend_every","timeout","upside_down","description","settings","reset_push_token","clear_secrets"}`.
 Missing numbers take their defaults (interval 60, retry interval the
 interval, timeout 80% of the interval up to 48, the rest 0) and `active`
 defaults to true. The limits and each type's `settings` are in
@@ -320,6 +323,9 @@ up to 100 characters); left out, a changed monitor keeps its own (`422` for
 an unknown tag or one given twice). `group_id` is the group to put it in
 (`null` or left out for none; `422` for an unknown group). A new monitor,
 or one moved to another group, goes after everything in that group.
+`agent_id` is the agent to check it on (`null` or left out: Eyrie; `422`
+for an unknown agent, a push or manual monitor on an agent, or a Swarm
+service, Kubernetes workload or Proxmox VE guest monitor without one).
 
 ### Groups
 
