@@ -52,7 +52,7 @@
     tagFilter
       ? live.monitors
           .filter((m) => m.tags.some((t) => t.id === tagFilter))
-          .map((m) => ({ item: { kind: 'monitor', monitor: m }, depth: 0, size: 0 }))
+          .map((m): Row => ({ item: { kind: 'monitor', monitor: m }, depth: 0, size: 0 }))
       : flatten(tree, collapsed),
   );
 

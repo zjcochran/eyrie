@@ -56,7 +56,7 @@ describe('groupStatus', () => {
   it('sums up the active members, nested too', () => {
     const tree = buildTree(groups, [monitor(10, 'Web', 1), monitor(11, 'Cart', 2, 0, 'down'), monitor(14, 'Off', 2, 0, 'down', false)]);
     const site = findGroup(tree, 1);
-    assert.ok(site);
+    if (!site) throw new Error('no Site');
     assert.deepEqual(groupStatus(site), { status: 'down', up: 1, down: 1, total: 2 });
     assert.equal(members(site).length, 3);
     const one = (s: Status) => groupStatus(buildTree([group(1, 'G')], [monitor(1, 'M', 1, 0, s)])[0]).status;
