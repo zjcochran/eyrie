@@ -39,7 +39,7 @@ services:
       TZ: Etc/UTC
     volumes:
       - eyrie-data:/data
-      - /var/run/docker.sock:/var/run/docker.sock # for Docker container monitors
+      - /var/run/docker.sock:/var/run/docker.sock:ro # for Docker container monitors
 
 volumes:
   eyrie-data:
@@ -77,7 +77,7 @@ services:
       PGPASSWORD: a-long-password
     volumes:
       - eyrie-data:/data # still holds the secret key
-      - /var/run/docker.sock:/var/run/docker.sock # for Docker container monitors
+      - /var/run/docker.sock:/var/run/docker.sock:ro # for Docker container monitors
     depends_on:
       - db
 

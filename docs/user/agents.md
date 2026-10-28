@@ -48,7 +48,7 @@ services:
       EYRIE_AGENT_URL: https://eyrie.example.com
       EYRIE_AGENT_TOKEN: eya_...
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - eyrie-agent:/data
 
 volumes:
@@ -87,7 +87,7 @@ services:
       EYRIE_AGENT_URL: https://eyrie.example.com
       EYRIE_AGENT_TOKEN: eya_...
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - agent:/data
     deploy:
       replicas: 1

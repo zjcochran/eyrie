@@ -154,8 +154,9 @@ monitors up or down, and nothing else.
 - Reports are not encrypted by the agent: over `http://` they can be read
   on the way, and the agent warns at start.
 - With Docker, the agent needs the Docker socket, and whoever can use the
-  socket controls the host. The agent sends only `GET` requests; a socket
-  proxy that allows only those holds it to that. In Kubernetes its
+  socket controls the host. The examples mount it `:ro`, which keeps the
+  socket file from being replaced but does not limit what is sent through
+  it. The agent sends only `GET` requests; a socket proxy that allows only those holds it to that. In Kubernetes its
   ServiceAccount may only list Deployments, StatefulSets and DaemonSets;
   for Proxmox VE a `PVEAuditor` token is enough, and the server's
   certificate is pinned by its fingerprint.
@@ -206,7 +207,8 @@ certificates are verified unless the monitor ignores TLS errors.
   types fail unless you add them.
 - **Docker.** A Docker monitor only reads a container's state
   (`GET /containers/{name}/json`), but whoever can reach the Docker socket
-  controls the host: mount it only if you need Docker monitors, and prefer
+  controls the host, even mounted `:ro` (that only keeps the socket file
+  from being replaced): mount it only if you need Docker monitors, and prefer
   a read-only socket proxy that allows just that request.
 - **SFTP host keys.** Without a host key fingerprint, an SFTP monitor
   accepts any server key (and shows its fingerprint in the message); set
