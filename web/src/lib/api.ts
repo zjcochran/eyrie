@@ -166,6 +166,11 @@ export interface Beat {
   important: boolean;
 }
 
+/** A heartbeat that changed its monitor's status. */
+export interface StatusChange extends Beat {
+  id: number;
+}
+
 /** A monitor's settings, as created or changed. */
 export interface MonitorChange {
   name: string;
@@ -590,6 +595,9 @@ export class Client {
   monitor = (id: number) => this.request<Monitor>('GET', `/api/v1/monitors/${id}`);
   heartbeats = (id: number, since: Date) =>
     this.request<Beat[]>('GET', `/api/v1/monitors/${id}/heartbeats?since=${encodeURIComponent(since.toISOString())}`);
+  /** Every monitor's status changes, newest first: 100, older than before when set. */
+  statusChanges = (before?: number) =>
+    this.request<StatusChange[]>('GET', '/api/v1/status-changes' + (before ? `?before=${before}` : ''));
   hours = (id: number, days: number) => this.request<HourStats[]>('GET', `/api/v1/monitors/${id}/hours?days=${days}`);
   createMonitor = (m: MonitorChange) => this.request<Monitor>('POST', '/api/v1/monitors', m);
   updateMonitor = (id: number, m: MonitorChange) => this.request<Monitor>('PUT', `/api/v1/monitors/${id}`, m);

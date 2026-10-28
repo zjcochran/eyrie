@@ -236,8 +236,10 @@ Written with every heartbeat.
 
 ### heartbeats
 
-One row per check. Indexes `heartbeats_monitor_at` on `(monitor_id, at)`
-and `heartbeats_at` on `at` (for pruning). Rows older than the `retention`
+One row per check. Indexes `heartbeats_monitor_at` on `(monitor_id, at)`,
+`heartbeats_at` on `at` (for pruning) and `heartbeats_important` on
+`(important, id)` (for every monitor's status changes;
+`00011_status_changes`). Rows older than the `retention`
 setting are deleted daily.
 
 | Column | Type | Notes |

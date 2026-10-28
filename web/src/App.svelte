@@ -11,6 +11,7 @@
   import Agents from './pages/Agents.svelte';
   import Analysis from './pages/Analysis.svelte';
   import Audit from './pages/Audit.svelte';
+  import Events from './pages/Events.svelte';
   import Backup from './pages/Backup.svelte';
   import Login from './pages/Login.svelte';
   import Maintenance from './pages/Maintenance.svelte';
@@ -106,9 +107,8 @@
   <header>
     <a class="brand" href="/" onclick={link}><img src={logo} alt="" width="28" height="28" /> Eyrie</a>
     <nav>
-      <a href="/" onclick={link} aria-current={!inSettings && !inStatusPages && page !== 'maintenance' ? 'page' : undefined}
-        >Monitors</a
-      >
+      <a href="/" onclick={link} aria-current={inMonitors ? 'page' : undefined}>Monitors</a>
+      <a href="/events" onclick={link} aria-current={page === 'events' ? 'page' : undefined}>Events</a>
       <a href="/maintenance" onclick={link} aria-current={page === 'maintenance' ? 'page' : undefined}>Maintenance</a>
       <a href="/status-pages" onclick={link} aria-current={inStatusPages ? 'page' : undefined}>Status pages</a>
       <a href="/settings/account" onclick={link} aria-current={inSettings ? 'page' : undefined}>Settings</a>
@@ -124,6 +124,8 @@
   <main class:wide={inSettings} class:split={inMonitors}>
     {#if inMonitors}
       <Monitors {route} admin={user.role === 'admin'} />
+    {:else if page === 'events'}
+      <Events />
     {:else if page === 'maintenance'}
       <Maintenance />
     {:else if page === 'status-pages'}

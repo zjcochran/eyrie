@@ -164,6 +164,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/push/{token}", s.push)
 	mux.Handle("GET /api/v1/events", s.read(s.events))
 	mux.Handle("GET /api/v1/monitor-types", s.read(s.monitorTypes))
+	mux.Handle("GET /api/v1/status-changes", s.read(s.changes))
 	mux.Handle("GET /api/v1/monitors", s.read(s.listMonitors))
 	mux.Handle("GET /api/v1/monitors/{id}", s.read(s.getMonitor))
 	mux.Handle("GET /api/v1/monitors/{id}/heartbeats", s.read(s.heartbeats))
