@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import MonitorTree from '../components/MonitorTree.svelte';
-  import { link } from '../lib/nav.svelte.ts';
+  import { link, nav } from '../lib/nav.svelte.ts';
   import type { Route } from '../lib/route.ts';
   import GroupPage from './GroupPage.svelte';
   import Home from './Home.svelte';
@@ -31,7 +31,7 @@
     {:else if route.page === 'group'}
       {#key route.id}<GroupPage id={route.id} {admin} />{/key}
     {:else if admin}
-      {#key route.id}<MonitorForm id={route.id} />{/key}
+      {#key `${route.id}${nav.search}`}<MonitorForm id={route.id} />{/key}
     {:else}
       <h1>Not found</h1>
     {/if}

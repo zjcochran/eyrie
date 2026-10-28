@@ -4,7 +4,8 @@
   import TagChip from '../components/TagChip.svelte';
   import { type Agent, type Channel, type Monitor, type MonitorChange, type Tag, type Workload, message } from '../lib/api.ts';
   import { live, loadMonitors } from '../lib/live.svelte.ts';
-  import { go, link } from '../lib/nav.svelte.ts';
+  import { go, link, nav } from '../lib/nav.svelte.ts';
+  import { queryValue } from '../lib/route.ts';
   import { api } from '../lib/session.svelte.ts';
   import { fields, shown, toSettings, toValues } from '../lib/settings.ts';
   import { buildTree, groupChoices } from '../lib/tree.ts';
@@ -78,6 +79,10 @@
         channels = [...m.channels];
         tagIDs = m.tags.map((t) => t.id);
         tagValues = Object.fromEntries(m.tags.map((t) => [t.id, t.value]));
+      } else {
+        // Added with a group chosen in the list: in that group.
+        const g = Number(queryValue(nav.search, 'group'));
+        if (live.groups.some((x) => x.id === g)) groupID = g;
       }
     } catch (e) {
       error = message(e);

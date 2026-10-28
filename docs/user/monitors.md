@@ -117,7 +117,8 @@ Admins also get **Check now**, **Pause** or **Resume**, **Edit** and
 
 ## Adding a monitor
 
-**Add a monitor** on the dashboard (admins). Choose the type first; it
+**Add a monitor** on the dashboard (admins). With a group chosen in the
+list, the new monitor's **Group** is that group. Choose the type first; it
 cannot change later.
 
 ![The form to add a monitor, for an HTTP(S) monitor](../images/add-monitor-dark.png)
