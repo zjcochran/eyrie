@@ -45,7 +45,8 @@ A group keeps monitors together in the list, and can be in another group.
 It is not a monitor: nothing is checked, and it has no history of its own.
 
 - **New group**, above the list (admins), asks only for a name and makes
-  the group at the end of the list; its page opens.
+  the group at the end of the group chosen in the list (shown open), or at
+  the end of the list when no group is chosen; its page opens.
 - **Add group** under a monitor's **Group** setting makes one on the spot
   and puts the monitor in it.
 - A group's page lists the monitors in it with their status. Admins change
