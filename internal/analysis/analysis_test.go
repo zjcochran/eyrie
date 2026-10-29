@@ -156,6 +156,13 @@ func TestPrompt(t *testing.T) {
 	}
 }
 
+// Only your own server has a server URL; another provider clears it.
+func TestSettingsServerURL(t *testing.T) {
+	if s := (Settings{Provider: ProviderClaudeCode, BaseURL: "http://192.0.2.20:11434/v1", TimeoutS: 60}); s.Normalize() != nil || s.BaseURL != "" {
+		t.Errorf("kept the server URL %+v", s)
+	}
+}
+
 func TestSettingsNormalize(t *testing.T) {
 	ok := []Settings{DefaultSettings(), {Enabled: true, Provider: ProviderAPI, APIKey: "sealed:k", TimeoutS: 300},
 		{Enabled: true, Provider: ProviderLocal, Model: " llama3.2 ", BaseURL: " https://llm.example.com/v1/ ", TimeoutS: 5}}

@@ -76,6 +76,9 @@ func (s *Settings) Normalize() error {
 	if s.Provider != ProviderAPI && s.Provider != ProviderClaudeCode && s.Provider != ProviderLocal {
 		return fmt.Errorf("unknown provider %q", s.Provider)
 	}
+	if s.Provider != ProviderLocal {
+		s.BaseURL = "" // only your own server has one
+	}
 	if s.TimeoutS < 5 || s.TimeoutS > 300 {
 		return errors.New("the timeout is from 5 to 300 seconds")
 	}
@@ -85,6 +88,11 @@ func (s *Settings) Normalize() error {
 	if s.BaseURL != "" && !serverURL(s.BaseURL) {
 		return fmt.Errorf("%q is not a server URL such as http://192.0.2.20:11434/v1", s.BaseURL)
 	}
+	return s.ready()
+}
+
+// ready refuses turning analysis on without what the provider needs.
+func (s *Settings) ready() error {
 	if s.Enabled && s.Provider == ProviderAPI && s.APIKey == "" {
 		return errors.New("the Claude API needs an API key")
 	}

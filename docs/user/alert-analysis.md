@@ -138,9 +138,9 @@ made-up alert** to see how long it takes.
 
 | Setting | Meaning |
 | --- | --- |
-| Analyse down alerts | Off by default. |
+| Analyse down alerts | Off by default. While it is off, the page says so, and down alerts are sent without an analysis. |
 | Analyse with | Claude with an API key, Claude with your subscription (only with `EYRIE_CLAUDE_CODE=true`), or a model on your own server. |
-| Server URL | Your own server only. Required to turn analysis on. |
+| Server URL | Your own server only. Required to turn analysis on. Saving with another provider clears it. |
 | API key | Claude with an API key: required to turn analysis on. Your own server: only if it needs one. Not used with your subscription. |
 | Model | Chosen from the models the provider lists (Claude: `GET /v1/models` with the API key; your own server: `GET <server URL>/models`), or typed in when the list cannot be loaded. Claude: blank is `claude-opus-5-5`. Your subscription: `opus`, `sonnet`, `haiku`, or blank for your account's default. Your own server: required. |
 | Timeout | 5 to 300 seconds, 60 by default: how long Eyrie waits for the model to answer. |
@@ -151,6 +151,9 @@ and shows the answer or the error. It then sends the alert, with the
 answer, to the channel chosen in **Send the test alert to** (at first an
 enabled default channel, or any enabled one): the alert before asking the
 model, then the analysis in its own message, as on a real alert. Choose **Nowhere** to only see it on the page.
+The test runs whether **Analyse down alerts** is ticked or not; when it
+is not ticked, or not yet saved, the answer says that down alerts get no
+analysis until it is ticked and saved.
 
 ## What happens on an alert
 
