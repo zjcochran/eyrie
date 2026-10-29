@@ -172,6 +172,14 @@ export interface Beat {
   latency_ms: number | null;
   message: string;
   important: boolean;
+  /** A host's use, from a system-resources check. */
+  usage?: Usage;
+}
+
+/** How busy a host is, in percent. */
+export interface Usage {
+  cpu: number;
+  memory: number;
 }
 
 /** A heartbeat that changed its monitor's status. */
@@ -243,6 +251,8 @@ export interface Monitor extends Omit<MonitorChange, 'type' | 'channels' | 'tags
     last_check: string | null;
     latency_ms: number | null;
     cert_expires: string | null;
+    /** Of the last check, for system-resources monitors. */
+    usage?: Usage;
     checking: boolean;
     /** The maintenance window it is in; '' for none. */
     maintenance: string;
@@ -397,6 +407,7 @@ export interface HourStats {
   up: number;
   down: number;
   avg_latency_ms: number | null;
+  avg_usage?: Usage;
 }
 
 export interface Channel {

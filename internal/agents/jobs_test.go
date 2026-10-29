@@ -41,11 +41,12 @@ func TestJobs(t *testing.T) {
 	expires := t0.Add(30 * 24 * time.Hour)
 	if err := h.m.Deliver(a.ID, []agentauth.Result{
 		{ID: "unknown", OK: true},
-		{ID: jobs[0].ID, OK: true, Message: "Port 5432 is open", LatencyUS: 1500, CertExpires: &expires},
+		{ID: jobs[0].ID, OK: true, Message: "Port 5432 is open", LatencyUS: 1500, CertExpires: &expires, Usage: &agentauth.Usage{CPU: 120, Memory: 40}},
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if r := <-res; !r.OK || r.Message != "Port 5432 is open" || r.Latency != 1500*time.Microsecond || !r.CertExpires.Equal(expires) {
+	if r := <-res; !r.OK || r.Message != "Port 5432 is open" || r.Latency != 1500*time.Microsecond || !r.CertExpires.Equal(expires) ||
+		*r.Usage != (check.Usage{CPU: 100, Memory: 40}) {
 		t.Errorf("result %+v", r)
 	}
 

@@ -240,7 +240,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
 | `GET /api/v1/monitors/{id}` | read | | `200` monitor |
 | `GET /api/v1/monitors/{id}/heartbeats?since=<time>&limit=<n>` | read | | `200` [heartbeats](#heartbeat), newest first, from `since` (RFC 3339; default 24 hours ago), at most `limit` (default and most 10000). `400` for a bad `since`. |
 | `GET /api/v1/status-changes?before=<id>&limit=<n>` | read | | `200` every monitor's status changes, newest first: [heartbeats](#heartbeat) with `important` true, each with its `"id"`, `limit` of them (default 100, at most 1000), only those with an id below `before` when set. `400` when `before` or `limit` is not a positive number |
-| `GET /api/v1/monitors/{id}/hours?days=<n>` | read | | `200` `[{"start","up","down","avg_latency_ms"}]`: hourly counts for the last `n` days (default 7, most 35), oldest first; hours without checks are left out |
+| `GET /api/v1/monitors/{id}/hours?days=<n>` | read | | `200` `[{"start","up","down","avg_latency_ms","avg_usage"}]`: hourly counts for the last `n` days (default 7, most 35), oldest first; hours without checks are left out. `avg_usage` (`{"cpu","memory"}`, the mean use) only for hours with system-resources checks |
 | `POST /api/v1/monitors` | admin | [monitor settings](#monitor-settings) | `201` monitor. `422` with the reason for a bad setting. |
 | `PUT /api/v1/monitors/{id}` | admin | monitor settings; `type` may be left out but not changed | `200` monitor |
 | `DELETE /api/v1/monitors/{id}` | admin | | `204`, with its heartbeats and stats |
@@ -285,6 +285,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
     "last_check": "2027-01-15T09:30:12Z",
     "latency_ms": 123.45,
     "cert_expires": "2027-03-01T00:00:00Z",
+    "usage": { "cpu": 12.34, "memory": 43.1 },
     "checking": false,
     "maintenance": ""
   },
@@ -306,6 +307,9 @@ in that group (or at the top level). `agent_id` is the
 Eyrie), with `agent_name` when that agent exists. `push_url` is only on push monitors, only for admins, and uses
 `EYRIE_BASE_URL` or the request's address. Uptime shares are from 0 to 1,
 `null` without checks in the period. `beats` is only there with `?beats=`.
+`status.usage` is the host's CPU and memory use, in percent, at the last
+check of a [system resources](../user/monitors.md#system-resources)
+monitor; it is left out for other types.
 
 #### Monitor settings
 
@@ -431,7 +435,9 @@ for no limit).
 
 `status` is `up`, `pending`, `down` or `maintenance`. `important` is true
 when the status changed. `latency_ms` is `null` when
-there was none (a failed connection, a push without `ping`).
+there was none (a failed connection, a push without `ping`). System
+resources checks add `"usage": {"cpu": 12.34, "memory": 43.1}`, the
+host's use in percent; other heartbeats have no `usage`.
 
 #### Events
 
@@ -586,6 +592,7 @@ compared in constant time). Without the setting it is `404`.
 | `eyrie_monitor_status` | gauge | `id`, `monitor`, `type` | 1 up, 0 down, 2 pending, 3 maintenance, -1 not checked yet |
 | `eyrie_monitor_active` | gauge | same | 1 running, 0 paused |
 | `eyrie_monitor_response_seconds` | gauge | same | the last check's response time; absent when it had none |
+| `eyrie_monitor_cpu_ratio`, `eyrie_monitor_memory_ratio` | gauge | same | the host's CPU and memory use at the last system-resources check, from 0 to 1; absent for other types |
 | `eyrie_monitor_cert_days_remaining` | gauge | same | days until the certificate seen by an HTTPS check expires |
 | `eyrie_monitor_checks_total` | counter | same, `result` (`up`, `down`) | checks since Eyrie started; pending counts as up, maintenance not at all |
 | `eyrie_checks_running` | gauge | | checks in progress |

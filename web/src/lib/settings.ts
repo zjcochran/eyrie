@@ -172,6 +172,10 @@ export const fields: Record<string, Field[]> = {
   ],
   'tailscale-ping': [{ key: 'host', label: 'Tailscale node', kind: 'text', placeholder: 'nas', help: 'Its name or Tailscale IP address' }],
   'system-service': [{ key: 'service', label: 'Service', kind: 'text', placeholder: 'nginx', help: 'systemd on Linux, services on Windows' }],
+  'system-resources': [
+    { key: 'cpu_max', label: 'Highest CPU use (%)', kind: 'number', min: 0, max: 100, placeholder: 'no limit', help: 'Down above it; empty or 0: no limit' },
+    { key: 'memory_max', label: 'Highest memory use (%)', kind: 'number', min: 0, max: 100, placeholder: 'no limit', help: 'Down above it; empty or 0: no limit' },
+  ],
   pm2: [{ key: 'process', label: 'PM2 process', kind: 'text', placeholder: 'api', help: 'Its name or id' }],
   globalping: [
     { key: 'kind', label: 'Measurement', kind: 'select', options: ['ping', 'http'] },

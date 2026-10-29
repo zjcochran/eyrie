@@ -63,8 +63,9 @@ type Status struct {
 	LastCheck   time.Time
 	Latency     time.Duration // negative: none
 	CertExpires time.Time
-	Up, Down    int64 // checks counted up and down since Eyrie started
-	Running     bool  // a check is in progress
+	Usage       *store.Usage // a host's use at the last check; nil: none
+	Up, Down    int64        // checks counted up and down since Eyrie started
+	Running     bool         // a check is in progress
 	// Maintenance is the title of the maintenance window the monitor is in;
 	// "" when it is not in one.
 	Maintenance string
@@ -239,7 +240,7 @@ func (e *Engine) load(ctx context.Context) error {
 		if s, ok := saved[m.ID]; ok {
 			en.st = state.State{Status: state.Status(s.Status), Since: s.Since, Failures: s.Failures, DownChecks: s.DownChecks}
 			en.status = Status{MonitorID: m.ID, Status: en.st.Status, Since: s.Since, Message: s.Message,
-				LastCheck: s.LastCheck, Latency: s.Latency, CertExpires: s.CertExpires}
+				LastCheck: s.LastCheck, Latency: s.Latency, CertExpires: s.CertExpires, Usage: s.Usage}
 			en.certNotified = s.CertNotified
 			if en.st.Status == state.Maintenance {
 				// Which window it is in is known once they are read.
@@ -372,7 +373,7 @@ func (e *Engine) record(en *entry, started time.Time, res check.Result) {
 		if !res.CertExpires.IsZero() {
 			e.checkCert(en, res.CertExpires)
 		}
-		e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: res.Message}, res.Latency)
+		e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: res.Message}, res.Latency, usage(res))
 		return
 	}
 	o := state.Next(en.rules, en.st, state.Result{OK: res.OK, Message: res.Message}, e.Clock.Now())
@@ -386,7 +387,15 @@ func (e *Engine) record(en *entry, started time.Time, res check.Result) {
 	if !res.CertExpires.IsZero() {
 		e.checkCert(en, res.CertExpires)
 	}
-	e.beat(en, o, res.Latency)
+	e.beat(en, o, res.Latency, usage(res))
+}
+
+// usage is a result's use of its host, as saved.
+func usage(res check.Result) *store.Usage {
+	if res.Usage == nil {
+		return nil
+	}
+	return &store.Usage{CPU: res.Usage.CPU, Memory: res.Usage.Memory}
 }
 
 // checkCert warns once per threshold before a certificate expires. A new
@@ -413,12 +422,12 @@ func (e *Engine) checkCert(en *entry, expires time.Time) {
 }
 
 // beat records a heartbeat for an outcome.
-func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
+func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration, use *store.Usage) {
 	now := e.Clock.Now()
 	old := en.st
 	en.st = o.State
 	s := &en.status
-	s.Status, s.Since, s.Message, s.LastCheck, s.Latency = o.Status, o.State.Since, o.Message, now, latency
+	s.Status, s.Since, s.Message, s.LastCheck, s.Latency, s.Usage = o.Status, o.State.Since, o.Message, now, latency, use
 	switch o.Status {
 	case state.Maintenance:
 	case state.Down:
@@ -427,9 +436,9 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration) {
 		s.Up++
 	}
 	b := store.Beat{MonitorID: en.m.ID, At: now, Status: string(o.Status), Latency: latency, Message: o.Message,
-		Important: o.Important}
+		Important: o.Important, Usage: use}
 	rec := store.Record{Beat: b, State: store.MonitorState{MonitorID: en.m.ID, Status: string(o.Status), Since: o.State.Since,
-		Message: o.Message, LastCheck: now, Latency: latency, CertExpires: s.CertExpires, Failures: o.State.Failures,
+		Message: o.Message, LastCheck: now, Latency: latency, CertExpires: s.CertExpires, Usage: use, Failures: o.State.Failures,
 		DownChecks: o.State.DownChecks, CertNotified: en.certNotified}}
 	if o.Status == state.Maintenance {
 		rec.State.BeforeStatus, rec.State.BeforeSince = string(en.before.Status), en.before.Since
@@ -687,12 +696,12 @@ func (e *Engine) SetManual(ctx context.Context, id int64, status state.Status, m
 		if en.status.Maintenance != "" {
 			// It takes this status when the maintenance ends.
 			en.before = state.Set(en.before, status, e.Clock.Now()).State
-			e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: msg + " (after the maintenance)"}, -1)
+			e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: msg + " (after the maintenance)"}, -1, nil)
 			return nil
 		}
 		o := state.Set(en.st, status, e.Clock.Now())
 		o.Message = msg
-		e.beat(en, o, -1)
+		e.beat(en, o, -1, nil)
 		return nil
 	})
 }

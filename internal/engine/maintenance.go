@@ -122,7 +122,7 @@ func (e *Engine) enter(en *entry, title string, now time.Time) {
 	en.st = state.State{Status: state.Maintenance, Since: now}
 	en.status.Maintenance = title
 	e.Log.Info("maintenance started", "monitor", en.m.Name, "window", title)
-	e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: "Maintenance: " + title, Important: true}, -1)
+	e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: "Maintenance: " + title, Important: true}, -1, nil)
 }
 
 // leave ends a monitor's maintenance: the state it had before comes back,
@@ -138,7 +138,7 @@ func (e *Engine) leave(en *entry, now time.Time) {
 		en.status.Status, en.status.Since = state.Unknown, time.Time{}
 		e.setSnap(en)
 	} else {
-		e.beat(en, state.Outcome{State: before, Status: before.Status, Message: "Maintenance ended", Important: true}, -1)
+		e.beat(en, state.Outcome{State: before, Status: before.Status, Message: "Maintenance ended", Important: true}, -1, nil)
 	}
 	if !en.m.Active || en.running {
 		return

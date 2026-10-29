@@ -37,6 +37,21 @@ type beatView struct {
 	LatencyMS *float64  `json:"latency_ms"` // null: none
 	Message   string    `json:"message"`
 	Important bool      `json:"important"`
+	// Usage is a host's use, from system-resources checks; absent: none.
+	Usage *usageView `json:"usage,omitempty"`
+}
+
+// usageView is how busy a host is, in percent, with two decimals.
+type usageView struct {
+	CPU    float64 `json:"cpu"`
+	Memory float64 `json:"memory"`
+}
+
+func viewUsage(u *store.Usage) *usageView {
+	if u == nil {
+		return nil
+	}
+	return &usageView{CPU: math.Round(u.CPU*100) / 100, Memory: math.Round(u.Memory*100) / 100}
 }
 
 func ms(d time.Duration) *float64 {
@@ -49,7 +64,7 @@ func ms(d time.Duration) *float64 {
 
 func viewBeat(b store.Beat) beatView {
 	return beatView{MonitorID: b.MonitorID, At: b.At, Status: b.Status, LatencyMS: ms(b.Latency), Message: b.Message,
-		Important: b.Important}
+		Important: b.Important, Usage: viewUsage(b.Usage)}
 }
 
 type statusView struct {
@@ -59,6 +74,7 @@ type statusView struct {
 	LastCheck   *time.Time `json:"last_check"`
 	LatencyMS   *float64   `json:"latency_ms"`
 	CertExpires *time.Time `json:"cert_expires"`
+	Usage       *usageView `json:"usage,omitempty"` // of the last check
 	Checking    bool       `json:"checking"`
 	// Maintenance is the title of the maintenance window it is in; "" when
 	// it is not in one.
@@ -195,7 +211,8 @@ func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status,
 		status = string(state.Unknown)
 	}
 	v.Status = statusView{Status: status, Since: timeOrNil(es.Since), Message: es.Message, LastCheck: timeOrNil(es.LastCheck),
-		LatencyMS: ms(es.Latency), CertExpires: timeOrNil(es.CertExpires), Checking: es.Running, Maintenance: es.Maintenance}
+		LatencyMS: ms(es.Latency), CertExpires: timeOrNil(es.CertExpires), Usage: viewUsage(es.Usage), Checking: es.Running,
+		Maintenance: es.Maintenance}
 	if es.LastCheck.IsZero() {
 		v.Status.LatencyMS = nil
 	}
@@ -617,14 +634,15 @@ func (s *Server) hours(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type hourView struct {
-		Start        time.Time `json:"start"`
-		Up           int64     `json:"up"`
-		Down         int64     `json:"down"`
-		AvgLatencyMS *float64  `json:"avg_latency_ms"`
+		Start        time.Time  `json:"start"`
+		Up           int64      `json:"up"`
+		Down         int64      `json:"down"`
+		AvgLatencyMS *float64   `json:"avg_latency_ms"`
+		AvgUsage     *usageView `json:"avg_usage,omitempty"`
 	}
 	out := []hourView{}
 	for _, b := range buckets {
-		out = append(out, hourView{b.Start, b.Up, b.Down, ms(b.AvgLatency())})
+		out = append(out, hourView{b.Start, b.Up, b.Down, ms(b.AvgLatency()), viewUsage(b.AvgUsage())})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

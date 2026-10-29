@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"os"
 	"os/exec"
 	"runtime"
 	"sort"
@@ -30,6 +31,7 @@ type Result struct {
 	Message     string
 	Latency     time.Duration // negative: none
 	CertExpires time.Time     // HTTPS: when the server's certificate expires
+	Usage       *Usage        // system resources: the host's use; nil: none
 }
 
 func fail(format string, args ...any) Result {
@@ -72,6 +74,8 @@ type Env struct {
 	Run func(ctx context.Context, name string, args ...string) ([]byte, error)
 	// OS is the operating system Eyrie runs on, as runtime.GOOS.
 	OS string
+	// ReadFile reads a file, such as /proc/stat.
+	ReadFile func(name string) ([]byte, error)
 	// Secrets opens the monitors' sealed secrets; nil: they are not sealed.
 	Secrets Sealer
 	// UserAgent is sent with HTTP requests.
@@ -103,6 +107,7 @@ func DefaultEnv(userAgent string) *Env {
 		Ping:      ping,
 		Run:       runProgram,
 		OS:        runtime.GOOS,
+		ReadFile:  os.ReadFile,
 		UserAgent: userAgent,
 	}
 }
@@ -161,6 +166,7 @@ func init() {
 	register(Type{"sip-options", "SIP OPTIONS", true, func() settings { return &SIP{} }})
 	register(Type{"tailscale-ping", "Tailscale ping", true, func() settings { return &Tailscale{} }})
 	register(Type{"system-service", "System service", true, func() settings { return &Service{} }})
+	register(Type{"system-resources", "System resources", true, func() settings { return &Resources{} }})
 	register(Type{"pm2", "PM2 process", true, func() settings { return &PM2{} }})
 	register(Type{"globalping", "Globalping", true, func() settings { return &Globalping{} }})
 	register(Type{"sftp", "SFTP", true, func() settings { return &SFTP{} }})

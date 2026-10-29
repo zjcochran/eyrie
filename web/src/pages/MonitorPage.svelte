@@ -16,6 +16,10 @@
   let beats = $state<Beat[]>([]); // newest first
   let period = $state<'24h' | '7d' | '30d'>('24h');
   let points = $state<Point[]>([]);
+  // A system-resources monitor's CPU and memory use, in percent.
+  let cpuPoints = $state<Point[]>([]);
+  let memoryPoints = $state<Point[]>([]);
+  const pct = (v: number) => `${Math.round(v)}%`;
   let notice = $state<{ ok: boolean; text: string } | null>(null);
   let busy = $state(false);
   let checking = $state(false); // Check now was clicked; its heartbeat has not arrived
@@ -26,6 +30,7 @@
   const periods = ['24h', '7d', '30d'] as const;
   const from = $derived(now - days[period] * 86400000);
   const changes = $derived(beats.filter((b) => b.important).slice(0, 20));
+  const resources = $derived(monitor?.type === 'system-resources');
 
   async function load() {
     try {
@@ -40,11 +45,16 @@
   async function loadChart() {
     now = Date.now();
     if (period === '24h') {
-      points = beats.map((b) => ({ t: Date.parse(b.at), v: b.latency_ms, down: b.status === 'down' })).reverse();
+      const old = [...beats].reverse();
+      points = old.map((b) => ({ t: Date.parse(b.at), v: b.latency_ms, down: b.status === 'down' }));
+      cpuPoints = old.map((b) => ({ t: Date.parse(b.at), v: b.usage?.cpu ?? null, down: b.status === 'down' }));
+      memoryPoints = old.map((b) => ({ t: Date.parse(b.at), v: b.usage?.memory ?? null, down: b.status === 'down' }));
       return;
     }
     const hours = await api.hours(id, days[period]);
     points = hours.map((h) => ({ t: Date.parse(h.start), v: h.avg_latency_ms, down: h.down > 0 }));
+    cpuPoints = hours.map((h) => ({ t: Date.parse(h.start), v: h.avg_usage?.cpu ?? null, down: h.down > 0 }));
+    memoryPoints = hours.map((h) => ({ t: Date.parse(h.start), v: h.avg_usage?.memory ?? null, down: h.down > 0 }));
   }
 
   $effect(() => {
@@ -72,12 +82,17 @@
         message: b.message,
         last_check: b.at,
         latency_ms: b.latency_ms,
+        usage: b.usage,
         since: b.important ? b.at : monitor.status.since,
         checking: false,
       };
       if (period === '24h') {
         now = Date.now();
-        points = [...points, { t: Date.parse(b.at), v: b.latency_ms, down: b.status === 'down' }];
+        const t = Date.parse(b.at);
+        const down = b.status === 'down';
+        points = [...points, { t, v: b.latency_ms, down }];
+        cpuPoints = [...cpuPoints, { t, v: b.usage?.cpu ?? null, down }];
+        memoryPoints = [...memoryPoints, { t, v: b.usage?.memory ?? null, down }];
       }
     }),
   );
@@ -171,11 +186,19 @@
       <div>{ago(m.status.last_check, now)}</div>
       <div class="muted msg">{m.status.message}</div>
     </div>
-    <div>
-      <div class="muted">Response</div>
-      <div>{millis(m.status.latency_ms)}</div>
-      <div class="muted">24 h average {millis(m.uptime.avg_latency_24h_ms)}</div>
-    </div>
+    {#if resources}
+      <div>
+        <div class="muted">Use</div>
+        <div>CPU {m.status.usage ? `${m.status.usage.cpu.toFixed(1)}%` : '–'}</div>
+        <div>Memory {m.status.usage ? `${m.status.usage.memory.toFixed(1)}%` : '–'}</div>
+      </div>
+    {:else}
+      <div>
+        <div class="muted">Response</div>
+        <div>{millis(m.status.latency_ms)}</div>
+        <div class="muted">24 h average {millis(m.uptime.avg_latency_24h_ms)}</div>
+      </div>
+    {/if}
     <div>
       <div class="muted">Uptime</div>
       <div>24 h {percent(m.uptime['24h'])}</div>
@@ -223,7 +246,7 @@
 
   <section class="card">
     <div class="row between">
-      <h2>Response time</h2>
+      <h2>{resources ? 'CPU' : 'Response time'}</h2>
       <div class="row" role="group" aria-label="Period">
         {#each periods as p (p)}
           <button
@@ -236,8 +259,19 @@
         {/each}
       </div>
     </div>
-    <Chart {points} {from} to={now} />
+    {#if resources}
+      <Chart points={cpuPoints} {from} to={now} label="CPU use" format={pct} top={100} empty="No CPU use in this period." />
+    {:else}
+      <Chart {points} {from} to={now} />
+    {/if}
   </section>
+
+  {#if resources}
+    <section class="card">
+      <h2>Memory</h2>
+      <Chart points={memoryPoints} {from} to={now} label="Memory use" format={pct} top={100} empty="No memory use in this period." />
+    </section>
+  {/if}
 
   <section class="card">
     <h2>Status changes, last 24 hours</h2>

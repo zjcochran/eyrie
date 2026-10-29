@@ -10,7 +10,8 @@ in, and keeps its data in SQLite or, for large installations, PostgreSQL.
 - **Monitors** for websites (HTTP(S), keywords, JSON, or in a real
   browser), TCP ports, ping, DNS, WebSockets, mail (SMTP), time (NTP),
   RADIUS, SNMP, SIP, SFTP, gRPC, Docker containers, game servers, Tailscale
-  nodes, system services, PM2 processes, probes around the world
+  nodes, system services, a host's CPU and memory use, PM2 processes,
+  probes around the world
   (Globalping), databases (PostgreSQL, MySQL and MariaDB, SQL Server,
   Oracle, MongoDB, Redis) and message brokers (MQTT, RabbitMQ, Kafka);
   pushes from jobs and manual monitors. A live dashboard with the list of

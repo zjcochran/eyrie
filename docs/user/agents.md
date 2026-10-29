@@ -66,6 +66,10 @@ monitor on an agent says `on agent edge`.
   has none of them.
 - A **Docker container** monitor on an agent checks the agent's Docker
   engine: its default Docker host is the agent's `DOCKER_HOST`.
+- A **System resources** monitor on an agent reads the CPU and memory use
+  of the agent's host. In an LXC container, that is the container's own,
+  not the Proxmox VE node's (see
+  [System resources](monitors.md#system-resources)).
 
 The settings of a monitor on an agent, its passwords and tokens included,
 are sent to the agent with each check. Use `https://` for

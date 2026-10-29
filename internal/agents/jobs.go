@@ -188,6 +188,9 @@ func (m *Manager) Deliver(agent int64, results []agentauth.Result) error {
 		if r.CertExpires != nil {
 			res.CertExpires = *r.CertExpires
 		}
+		if r.Usage != nil {
+			res.Usage = &check.Usage{CPU: percent(r.Usage.CPU), Memory: percent(r.Usage.Memory)}
+		}
 		w.result <- res
 	}
 	return nil
@@ -212,3 +215,6 @@ func Matcher(agent int64, keys []string) func(store.Monitor) bool {
 		return false
 	}
 }
+
+// percent keeps an agent's figure from 0 to 100.
+func percent(v float64) float64 { return min(max(v, 0), 100) }

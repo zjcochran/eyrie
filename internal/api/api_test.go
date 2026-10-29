@@ -7,7 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -97,6 +99,8 @@ func newEnv(t *testing.T) *env {
 		Resolve:   func(context.Context, string) ([]netip.Addr, error) { return nil, errors.New("none") },
 		Ping:      func(context.Context, netip.Addr, int, int) (time.Duration, error) { return 0, errors.New("none") },
 		Secrets:   box,
+		OS:        "linux",
+		ReadFile:  fakeProc(),
 	}
 	log := slog.New(slog.NewTextHandler(e.log, nil))
 	eng := engine.New(st, checkEnv, log)
@@ -365,5 +369,23 @@ func TestDatabaseErrors(t *testing.T) {
 	}
 	if !strings.Contains(e.log.String(), "request failed") {
 		t.Error("errors not logged")
+	}
+}
+
+// fakeProc is a host whose CPU is 30% busy and whose memory is half used.
+func fakeProc() func(string) ([]byte, error) {
+	var mu sync.Mutex
+	var ticks int
+	return func(name string) ([]byte, error) {
+		switch name {
+		case "/proc/stat":
+			mu.Lock()
+			defer mu.Unlock()
+			ticks += 100
+			return fmt.Appendf(nil, "cpu  %d 0 0 %d 0 0 0 0 0 0\n", ticks*3/10, ticks*7/10), nil
+		case "/proc/meminfo":
+			return []byte("MemTotal: 8388608 kB\nMemAvailable: 4194304 kB\n"), nil
+		}
+		return nil, fs.ErrNotExist
 	}
 }
