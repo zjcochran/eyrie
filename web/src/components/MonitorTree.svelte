@@ -10,8 +10,11 @@
   import { api } from '../lib/session.svelte.ts';
   import { buildTree, canDrop, type Drop, flatten, groupStatus, type Item, key, layout, move, type Row } from '../lib/tree.ts';
 
-  /** selected: the key of the monitor (m<id>) or group (g<id>) shown beside the list. */
-  let { selected = '', admin = false }: { selected?: string; admin?: boolean } = $props();
+  /**
+   * selected: the key of the monitor (m<id>) or group (g<id>) shown beside
+   * the list; overview: the overview is shown there.
+   */
+  let { selected = '', overview = false, admin = false }: { selected?: string; overview?: boolean; admin?: boolean } = $props();
 
   // The tag the list is filtered by; 0 for none.
   let tagFilter = $state(0);
@@ -232,6 +235,21 @@
   {/if}
   {#if canDrag}<p class="muted hint">Drag to reorder, or onto a group to move into it.</p>{/if}
   <div class="card list" use:dnd>
+    <div class="item">
+      <a class="entry overview" href="/" onclick={link} draggable="false" aria-current={overview ? 'page' : undefined}>
+        <span class="line"
+          ><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"
+            ><path
+              d="M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linejoin="round"
+            /></svg
+          ><span class="name">Overview</span></span
+        >
+      </a>
+    </div>
     {#each rows as { item, depth, size } (key(item))}
       {@const k = key(item)}
       <div
@@ -351,6 +369,12 @@
   .entry[aria-current='page'] {
     background: var(--bg);
     box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .entry.overview {
+    padding-left: 1.9rem;
+  }
+  .entry.overview .name {
+    font-weight: 600;
   }
   .entry.group .name {
     font-weight: 600;

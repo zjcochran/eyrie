@@ -20,7 +20,7 @@
 
 <div class="split" class:chosen>
   <aside class="side" aria-label="Monitors">
-    <MonitorTree {selected} {admin} />
+    <MonitorTree {selected} overview={!chosen} {admin} />
   </aside>
   <section class="pane">
     {#if chosen}<p class="back"><a href="/" onclick={link}>← Monitors</a></p>{/if}

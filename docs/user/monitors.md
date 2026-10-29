@@ -12,7 +12,8 @@ in sees them.
 The **Monitors** page has the list of every [group](#groups) and monitor on
 the left, and what you click in it on the right: a monitor's page, a
 group's page, or the form to add or change a monitor. With nothing chosen,
-the right shows the overview:
+the right shows the overview; **Overview**, at the top of the list, goes
+back to it:
 
 - the number of active monitors (and paused ones), the average uptime
   of the active monitors over 24 hours and 30 days, their average
