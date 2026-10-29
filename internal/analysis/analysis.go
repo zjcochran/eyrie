@@ -212,6 +212,7 @@ func (a *Analyzer) Analyze(m store.Monitor, b store.Beat) string {
 		return ""
 	}
 	defer a.running.Add(-1)
+	a.Log.Info("asking the model to analyse the alert", "monitor", m.Name, "provider", s.Provider, "model", s.Model)
 	ctx, cancel := context.WithTimeout(context.Background(), a.timeout(s))
 	defer cancel()
 	prompt, err := a.prompt(ctx, m, b)

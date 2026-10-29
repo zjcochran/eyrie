@@ -159,6 +159,8 @@ analysis until it is ticked and saved.
 
 - Only **down** alerts (`monitor_down`) are analysed. "Still down"
   reminders, "back up" messages, certificate warnings and tests are not.
+- Asking the model is logged at the info level (`asking the model to
+  analyse the alert`, with the monitor, provider and model).
 - The down alert is sent at once and never waits for the analysis. The
   analysis follows in its own message (`monitor_analysis`, priority 3,
   titled `<monitor> is down: analysis`) to the same channels, when the
