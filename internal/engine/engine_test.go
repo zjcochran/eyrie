@@ -594,11 +594,18 @@ func TestAgentMonitors(t *testing.T) {
 	}
 
 	h = newHarness(t)
-	h.e.Agents = fakeAgents{check.Result{OK: true, Message: "Checked on the agent", Latency: 3 * time.Millisecond}}
+	h.e.Agents = fakeAgents{check.Result{OK: true, Message: "Checked on the agent", Latency: 3 * time.Millisecond,
+		Usage: &check.Usage{CPU: 12.5, Memory: 40}}}
 	h.start()
 	a = h.add(m)
-	if b := h.next(); b.MonitorID != a.ID || b.Status != "up" || b.Message != "Checked on the agent" || b.Latency != 3*time.Millisecond {
+	if b := h.next(); b.MonitorID != a.ID || b.Status != "up" || b.Message != "Checked on the agent" || b.Latency != 3*time.Millisecond ||
+		b.Usage == nil || *b.Usage != (store.Usage{CPU: 12.5, Memory: 40}) {
 		t.Errorf("on the agent %+v", b)
+	}
+	for _, st := range h.e.Statuses() {
+		if st.MonitorID == a.ID && (st.Usage == nil || st.Usage.CPU != 12.5) {
+			t.Errorf("status %+v", st)
+		}
 	}
 	bad := monitor("Cache", "port", portConfig)
 	bad.AgentID = 7

@@ -72,6 +72,9 @@ func (a *Agent) send1(ctx context.Context, id string, res check.Result) {
 		t := res.CertExpires
 		r.CertExpires = &t
 	}
+	if res.Usage != nil {
+		r.Usage = &agentauth.Usage{CPU: res.Usage.CPU, Memory: res.Usage.Memory}
+	}
 	if err := a.do(ctx, agentauth.PathResults, agentauth.Results{Results: []agentauth.Result{r}}); err != nil && ctx.Err() == nil {
 		a.Log.Warn("cannot send a check's result to Eyrie", "err", err)
 	}

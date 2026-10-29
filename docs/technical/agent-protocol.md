@@ -71,7 +71,7 @@ cleared.
 | `POST /api/agent/v1/report` | `{"version", "platform", "hostname", "error", "workloads": [...]}` | `204`; `400` for more than 10,000 workloads, or a workload with an empty, repeated or over-300-byte key |
 | `POST /api/agent/v1/rotate` | `{"new_key", "ts", "proof"}` | `204`; `400` for a malformed key or a proof that does not verify; `401` if signed with the previous key for a key other than the current one |
 | `POST /api/agent/v1/jobs` | `{}` | `200 {"jobs": [{"id", "monitor", "type", "settings", "timeout_ms"}]}`: the checks to run, at once when there are some, else after up to 15 seconds with none |
-| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped |
+| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires", "usage"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped. `usage` (`{"cpu", "memory"}`, in percent, kept from 0 to 100) only from system-resources checks |
 
 A workload is `{"key", "name", "kind", "group", "up", "status"}`: `kind`
 is `container`, `service`, `deployment`, `statefulset`, `daemonset`,

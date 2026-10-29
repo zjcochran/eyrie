@@ -110,11 +110,13 @@ Click a monitor for its page:
 - its tags, and the group it is in;
 - its status and since when (in maintenance, the window's title), the last
   check and its message;
-- the last and the 24-hour average response time;
+- the last and the 24-hour average response time (for [system
+  resources](#system-resources), the last CPU and memory use instead);
 - uptime over 24 hours, 30 days and 1 year;
 - for HTTPS monitors, how many days the server's certificate has left;
 - a response time chart for 24 hours (every check), 7 or 30 days (hourly
-  averages), with down periods marked in red;
+  averages), with down periods marked in red (for system resources, a CPU
+  and a memory chart instead);
 - the status changes of the last 24 hours.
 
 Response times are kept to the microsecond and shown with decimals under
@@ -413,6 +415,52 @@ must say `active`; on Windows, `sc.exe query` must say `RUNNING`. Other
 systems are not supported. Inside a container this sees the container, not
 the host: it is for Eyrie running directly on a host.
 
+### System resources
+
+How busy a host is, read from Linux's `/proc`:
+
+- **CPU use**: the share of one second the processors were busy, from two
+  readings of `/proc/stat`; waiting for disks counts as idle;
+- **memory use**: what is not available to start programs without
+  swapping (`MemTotal` less `MemAvailable` in `/proc/meminfo`);
+- the load average over the last minute (`/proc/loadavg`), in the message
+  only.
+
+| Setting | Default | |
+| --- | --- | --- |
+| Highest CPU use (%) | no limit | Down while the CPU use is above it |
+| Highest memory use (%) | no limit | Down while the memory use is above it |
+
+Without limits, it is up whenever it can read the figures, and is there
+for its charts. Messages: `CPU 12.3%, memory 43.1% of 15.6 GiB, load 0.52`;
+over a limit, `CPU is above 90%: CPU 95.2%, memory …`. A check takes about
+a second. It has no response time: its page shows the CPU and memory use,
+with a chart of each for 24 hours, 7 or 30 days, and
+[`/metrics`](../technical/http-interface.md#metrics) has
+`eyrie_monitor_cpu_ratio` and `eyrie_monitor_memory_ratio`.
+
+**Runs on** picks the host:
+
+- **Eyrie**: the host Eyrie runs on. In a Docker container, these `/proc`
+  files show the whole host, not the container, so it needs no volume,
+  privilege or Docker socket.
+- **An [agent](agents.md)**: the host the agent runs on, in the same way.
+
+It works only on Linux. With Docker Desktop on macOS or Windows, the
+figures are those of Docker's Linux virtual machine, not the computer's.
+In a VM, they are the VM's own.
+
+**In an LXC container, the figures are the container's, not the host's.**
+Proxmox VE's LXC containers (and others that use LXCFS) put their own
+`/proc/stat`, `/proc/meminfo` and `/proc/loadavg` over the host's, so that
+programs inside see the container's limits. Eyrie, or an agent, in an LXC
+container, with or without Docker inside it, therefore reports that LXC
+container's CPU and memory use, against its own memory size and cores,
+not the Proxmox VE node's. To follow a node itself, run an agent on the
+node rather than in one of its containers; to follow its guests, use
+[Proxmox VE guest](#docker-swarm-service-kubernetes-workload-proxmox-ve-guest)
+monitors.
+
 ### PM2 process
 
 Runs `pm2 jlist` on Eyrie's host and finds a **process** by name or id: up
@@ -637,7 +685,8 @@ check, such as a supplier's outage.
 
 ## Uptime and history
 
-- Every check is a heartbeat: time, status, response time, message.
+- Every check is a heartbeat: time, status, response time, message, and
+  for system resources the CPU and memory use.
 - Uptime is the share of checks that were up. **Pending checks count as up**:
   a monitor is not down until its retries run out. Paused periods have no
   checks and do not count, and checks in maintenance count neither way (nor

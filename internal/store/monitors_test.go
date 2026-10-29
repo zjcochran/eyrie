@@ -242,6 +242,43 @@ func TestFastBeats(t *testing.T) {
 	})
 }
 
+// A host's use is kept with the beat, the state and the stats.
+func TestUsageBeats(t *testing.T) {
+	eachDB(t, func(t *testing.T, s *Store) {
+		ctx := context.Background()
+		a, _ := seed(t, s)
+		at := t0.Add(300 * time.Minute)
+		for i, u := range []Usage{{CPU: 50.25, Memory: 70}, {CPU: 10.75, Memory: 80}} {
+			r := beat(a.ID, at.Add(time.Duration(i)*time.Minute), "up", 0)
+			r.Beat.Usage, r.State.Usage = &u, &u
+			if err := s.Save(ctx, []Record{r}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		beats, _ := s.Heartbeats(ctx, a.ID, at, 2)
+		if len(beats) != 2 || *beats[0].Usage != (Usage{CPU: 10.75, Memory: 80}) {
+			t.Errorf("beats %+v", beats)
+		}
+		recent, _ := s.RecentBeats(ctx, 1)
+		if r := recent[a.ID]; len(r) != 1 || r[0].Usage == nil || r[0].Usage.CPU != 10.75 {
+			t.Errorf("recent %+v", r)
+		}
+		if old, _ := s.Heartbeats(ctx, a.ID, t0, 1000); old[len(old)-1].Usage != nil {
+			t.Errorf("a beat without use has one: %+v", old[len(old)-1])
+		}
+		if states, _ := s.States(ctx); *states[a.ID].Usage != (Usage{CPU: 10.75, Memory: 80}) {
+			t.Errorf("state %+v", states[a.ID])
+		}
+		hours, _ := s.Hours(ctx, a.ID, at)
+		if len(hours) != 1 || *hours[0].AvgUsage() != (Usage{CPU: 30.5, Memory: 75}) {
+			t.Errorf("hours %+v", hours)
+		}
+		if (Totals{}).AvgUsage() != nil {
+			t.Error("use without checks")
+		}
+	})
+}
+
 func TestStats(t *testing.T) {
 	eachDB(t, func(t *testing.T, s *Store) {
 		ctx := context.Background()

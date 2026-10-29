@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/zjcochran/eyrie/internal/engine"
 	"github.com/zjcochran/eyrie/internal/state"
+	"github.com/zjcochran/eyrie/internal/store"
 )
 
 // started is when Eyrie started, for process_start_time_seconds.
@@ -72,6 +74,7 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(&b, "eyrie_monitor_response_seconds{%s} %s\n", labels[i], float(st.Latency.Seconds()))
 		}
 	}
+	usageMetrics(&b, metric, mons, labels, statuses)
 	metric("eyrie_monitor_cert_days_remaining", "Days until the TLS certificate the monitor saw expires.", "gauge")
 	for i, m := range mons {
 		if st := statuses[m.ID]; !st.CertExpires.IsZero() {
@@ -118,3 +121,22 @@ func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
 func label(s string) string { return strings.NewReplacer("\n", " ", "\r", " ").Replace(s) }
 
 func float(f float64) string { return strconv.FormatFloat(f, 'f', -1, 64) }
+
+// usageMetrics writes the hosts' use from system-resources checks.
+func usageMetrics(b *strings.Builder, metric func(name, help, typ string), mons []store.Monitor, labels []string,
+	statuses map[int64]engine.Status) {
+	for _, u := range []struct {
+		name, what string
+		value      func(*store.Usage) float64
+	}{
+		{"cpu", "CPU", func(u *store.Usage) float64 { return u.CPU }},
+		{"memory", "Memory", func(u *store.Usage) float64 { return u.Memory }},
+	} {
+		metric("eyrie_monitor_"+u.name+"_ratio", u.what+" use of the host at the last system-resources check, from 0 to 1.", "gauge")
+		for i, m := range mons {
+			if st := statuses[m.ID]; st.Usage != nil {
+				fmt.Fprintf(b, "eyrie_monitor_%s_ratio{%s} %s\n", u.name, labels[i], float(u.value(st.Usage)/100))
+			}
+		}
+	}
+}

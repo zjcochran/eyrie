@@ -2,14 +2,32 @@
 <script lang="ts">
   import { millis, type Point } from '../lib/format.ts';
 
-  let { points, from, to }: { points: Point[]; from: number; to: number } = $props();
+  // label names the chart; format shows a value; top fixes the scale's top
+  // (response times scale to the largest).
+  let {
+    points,
+    from,
+    to,
+    label = 'Response time',
+    format = millis,
+    top: fixedTop,
+    empty = 'No response times in this period.',
+  }: {
+    points: Point[];
+    from: number;
+    to: number;
+    label?: string;
+    format?: (v: number) => string;
+    top?: number;
+    empty?: string;
+  } = $props();
 
   const w = 800;
   const h = 180;
   const pad = { l: 56, r: 8, t: 8, b: 22 };
 
   // At least 1 ms, so sub-millisecond checks still fill the chart.
-  const top = $derived(Math.max(1, ...points.map((p) => p.v ?? 0)) * 1.1);
+  const top = $derived(fixedTop ?? Math.max(1, ...points.map((p) => p.v ?? 0)) * 1.1);
   const x = (t: number) => pad.l + ((t - from) / Math.max(1, to - from)) * (w - pad.l - pad.r);
   const y = (v: number) => pad.t + (1 - v / top) * (h - pad.t - pad.b);
 
@@ -29,7 +47,7 @@
     return out;
   });
   const downs = $derived(points.filter((p) => p.down));
-  const ticks = $derived([0, 0.5, 1].map((f) => ({ v: top * f, label: millis(top * f) })));
+  const ticks = $derived([0, 0.5, 1].map((f) => ({ v: top * f, label: format(top * f) })));
   // Two days or more: dates. Less: date and time, as both ends of 24 hours
   // have the same time of day.
   const fmt = (t: number) =>
@@ -39,7 +57,7 @@
   const any = $derived(points.some((p) => p.v !== null));
 </script>
 
-{#if any}<svg viewBox="0 0 {w} {h}" role="img" aria-label="Response time">
+{#if any}<svg viewBox="0 0 {w} {h}" role="img" aria-label={label}>
   {#each ticks as tk (tk.v)}
     <line class="grid" x1={pad.l} x2={w - pad.r} y1={y(tk.v)} y2={y(tk.v)} />
     <text class="axis" x={pad.l - 6} y={y(tk.v) + 4} text-anchor="end">{tk.label}</text>
@@ -53,7 +71,7 @@
   <text class="axis" x={pad.l} y={h - 6}>{fmt(from)}</text>
   <text class="axis" x={w - pad.r} y={h - 6} text-anchor="end">{fmt(to)}</text>
 </svg>
-{:else}<p class="muted">No response times in this period.</p>{/if}
+{:else}<p class="muted">{empty}</p>{/if}
 
 <style>
   svg {

@@ -49,9 +49,11 @@ func TestRunJobResult(t *testing.T) {
 	expires := time.Date(2027, 1, 15, 0, 0, 0, 0, time.UTC)
 	a.Env = &check.Env{}
 	ctx := context.Background()
-	a.send1(ctx, "9", check.Result{OK: true, Message: "OK", Latency: 1500 * time.Microsecond, CertExpires: expires})
+	a.send1(ctx, "9", check.Result{OK: true, Message: "OK", Latency: 1500 * time.Microsecond, CertExpires: expires,
+		Usage: &check.Usage{CPU: 5, Memory: 60}})
 	got := e.got()
-	if len(got) != 1 || !got[0].OK || got[0].LatencyUS != 1500 || got[0].CertExpires == nil || !got[0].CertExpires.Equal(expires) {
+	if len(got) != 1 || !got[0].OK || got[0].LatencyUS != 1500 || got[0].CertExpires == nil || !got[0].CertExpires.Equal(expires) ||
+		got[0].Usage == nil || *got[0].Usage != (agentauth.Usage{CPU: 5, Memory: 60}) {
 		t.Errorf("sent %+v", got)
 	}
 }

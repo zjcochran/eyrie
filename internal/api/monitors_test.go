@@ -197,7 +197,7 @@ func TestMonitorAccess(t *testing.T) {
 		Agents      bool
 		AgentOnly   bool `json:"agent_only"`
 	}
-	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 36 || types[0].Name != "dns" || !types[0].Agents || types[0].AgentOnly {
+	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 37 || types[0].Name != "dns" || !types[0].Agents || types[0].AgentOnly {
 		t.Errorf("types %+v", types)
 	}
 }
@@ -334,6 +334,42 @@ func TestEvents(t *testing.T) {
 			}
 		case <-deadline:
 			t.Fatalf("events seen: %v", seen)
+		}
+	}
+}
+
+func TestResourcesMonitor(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	m := create(t, admin, map[string]any{"name": "Host", "type": "system-resources", "settings": map[string]any{"cpu_max": 90}})
+	eventually(t, "the first check", func() bool { return statusOf(admin, m.ID) == "up" })
+	var got monitorView
+	admin.call("GET", fmt.Sprintf("/api/v1/monitors/%d", m.ID), nil, &got)
+	if u := got.Status.Usage; u == nil || *u != (usageView{CPU: 30, Memory: 50}) || got.Status.Message != "CPU 30.0%, memory 50.0% of 8.0 GiB" {
+		t.Errorf("status %+v", got.Status)
+	}
+	var beats []beatView
+	eventually(t, "the heartbeat saved", func() bool {
+		admin.call("GET", fmt.Sprintf("/api/v1/monitors/%d/heartbeats", m.ID), nil, &beats)
+		return len(beats) > 0
+	})
+	if beats[0].Usage == nil || beats[0].Usage.CPU != 30 {
+		t.Errorf("beats %+v", beats)
+	}
+	var hours []struct {
+		AvgUsage *usageView `json:"avg_usage"`
+	}
+	admin.call("GET", fmt.Sprintf("/api/v1/monitors/%d/hours?days=1", m.ID), nil, &hours)
+	if len(hours) == 0 || hours[len(hours)-1].AvgUsage == nil || hours[len(hours)-1].AvgUsage.Memory != 50 {
+		t.Errorf("hours %+v", hours)
+	}
+	_, body := e.client().do("GET", "/metrics", nil, "Authorization", "Bearer m3trics")
+	for _, want := range []string{
+		fmt.Sprintf(`eyrie_monitor_cpu_ratio{id="%d",monitor="Host",type="system-resources"} 0.3`, m.ID),
+		fmt.Sprintf(`eyrie_monitor_memory_ratio{id="%d",monitor="Host",type="system-resources"} 0.5`, m.ID),
+	} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("missing %q", want)
 		}
 	}
 }

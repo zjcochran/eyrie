@@ -235,6 +235,7 @@ Written with every heartbeat.
 | `down_checks` | `INTEGER` | Checks since the last down notification, for "notify again every" |
 | `cert_notified` | `INTEGER` | The certificate warning last sent for `cert_expires`, as its threshold in days; `0` for none. Migration `00004_notifications`. |
 | `before_status`, `before_since` | `TEXT`, `BIGINT` | In maintenance, the status the monitor had before it began and since when, which come back when it ends; `''` and `0` otherwise. Migration `00005_tags_maintenance`. |
+| `cpu_bp`, `memory_bp` | `BIGINT` | The host's CPU and memory use at the last system-resources check, in hundredths of a percent (`5025`: 50.25%); `-1` for none. Migration `00013_usage`. |
 
 ### heartbeats
 
@@ -254,6 +255,7 @@ setting are deleted daily.
 | `latency_us` | `BIGINT` | In microseconds; `-1` for none. Migration `00007_latency_micros`. |
 | `message` | `TEXT` | |
 | `important` | `BOOLEAN` | The status changed |
+| `cpu_bp`, `memory_bp` | `BIGINT` | System resources: the host's CPU and memory use, in hundredths of a percent; `-1` for none. Migration `00013_usage`. |
 
 Heartbeats are written in batches about once a second (at most 500 per
 transaction), with the state and the stats below in the same transaction.
@@ -273,6 +275,8 @@ Check counts per monitor and hour (`bucket`: the hour's start) or day
 | `latency_sum` | `BIGINT` | Whole milliseconds, over checks with a response time. Still written, but read only to fill `latency_us_sum` |
 | `latency_us_sum` | `BIGINT` | Microseconds, over checks with a response time; `-1` until filled from `latency_sum`. Migration `00007_latency_micros`. |
 | `latency_count` | `INTEGER` | Checks with a response time |
+| `cpu_bp_sum`, `memory_bp_sum` | `BIGINT` | Hundredths of a percent, over checks with a host's use (system resources); default `0`. Migration `00013_usage`. |
+| `usage_count` | `BIGINT` | Checks with a host's use; default `0` |
 
 Response times were kept in whole milliseconds until migration
 `00007_latency_micros`, which made a 0.5 ms ping 0 ms. The migration fills

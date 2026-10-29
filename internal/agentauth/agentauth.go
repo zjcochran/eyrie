@@ -261,6 +261,15 @@ type Result struct {
 	LatencyUS int64  `json:"latency_us"` // negative: none
 	// CertExpires is when the server's certificate expires; nil: none seen.
 	CertExpires *time.Time `json:"cert_expires,omitempty"`
+	// Usage is the agent's host's use, from a system-resources check; nil:
+	// none.
+	Usage *Usage `json:"usage,omitempty"`
+}
+
+// Usage is how busy a host is, in percent.
+type Usage struct {
+	CPU    float64 `json:"cpu"`
+	Memory float64 `json:"memory"`
 }
 
 // Results are the results an agent sends.
