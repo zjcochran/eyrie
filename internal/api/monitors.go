@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"net/http"
 	"strconv"
@@ -93,7 +94,9 @@ type monitorView struct {
 	Name          string           `json:"name"`
 	Type          string           `json:"type"`
 	GroupID       *int64           `json:"group_id"`
-	Position      int              `json:"position"` // its place among the groups and monitors in its group
+	AgentID       *int64           `json:"agent_id"`             // null: checked by Eyrie
+	AgentName     string           `json:"agent_name,omitempty"` // the agent's name; "" when it was removed
+	Position      int              `json:"position"`             // its place among the groups and monitors in its group
 	Active        bool             `json:"active"`
 	Interval      float64          `json:"interval"` // seconds
 	RetryInterval float64          `json:"retry_interval"`
@@ -175,6 +178,13 @@ func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status,
 	if m.GroupID != 0 {
 		g := m.GroupID
 		v.GroupID = &g
+	}
+	if m.AgentID != 0 {
+		a := m.AgentID
+		v.AgentID = &a
+		if ag, ok := s.Agents.Get(a); ok {
+			v.AgentName = ag.Name
+		}
 	}
 	// The push URL lets its holder report the monitor's status: admins only.
 	if sess := sessionFrom(r); m.PushToken != "" && sess != nil && sess.User.IsAdmin() {
@@ -264,6 +274,7 @@ type monitorBody struct {
 	Name           string          `json:"name"`
 	Type           string          `json:"type"`
 	GroupID        *int64          `json:"group_id"`
+	AgentID        *int64          `json:"agent_id"`
 	Active         *bool           `json:"active"`
 	Interval       float64         `json:"interval"`
 	RetryInterval  float64         `json:"retry_interval"`
@@ -337,13 +348,33 @@ func (s *Server) apply(b monitorBody, m *store.Monitor) error {
 		return err
 	}
 	m.Config = cfg
-	if agent, _, ok := check.AgentTarget(cfg); ok && m.Type == "agent" {
-		if _, found := s.Agents.Get(agent); !found {
-			return errors.New("there is no such agent: add it in Settings → Agents")
-		}
+	if err := s.applyAgent(b, m); err != nil {
+		return err
 	}
 	if m.Type == "push" && (m.PushToken == "" || b.ResetPushToken) {
 		m.PushToken = newPushToken()
+	}
+	return nil
+}
+
+// applyAgent checks where a monitor is checked: by Eyrie, or by an agent
+// that exists. Push and manual monitors are not checked; the types of a
+// platform's workloads are checked only on an agent.
+func (s *Server) applyAgent(b monitorBody, m *store.Monitor) error {
+	m.AgentID = 0
+	if b.AgentID != nil {
+		m.AgentID = *b.AgentID
+	}
+	switch {
+	case m.AgentID == 0 && check.AgentOnly(m.Type):
+		return fmt.Errorf("a %s monitor is checked on an agent: choose one under Runs on", check.Types[m.Type].Label)
+	case m.AgentID == 0:
+		return nil
+	case !check.Types[m.Type].Scheduled:
+		return fmt.Errorf("a %s monitor is not checked, so it does not run on an agent", check.Types[m.Type].Label)
+	}
+	if _, found := s.Agents.Get(m.AgentID); !found {
+		return errors.New("there is no such agent: add it in Settings → Agents")
 	}
 	return nil
 }
@@ -603,10 +634,13 @@ func (s *Server) monitorTypes(w http.ResponseWriter, _ *http.Request) {
 	type typeView struct {
 		Name  string `json:"name"`
 		Label string `json:"label"`
+		// Agents: it can run on an agent; AgentOnly: only on one.
+		Agents    bool `json:"agents"`
+		AgentOnly bool `json:"agent_only"`
 	}
 	out := []typeView{}
 	for _, n := range check.Names() {
-		out = append(out, typeView{n, check.Types[n].Label})
+		out = append(out, typeView{n, check.Types[n].Label, check.Types[n].Scheduled, check.AgentOnly(n)})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

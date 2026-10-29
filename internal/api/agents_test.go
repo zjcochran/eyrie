@@ -4,11 +4,13 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -75,7 +77,6 @@ func (e *env) addAgent(admin *client, name string) *fakeAgent {
 func agentEnv(t *testing.T) (*env, *client, *fakeAgent) {
 	t.Helper()
 	e := newEnv(t)
-	e.s.Env.Agents = e.s.Agents
 	admin := e.setup()
 	a := e.addAgent(admin, "edge")
 	if code := a.report(workload.Workload{Key: "web", Name: "web", Kind: "container", Up: true, Status: "Running, healthy"}); code != http.StatusNoContent {
@@ -127,14 +128,69 @@ func TestAgentWorkloads(t *testing.T) {
 	}
 }
 
-// A monitor of a workload follows the agent's reports.
+// serve runs the checks Eyrie gives the agent, answering each with
+// answer, until the test ends.
+func (a *fakeAgent) serve(answer func(agentauth.Job) agentauth.Result) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	a.e.t.Cleanup(func() { cancel(); <-done })
+	go func() {
+		defer close(done)
+		for ctx.Err() == nil {
+			code, body := a.post(agentauth.PathJobs, struct{}{})
+			var jobs agentauth.Jobs
+			if code != http.StatusOK || json.Unmarshal([]byte(body), &jobs) != nil {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+			var res agentauth.Results
+			for _, j := range jobs.Jobs {
+				r := answer(j)
+				r.ID = j.ID
+				res.Results = append(res.Results, r)
+			}
+			if len(res.Results) > 0 {
+				a.post(agentauth.PathResults, res)
+			}
+		}
+	}()
+}
+
+// A monitor on an agent is checked there, and at once when the agent's
+// report of its workload changes.
 func TestAgentMonitor(t *testing.T) {
 	_, admin, a := agentEnv(t)
-	if code, msg := admin.errorOf("POST", "/api/v1/monitors", map[string]any{"name": "Web", "type": "agent", "settings": map[string]any{"agent": 999, "workload": "web"}}); code != http.StatusUnprocessableEntity || !strings.Contains(msg, "no such agent") {
-		t.Errorf("no agent: %d %s", code, msg)
+	for _, c := range []struct {
+		body map[string]any
+		msg  string
+	}{
+		{map[string]any{"name": "Web", "type": "docker", "agent_id": 999, "settings": map[string]any{"container": "web"}}, "no such agent"},
+		{map[string]any{"name": "Job", "type": "push", "agent_id": a.id}, "is not checked, so it does not run on an agent"},
+		{map[string]any{"name": "App", "type": "kubernetes", "settings": map[string]any{"name": "app"}}, "is checked on an agent: choose one under Runs on"},
+	} {
+		if code, msg := admin.errorOf("POST", "/api/v1/monitors", c.body); code != http.StatusUnprocessableEntity || !strings.Contains(msg, c.msg) {
+			t.Errorf("%v: %d %s", c.body, code, msg)
+		}
 	}
-	m := create(t, admin, map[string]any{"name": "Web", "type": "agent", "settings": map[string]any{"agent": a.id, "workload": "web"}})
+	var up atomic.Bool
+	up.Store(true)
+	var seen atomic.Value
+	a.serve(func(j agentauth.Job) agentauth.Result {
+		seen.Store(j)
+		if up.Load() {
+			return agentauth.Result{OK: true, Message: "Running, healthy", LatencyUS: -1}
+		}
+		return agentauth.Result{Message: "Exited (exit code 1)", LatencyUS: -1}
+	})
+	m := create(t, admin, map[string]any{"name": "Web", "type": "docker", "agent_id": a.id, "settings": map[string]any{"container": "web"}})
+	if m.AgentID == nil || *m.AgentID != a.id || m.AgentName != "edge" {
+		t.Errorf("agent %+v", m.AgentID)
+	}
 	eventually(t, "web up", func() bool { return statusOf(admin, m.ID) == "up" })
+	if j := seen.Load().(agentauth.Job); j.Type != "docker" || j.Monitor != m.ID || !strings.Contains(string(j.Settings), `"web"`) {
+		t.Errorf("job %+v", j)
+	}
+	up.Store(false)
 	a.report(workload.Workload{Key: "web", Name: "web", Kind: "container", Status: "Exited (exit code 1)"})
 	eventually(t, "web down at once", func() bool { return statusOf(admin, m.ID) == "down" })
 	var mv monitorView
@@ -142,6 +198,14 @@ func TestAgentMonitor(t *testing.T) {
 	if mv.Status.Message != "Exited (exit code 1)" {
 		t.Errorf("message %q", mv.Status.Message)
 	}
+
+	// Back to Eyrie, then onto the agent again.
+	var local monitorView
+	admin.call("PUT", fmt.Sprintf("/api/v1/monitors/%d", m.ID), map[string]any{"name": "Web", "type": "docker", "settings": map[string]any{"container": "web"}}, &local)
+	if local.AgentID != nil {
+		t.Errorf("still on the agent %+v", local.AgentID)
+	}
+	admin.call("PUT", fmt.Sprintf("/api/v1/monitors/%d", m.ID), map[string]any{"name": "Web", "type": "docker", "agent_id": a.id, "settings": map[string]any{"container": "web"}}, nil)
 	if code := admin.call("DELETE", fmt.Sprintf("/api/v1/agents/%d", a.id), nil, nil); code != http.StatusNoContent {
 		t.Errorf("remove: %d", code)
 	}

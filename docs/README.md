@@ -12,7 +12,7 @@ are updated in the same change as the behaviour they describe.
 | [Reverse proxy examples](user/reverse-proxy.md) | nginx, Caddy, Traefik, Apache httpd and HAProxy in front of Eyrie, what a proxy must allow, finding the proxy's address |
 | [Upgrades and compatibility](user/upgrading.md) | Upgrading, image tags, downgrades, what stays compatible between versions (configuration, API, backups, …) and what can change |
 | [Monitors](user/monitors.md) | The dashboard, a monitor's page, adding monitors, every type and setting, tags, push URLs, uptime and history |
-| [Agents](user/agents.md) | Running Eyrie's agent on Docker, Docker Swarm, Kubernetes and Proxmox VE hosts so monitors can follow their containers, services, workloads and guests; settings, security, problems |
+| [Agents](user/agents.md) | Running Eyrie's agent on other hosts, and on Docker, Docker Swarm, Kubernetes and Proxmox VE, so monitors can be checked from there and follow their containers, services, workloads and guests; settings, security, problems |
 | [Maintenance windows](user/maintenance.md) | Schedules (once, weekly, monthly, every N days, cron), time zones, what a window covers (monitors, tags, groups), what happens during and after it |
 | [Status pages, incidents and badges](user/status-pages.md) | Public status pages built from tags and monitors, incidents with a timeline, SVG badges |
 | [Notifications](user/notifications.md) | Channels (ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks), what is sent, certificate warnings, delivery |

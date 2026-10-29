@@ -117,7 +117,8 @@ Admins also get **Check now**, **Pause** or **Resume**, **Edit** and
 
 ## Adding a monitor
 
-**Add a monitor** on the dashboard (admins). Choose the type first; it
+**Add a monitor** on the dashboard (admins). With a group chosen in the
+list, the new monitor's **Group** is that group. Choose the type first; it
 cannot change later.
 
 ![The form to add a monitor, for an HTTP(S) monitor](../images/add-monitor-dark.png)
@@ -127,6 +128,7 @@ cannot change later.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | Name | | 1 to 100 characters |
+| Runs on | Eyrie | Where it is checked from: Eyrie, or one of its [agents](agents.md#monitors-on-an-agent). Not for push and manual monitors; the platform types (Swarm services, Kubernetes workloads, Proxmox VE guests) run only on an agent. |
 | Check every | 60 s | 20 seconds to 1 day, whole seconds. For push monitors: how often a push is expected. |
 | Timeout | 80% of the interval, at most 48 s | How long a check may take, from 0.1 seconds to the interval. Not used by push and manual monitors. |
 | Retries before down | 0 | Failed checks in a row that leave the monitor **pending** before it goes **down**. 0: down at the first failure. |
@@ -143,7 +145,8 @@ cannot change later.
 
 Passwords, keys, tokens, SNMP communities and a real browser's address are
 **secret settings**: Eyrie stores them encrypted, never shows them again
-(not even to admins) and never gives them to alert analysis. When you
+(not even to admins) and never gives them to alert analysis. A monitor on
+an agent sends them to its agent with each check. When you
 change a monitor, leave a secret empty to keep the saved one, or tick
 **Remove the saved …** to delete it.
 
@@ -348,45 +351,31 @@ message gives its exit code.
   certificates are not supported; **Ignore TLS certificate errors** as for
   HTTP(S)).
 - In Docker, mount the socket into Eyrie's container
-  (`/var/run/docker.sock:/var/run/docker.sock`, as in the
+  (`/var/run/docker.sock:/var/run/docker.sock:ro`, as in the
   [installation](installation.md#with-sqlite-the-default) examples).
   Whoever can use the socket controls the host: see
   [Security](../technical/security.md#monitor-checks).
 
-### Agent workload
+### Docker Swarm service, Kubernetes workload, Proxmox VE guest
 
-Follows a workload one of Eyrie's [agents](agents.md) reports: a Docker
-container, a Docker Swarm service, a Kubernetes Deployment, StatefulSet or
-DaemonSet, or a Proxmox VE LXC container or VM. Choose the **agent**, then
-the **workload** from what the agent last reported, grouped by Compose
-project, stack, namespace or Proxmox node.
+Follow what runs on a platform, checked on an [agent](agents.md) set up
+for it (`EYRIE_AGENT_PLATFORM`): choose the agent under **Runs on**. The
+fields suggest names from what the agent last reported.
 
-The check reads the agent's last report; it reaches no host itself, and
-has no response time. Its message is the workload's status:
+| Type | Settings | Up while | Messages |
+| --- | --- | --- | --- |
+| Docker Swarm service | **Service**: its name | Every task it wants runs | `3 of 3 tasks running`, `Scaled to 0`, `No service api` |
+| Kubernetes workload | **Namespace** (`default`), **Kind** (`deployment`, `statefulset` or `daemonset`), **Name** | Every replica it wants is ready; for a DaemonSet, every pod it schedules | `3 of 3 ready`, `Scaled to 0`, `Scheduled on no nodes`, `No deployment web in default` |
+| Proxmox VE guest | **VM ID** of an LXC container or a VM (100 and up) | It is running | `Running`, `Stopped`, `No LXC container or VM 101` |
 
-| Workload | Up while | Messages |
-| --- | --- | --- |
-| Container | It runs and, with a health check, is healthy or starting | `Running`, `Running, healthy`, `Running, health check starting`, `Running, unhealthy`, `Exited (exit code 137)`, `Paused`, `Restarting`, `Created`, `Dead` |
-| Swarm service | Every task it wants runs | `3 of 3 tasks running`, `Scaled to 0` |
-| Deployment, StatefulSet | Every replica it wants is ready | `3 of 3 ready`, `Scaled to 0` |
-| DaemonSet | Every scheduled pod is ready | `4 of 4 ready`, `Scheduled on no nodes` |
-| LXC container, VM | Its status is running | `Running`, `Stopped` |
+They have no response time. They name what they follow as a person
+does, so a monitor survives its being re-created. A report from the agent
+that changes what a monitor follows checks it at once, so a service that
+loses a task is down within seconds, not at the next interval.
 
-The monitor is also down, with the reason, when the agent was removed
-from Eyrie, is not enrolled, has not reported for 90 seconds (`The agent
-edge has not reported for 2m5s`), cannot list its workloads (`The agent
-edge cannot list its workloads: cannot reach Docker: …`), or no longer
-reports the workload (`The agent edge reports no web`).
-
-A report that changes a workload's status checks its monitors at once,
-so a container that stops is down within seconds, not at the next
-interval. The interval still applies, and an agent that stops reporting
-takes the monitors down within 15 seconds of the 90.
-
-Workloads are named so a monitor survives their being re-created: a
-container by its name, a Swarm service by `service/<name>`, a Kubernetes
-workload by `<namespace>/<kind>/<name>` and a Proxmox guest by `lxc/<vmid>`
-or `qemu/<vmid>`.
+Earlier versions had an **Agent workload** type instead: Eyrie turns
+those monitors into these types, and Docker container monitors, on the
+same agent, when it starts or restores an older backup.
 
 ### SIP OPTIONS
 

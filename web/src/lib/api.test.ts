@@ -126,6 +126,7 @@ describe('Client', () => {
       name: 'DB',
       type: 'port',
       group_id: null,
+      agent_id: null,
       active: true,
       interval: 60,
       retry_interval: 60,

@@ -32,6 +32,8 @@ type eyrie struct {
 	reports []agentauth.Report
 	rotated []string
 	refuse  bool
+	jobs    []agentauth.Job    // handed out at the next request for jobs
+	results []agentauth.Result // results sent back
 }
 
 func (e *eyrie) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -75,10 +77,33 @@ func (e *eyrie) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		e.key = k
 		e.rotated = append(e.rotated, req.NewKey)
+	case agentauth.PathJobs:
+		jobs := e.jobs
+		e.jobs = nil
+		if len(jobs) == 0 {
+			// As Eyrie, wait a little rather than answer at once.
+			e.mu.Unlock()
+			time.Sleep(5 * time.Millisecond)
+			e.mu.Lock()
+			jobs = []agentauth.Job{}
+		}
+		json.NewEncoder(w).Encode(agentauth.Jobs{Jobs: jobs})
+		return
+	case agentauth.PathResults:
+		var req agentauth.Results
+		json.Unmarshal(body, &req)
+		e.results = append(e.results, req.Results...)
 	default:
 		http.Error(w, "no", http.StatusNotFound)
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// got returns the results sent back so far.
+func (e *eyrie) got() []agentauth.Result {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return append([]agentauth.Result(nil), e.results...)
 }
 
 func (e *eyrie) setRefuse(v bool) {

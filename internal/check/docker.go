@@ -27,6 +27,8 @@ type Docker struct {
 	IgnoreTLS  bool   `json:"ignore_tls"`
 }
 
+const defaultDockerHost = "unix:///var/run/docker.sock"
+
 var containerName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,254}$`)
 
 func (d *Docker) normalize() error {
@@ -36,7 +38,7 @@ func (d *Docker) normalize() error {
 	}
 	d.DockerHost = strings.TrimSpace(d.DockerHost)
 	if d.DockerHost == "" {
-		d.DockerHost = "unix:///var/run/docker.sock"
+		d.DockerHost = defaultDockerHost
 	}
 	u, err := url.Parse(d.DockerHost)
 	switch {
@@ -63,7 +65,11 @@ type dockerChecker struct {
 
 // client is an HTTP client for the Docker daemon, and its base URL.
 func (c *dockerChecker) client() (*http.Client, string) {
-	u, _ := url.Parse(c.d.DockerHost)
+	host := c.d.DockerHost
+	if host == defaultDockerHost && c.env.DockerHost != "" {
+		host = c.env.DockerHost
+	}
+	u, _ := url.Parse(host)
 	t := &http.Transport{DisableKeepAlives: true,
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: c.d.IgnoreTLS}} //nolint:gosec // G402: only when a monitor asks to ignore TLS errors
 	base := "http://" + u.Host

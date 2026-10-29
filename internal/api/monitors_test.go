@@ -192,8 +192,12 @@ func TestMonitorAccess(t *testing.T) {
 	if code := e.client().call("GET", "/api/v1/monitors", nil, nil); code != http.StatusUnauthorized {
 		t.Errorf("signed out: %d", code)
 	}
-	var types []struct{ Name, Label string }
-	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 34 || types[0].Name != "agent" {
+	var types []struct {
+		Name, Label string
+		Agents      bool
+		AgentOnly   bool `json:"agent_only"`
+	}
+	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 36 || types[0].Name != "dns" || !types[0].Agents || types[0].AgentOnly {
 		t.Errorf("types %+v", types)
 	}
 }

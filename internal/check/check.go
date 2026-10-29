@@ -20,6 +20,8 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/zjcochran/eyrie/internal/workload"
 )
 
 // Result is what one check found.
@@ -74,8 +76,12 @@ type Env struct {
 	Secrets Sealer
 	// UserAgent is sent with HTTP requests.
 	UserAgent string
-	// Agents is what Eyrie's agents reported; nil: agent checks fail.
-	Agents Agents
+	// Workloads lists the workloads of the platform an agent was set up
+	// for; nil in Eyrie, where the types that need it are not checked.
+	Workloads workload.Lister
+	// DockerHost replaces the default Docker host of docker monitors: an
+	// agent's DOCKER_HOST. "": the monitor's own.
+	DockerHost string
 }
 
 // DefaultEnv reaches the real network.
@@ -149,7 +155,9 @@ func init() {
 	register(Type{"radius", "RADIUS", true, func() settings { return &Radius{} }})
 	register(Type{"snmp", "SNMP", true, func() settings { return &SNMP{} }})
 	register(Type{"docker", "Docker container", true, func() settings { return &Docker{} }})
-	register(Type{"agent", "Agent workload", true, func() settings { return &Agent{} }})
+	register(Type{"docker-swarm", "Docker Swarm service", true, func() settings { return &Swarm{} }})
+	register(Type{"kubernetes", "Kubernetes workload", true, func() settings { return &Kubernetes{} }})
+	register(Type{"proxmox", "Proxmox VE guest", true, func() settings { return &Proxmox{} }})
 	register(Type{"sip-options", "SIP OPTIONS", true, func() settings { return &SIP{} }})
 	register(Type{"tailscale-ping", "Tailscale ping", true, func() settings { return &Tailscale{} }})
 	register(Type{"system-service", "System service", true, func() settings { return &Service{} }})
@@ -206,6 +214,22 @@ func Parse(env *Env, typ string, raw json.RawMessage) (json.RawMessage, Checker,
 		return nil, nil, err
 	}
 	return out, s.checker(env), nil
+}
+
+// Opened returns a monitor's saved settings with their secrets opened, for
+// an agent to check it with.
+func Opened(env *Env, typ string, saved json.RawMessage) (json.RawMessage, error) {
+	_, s, err := decode(typ, saved)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.normalize(); err != nil {
+		return nil, err
+	}
+	if err := open(env, s); err != nil {
+		return nil, err
+	}
+	return json.Marshal(s)
 }
 
 // none is the settings of types without any.

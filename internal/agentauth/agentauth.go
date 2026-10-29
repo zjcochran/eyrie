@@ -3,8 +3,8 @@
 // Package agentauth is the protocol between Eyrie and its agents: Ed25519
 // keys, signed requests and the messages agents send.
 //
-// Agents call Eyrie; Eyrie never calls an agent, and sends it nothing to
-// do. Every request after enrollment is signed with the agent's key, so
+// Agents call Eyrie; Eyrie never calls an agent. It answers an agent's
+// request for jobs with the checks of the monitors that run on it. Every request after enrollment is signed with the agent's key, so
 // nothing between them, a reverse proxy included, can report for an agent.
 package agentauth
 
@@ -14,6 +14,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -226,10 +227,46 @@ func RotationProof(agent int64, newKey PublicKey, ts int64) []byte {
 
 // Paths of Eyrie's agent API.
 const (
-	PathEnroll = "/api/agent/v1/enroll"
-	PathReport = "/api/agent/v1/report"
-	PathRotate = "/api/agent/v1/rotate"
+	PathEnroll  = "/api/agent/v1/enroll"
+	PathReport  = "/api/agent/v1/report"
+	PathRotate  = "/api/agent/v1/rotate"
+	PathJobs    = "/api/agent/v1/jobs"
+	PathResults = "/api/agent/v1/results"
 )
+
+// JobsWait is how long Eyrie holds an agent's request for jobs when it has
+// none: the agent asks again at once, so a check starts within moments.
+const JobsWait = 15 * time.Second
+
+// Job is a check of a monitor for an agent to run. Settings are the
+// monitor type's settings with their secrets opened.
+type Job struct {
+	ID        string          `json:"id"`
+	Monitor   int64           `json:"monitor"`
+	Type      string          `json:"type"`
+	Settings  json.RawMessage `json:"settings"`
+	TimeoutMS int64           `json:"timeout_ms"`
+}
+
+// Jobs is Eyrie's answer to a request for jobs.
+type Jobs struct {
+	Jobs []Job `json:"jobs"`
+}
+
+// Result is what an agent found running a job.
+type Result struct {
+	ID        string `json:"id"`
+	OK        bool   `json:"ok"`
+	Message   string `json:"message"`
+	LatencyUS int64  `json:"latency_us"` // negative: none
+	// CertExpires is when the server's certificate expires; nil: none seen.
+	CertExpires *time.Time `json:"cert_expires,omitempty"`
+}
+
+// Results are the results an agent sends.
+type Results struct {
+	Results []Result `json:"results"`
+}
 
 // EnrollRequest is an agent's first call: it trades a one-time token for
 // its identity, and gives Eyrie its public key.

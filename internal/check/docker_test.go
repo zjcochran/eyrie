@@ -70,6 +70,12 @@ func TestDocker(t *testing.T) {
 	if r := run(t, env, "docker", `{"container":"shop","docker_host":"tcp://docker.example.com:2375"}`); !r.OK || dialed != "tcp docker.example.com:2375" {
 		t.Errorf("tcp: %+v %s", r, dialed)
 	}
+	// On an agent, the default host is the agent's DOCKER_HOST.
+	env.DockerHost = "tcp://proxy.example.com:2375"
+	if r := run(t, env, "docker", `{"container":"shop"}`); !r.OK || dialed != "tcp proxy.example.com:2375" {
+		t.Errorf("agent's host: %+v %s", r, dialed)
+	}
+	env.DockerHost = ""
 	if r := run(t, env, "docker", `{"container":"shop","docker_host":"https://docker.example.com:2376"}`); r.OK {
 		t.Errorf("https to a plain server: %+v", r)
 	}

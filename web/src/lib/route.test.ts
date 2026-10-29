@@ -20,6 +20,7 @@ describe('pageFor', () => {
     assert.equal(pageFor('/settings/audit-log'), 'audit');
     assert.equal(pageFor('/settings/agents'), 'agents');
     assert.equal(pageFor('/maintenance/'), 'maintenance');
+    assert.equal(pageFor('/events'), 'events');
     assert.equal(pageFor('/nothing'), 'not-found');
   });
   it('reads monitor pages and their IDs', () => {

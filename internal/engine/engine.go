@@ -17,7 +17,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -90,6 +89,9 @@ type Engine struct {
 	// OnGroup is called when a group with alerts goes down or comes back
 	// up; may be nil.
 	OnGroup func(GroupAlert)
+	// Agents checks the monitors that run on an agent; nil: their checks
+	// fail.
+	Agents Agents
 
 	cmds    chan func()
 	results chan result
@@ -110,6 +112,22 @@ type Engine struct {
 
 	mu   sync.RWMutex
 	snap map[int64]Status
+}
+
+// Agents has a monitor checked on its agent.
+type Agents interface {
+	Checker(env *check.Env, m store.Monitor) (check.Checker, error)
+}
+
+// AgentGrace is how much longer than its timeout a check on an agent may
+// take: the time to fetch it and send back its result.
+const AgentGrace = 20 * time.Second
+
+// noAgents fails the checks of monitors on agents when there are none.
+type noAgents struct{}
+
+func (noAgents) Check(context.Context) check.Result {
+	return check.Result{Message: "Agents are not available here", Latency: -1}
 }
 
 type entry struct {
@@ -279,6 +297,15 @@ func (e *Engine) configure(en *entry, m store.Monitor) error {
 		return err
 	}
 	en.checker = c
+	if m.AgentID != 0 && c != nil {
+		en.checker = noAgents{}
+		if e.Agents != nil {
+			if en.checker, err = e.Agents.Checker(e.Env, m); err != nil {
+				en.checker = nil
+				return err
+			}
+		}
+	}
 	if !m.Active || m.Type == "manual" {
 		return nil
 	}
@@ -308,7 +335,11 @@ func (e *Engine) runDue() {
 		default:
 			en.running = true
 			e.setSnap(en)
-			go e.work(result{id: id, epoch: e.epoch, gen: en.gen, started: now}, en.checker, en.m.Timeout)
+			timeout := en.m.Timeout
+			if en.m.AgentID != 0 {
+				timeout += AgentGrace
+			}
+			go e.work(result{id: id, epoch: e.epoch, gen: en.gen, started: now}, en.checker, timeout)
 		}
 	}
 }
@@ -605,13 +636,12 @@ func (e *Engine) CheckNow(ctx context.Context, id int64) error {
 	})
 }
 
-// CheckMatching checks at once every active monitor of type typ whose
-// settings match, such as the agent monitors of a workload whose report
-// changed.
-func (e *Engine) CheckMatching(ctx context.Context, typ string, match func(config json.RawMessage) bool) error {
+// CheckMatching checks at once every active, scheduled monitor that
+// matches, such as the monitors of a workload whose agent's report changed.
+func (e *Engine) CheckMatching(ctx context.Context, match func(store.Monitor) bool) error {
 	return e.do(ctx, func() error {
 		for _, en := range e.mons {
-			if en.m.Type == typ && en.m.Active && !en.running && match(en.m.Config) {
+			if en.checker != nil && en.m.Active && !en.running && match(en.m) {
 				en.next = e.Clock.Now()
 			}
 		}

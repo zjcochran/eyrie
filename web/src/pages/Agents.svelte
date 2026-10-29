@@ -95,8 +95,9 @@
 
 <section class="card">
   <p>
-    Agents run where Eyrie cannot see: next to a Docker engine, on a swarm manager, in a Kubernetes cluster or beside a
-    Proxmox VE cluster. They report what runs there every 30 seconds, and Agent workload monitors follow it.
+    Agents run where Eyrie cannot see: on another host or network, next to a Docker engine, on a swarm manager, in a
+    Kubernetes cluster or beside a Proxmox VE cluster. A monitor set to run on an agent (Runs on, in its form) is
+    checked there. They also report what runs there every 30 seconds, for the monitor form's suggestions.
   </p>
   {#if agents.length}
     <div class="table-wrap">

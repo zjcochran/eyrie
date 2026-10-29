@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"math"
 	"time"
 )
 
@@ -216,6 +217,38 @@ func (s *Store) Heartbeats(ctx context.Context, id int64, since time.Time, limit
 		return nil, err
 	}
 	return scanBeats(rows)
+}
+
+// Change is a heartbeat that changed its monitor's status, with its ID.
+type Change struct {
+	ID int64
+	Beat
+}
+
+// Changes returns every monitor's status changes, newest first: limit of
+// them, only those with an ID below before when it is above 0.
+func (s *Store) Changes(ctx context.Context, before int64, limit int) ([]Change, error) {
+	if before <= 0 {
+		before = math.MaxInt64
+	}
+	rows, err := s.db.QueryContext(ctx, s.q(`
+		SELECT id, monitor_id, at, status, latency_us, message, important FROM heartbeats
+		WHERE important = ? AND id < ? ORDER BY id DESC LIMIT ?`), true, before, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Change{}
+	for rows.Next() {
+		var c Change
+		var at, latency int64
+		if err := rows.Scan(&c.ID, &c.MonitorID, &at, &c.Status, &latency, &c.Message, &c.Important); err != nil {
+			return nil, err
+		}
+		c.At, c.Latency = fromMillis(at), fromLatency(latency)
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }
 
 // RecentBeats returns the last n heartbeats of every monitor, oldest first.

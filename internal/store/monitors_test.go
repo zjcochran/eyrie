@@ -194,6 +194,32 @@ func TestHeartbeats(t *testing.T) {
 	})
 }
 
+func TestChanges(t *testing.T) {
+	eachDB(t, func(t *testing.T, s *Store) {
+		ctx := context.Background()
+		a, b := seed(t, s)
+		recs := []Record{beat(b.ID, t0.Add(time.Hour), "down", -1), beat(a.ID, t0.Add(2*time.Hour), "up", 1), beat(b.ID, t0.Add(3*time.Hour), "down", -1)}
+		recs[1].Beat.Important = true
+		if err := s.Save(ctx, recs); err != nil {
+			t.Fatal(err)
+		}
+		all, err := s.Changes(ctx, 0, 10)
+		if err != nil || len(all) != 4 {
+			t.Fatalf("changes %+v %v", all, err)
+		}
+		if c := all[0]; c.MonitorID != b.ID || !c.At.Equal(t0.Add(3*time.Hour)) || c.Status != "down" || c.Latency != -1 {
+			t.Errorf("newest %+v", c)
+		}
+		if c := all[3]; c.MonitorID != a.ID || c.Status != "down" || c.Latency != 103*time.Millisecond {
+			t.Errorf("oldest %+v", c)
+		}
+		older, err := s.Changes(ctx, all[1].ID, 1)
+		if err != nil || len(older) != 1 || older[0].ID != all[2].ID {
+			t.Errorf("older %+v %v", older, err)
+		}
+	})
+}
+
 // Faster than a millisecond is kept, to the microsecond.
 func TestFastBeats(t *testing.T) {
 	eachDB(t, func(t *testing.T, s *Store) {

@@ -191,8 +191,9 @@ for none.
 
 ### monitors
 
-Migration `00003_monitors`. Indexes `monitors_parent` on `parent_id` and
-`monitors_group` on `group_id` (`00010_groups`); unique index
+Migration `00003_monitors`. Indexes `monitors_parent` on `parent_id`,
+`monitors_group` on `group_id` (`00010_groups`) and `monitors_agent` on
+`agent_id` (`00012_monitor_agents`); unique index
 `monitors_push_token` on `push_token` (`NULL` for other types, so it does
 not collide).
 
@@ -200,9 +201,10 @@ not collide).
 | --- | --- | --- |
 | `id` | `INTEGER` / `BIGINT` | Primary key |
 | `name` | `TEXT` | 1 to 100 characters |
-| `type` | `TEXT` | One of the [monitor types](../user/monitors.md#types), such as `http`, `docker`, `agent`, `push` or `manual`; never changes. Earlier versions also had `group`, turned into groups at start. |
+| `type` | `TEXT` | One of the [monitor types](../user/monitors.md#types), such as `http`, `docker`, `kubernetes`, `push` or `manual`; never changes. Earlier versions also had `group`, turned into groups at start, and `agent`, turned into `docker`, `docker-swarm`, `kubernetes` or `proxmox` on its agent at start. |
 | `parent_id` | `BIGINT` | No longer used, always `NULL`: earlier versions' group monitor it was in |
 | `group_id` | `BIGINT` | The [group](#monitor_groups) it is in, `NULL` for none; `ON DELETE SET NULL` (`00010_groups`) |
+| `agent_id` | `BIGINT` | The [agent](#agents) it is checked on, `NULL` for Eyrie (`00012_monitor_agents`). Not a foreign key: a monitor whose agent was removed stays on it, and goes down, rather than moving to Eyrie unnoticed |
 | `position` | `INTEGER` | Its place among the groups and monitors with the same parent; default 0 (`00010_groups`) |
 | `active` | `BOOLEAN` | False: paused |
 | `interval_s`, `retry_interval_s` | `INTEGER` | Seconds |
@@ -236,8 +238,10 @@ Written with every heartbeat.
 
 ### heartbeats
 
-One row per check. Indexes `heartbeats_monitor_at` on `(monitor_id, at)`
-and `heartbeats_at` on `at` (for pruning). Rows older than the `retention`
+One row per check. Indexes `heartbeats_monitor_at` on `(monitor_id, at)`,
+`heartbeats_at` on `at` (for pruning) and `heartbeats_important` on
+`(important, id)` (for every monitor's status changes;
+`00011_status_changes`). Rows older than the `retention`
 setting are deleted daily.
 
 | Column | Type | Notes |

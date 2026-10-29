@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Package agent is Eyrie's agent mode (eyrie agent): it runs where Eyrie
-// cannot see, next to a Docker engine, on a swarm manager, in a Kubernetes
-// cluster or beside a Proxmox VE cluster, lists the workloads there and
-// reports them to Eyrie. It only reads, calls Eyrie and opens no port.
+// cannot see, on another host or network, next to a Docker engine, on a
+// swarm manager, in a Kubernetes cluster or beside a Proxmox VE cluster.
+// It runs the checks of the monitors Eyrie gives it and sends back their
+// results, and reports the workloads it sees, for the monitor form. It
+// calls Eyrie and opens no port.
 package agent
 
 import (
@@ -26,6 +28,7 @@ import (
 	"time"
 
 	"github.com/zjcochran/eyrie/internal/agentauth"
+	"github.com/zjcochran/eyrie/internal/check"
 	"github.com/zjcochran/eyrie/internal/workload"
 )
 
@@ -143,8 +146,10 @@ type Agent struct {
 	// events makes one report.
 	Settle time.Duration
 	// Reconnect is how long the agent waits before following events again
-	// when their stream breaks.
+	// when their stream breaks, or asking for jobs again after an error.
 	Reconnect time.Duration
+	// Env is how checks reach the network; nil: the agent runs no checks.
+	Env *check.Env
 
 	rot sync.Mutex // one key rotation at a time
 	mu  sync.Mutex
@@ -202,6 +207,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Go(func() { a.reportLoop(ctx) })
 	wg.Go(func() { a.rotateLoop(ctx) })
+	if a.Env != nil {
+		wg.Go(func() { a.jobLoop(ctx) })
+	}
 	wg.Wait()
 	return nil
 }
@@ -281,6 +289,11 @@ var errRefused = errors.New("refused by Eyrie")
 
 // do sends a signed request.
 func (a *Agent) do(ctx context.Context, path string, body any) error {
+	return a.call(ctx, path, body, nil)
+}
+
+// call sends a signed request and reads its answer into out, unless nil.
+func (a *Agent) call(ctx context.Context, path string, body, out any) error {
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -297,7 +310,7 @@ func (a *Agent) do(ctx context.Context, path string, body any) error {
 		return err
 	}
 	req.Header.Set("Authorization", auth)
-	return a.send(req, nil)
+	return a.send(req, out)
 }
 
 func (a *Agent) send(req *http.Request, out any) error {

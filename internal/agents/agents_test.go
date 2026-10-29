@@ -5,7 +5,6 @@ package agents
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -41,7 +40,11 @@ func newHarness(t *testing.T) *harness {
 	t.Cleanup(func() { st.Close() })
 	h := &harness{now: t0}
 	h.m = New(st, slog.New(slog.NewTextHandler(&h.log, nil)))
-	h.m.Now = func() time.Time { return h.now }
+	h.m.Now = func() time.Time {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return h.now
+	}
 	h.m.Changed = func(_ int64, keys []string) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
@@ -67,8 +70,14 @@ func (h *harness) took() string {
 // enroll adds and enrolls the agent edge, and returns it with its key.
 func (h *harness) enroll(t *testing.T) (store.Agent, agentauth.Key) {
 	t.Helper()
+	return h.enrollNamed(t, "edge")
+}
+
+// enrollNamed adds and enrolls an agent.
+func (h *harness) enrollNamed(t *testing.T, name string) (store.Agent, agentauth.Key) {
+	t.Helper()
 	ctx := context.Background()
-	_, token, err := h.m.Add(ctx, "edge")
+	_, token, err := h.m.Add(ctx, name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,17 +273,14 @@ func TestReport(t *testing.T) {
 	h := newHarness(t)
 	ctx := context.Background()
 	a, _ := h.enroll(t)
-	if _, err := h.m.Workload(a.ID, "web"); err == nil || err.Error() != "the agent edge reports no web" {
-		t.Errorf("before a report: %v", err)
-	}
 	report := func(rep agentauth.Report) { h.report(t, a.ID, rep) }
 	db := workload.Workload{Key: "db", Up: true, Status: "Running"}
 	report(agentauth.Report{Workloads: []workload.Workload{web(true, "Running"), db}})
 	if got := h.took(); got != "db,web" {
 		t.Errorf("first report changed %q", got)
 	}
-	if w, err := h.m.Workload(a.ID, "web"); err != nil || !w.Up || w.Status != "Running" {
-		t.Errorf("web %+v %v", w, err)
+	if got, _ := h.m.Get(a.ID); len(got.Workloads) != 2 || !got.Workloads[0].Up {
+		t.Errorf("kept %+v", got.Workloads)
 	}
 	h.now = h.now.Add(30 * time.Second)
 	report(agentauth.Report{Workloads: []workload.Workload{web(true, "Running"), db}})
@@ -301,8 +307,8 @@ func TestReportErrors(t *testing.T) {
 	if got := h.took(); got != "all" {
 		t.Errorf("an error changed %q", got)
 	}
-	if _, err := h.m.Workload(a.ID, "web"); err == nil || err.Error() != "the agent edge cannot list its workloads: cannot reach Docker" {
-		t.Errorf("error: %v", err)
+	if got, _ := h.m.Get(a.ID); got.Error != "cannot reach Docker" {
+		t.Errorf("error %q", got.Error)
 	}
 	if st, _ := h.m.Store.Agent(ctx, a.ID); len(st.Workloads) != 1 {
 		t.Error("an error dropped the workloads")
@@ -319,8 +325,8 @@ func TestReportErrors(t *testing.T) {
 	if got := h.took(); got != "all" || !strings.Contains(h.log.String(), "agent stopped reporting") {
 		t.Errorf("offline changed %q; log %s", got, h.log.String())
 	}
-	if _, err := h.m.Workload(a.ID, "web"); err == nil || err.Error() != "the agent edge has not reported for 1m31s" {
-		t.Errorf("offline: %v", err)
+	if why := h.m.unavailable(a.ID); why != "The agent edge has not reported for 1m31s" {
+		t.Errorf("offline: %q", why)
 	}
 	report(agentauth.Report{Workloads: []workload.Workload{web(true, "Running")}})
 	if got := h.took(); got != "all" || !strings.Contains(h.log.String(), "agent reporting again") {
@@ -343,14 +349,8 @@ func TestReportInvalid(t *testing.T) {
 		}
 	}
 
-	if _, err := h.m.Workload(999, "web"); err == nil || err.Error() != "the agent was removed from Eyrie" {
-		t.Errorf("removed: %v", err)
-	}
 	if _, err := h.m.NewToken(ctx, a.ID); err != nil {
 		t.Fatal(err)
-	}
-	if _, err := h.m.Workload(a.ID, "web"); err == nil || err.Error() != "the agent edge is not enrolled" {
-		t.Errorf("not enrolled: %v", err)
 	}
 	// A report from an agent removed meanwhile is dropped.
 	gone := a
@@ -385,16 +385,6 @@ func TestLoadAndWatch(t *testing.T) {
 	h.m.Store.Close()
 	if err := m2.Load(context.Background()); err == nil {
 		t.Error("loaded from a closed store")
-	}
-}
-
-func TestMatcher(t *testing.T) {
-	cfg := json.RawMessage(`{"agent":3,"workload":"web"}`)
-	if !Matcher(3, nil)(cfg) || !Matcher(3, []string{"db", "web"})(cfg) || Matcher(3, []string{"db"})(cfg) || Matcher(4, nil)(cfg) {
-		t.Error("matcher")
-	}
-	if Matcher(3, nil)(json.RawMessage(`{"url":"x"}`)) {
-		t.Error("another type matched")
 	}
 }
 

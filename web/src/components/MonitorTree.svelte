@@ -96,6 +96,8 @@
   // item, or into a group (dropped on its middle), or to the end of the top
   // level (dropped below the list).
   const canDrag = $derived(admin && !tagFilter);
+  // A new monitor goes in the group shown beside the list.
+  const addHref = $derived(selected.startsWith('g') ? `/monitors/new?group=${selected.slice(1)}` : '/monitors/new');
   let dragged = $state('');
   let drop = $state<Drop | null>(null);
 
@@ -184,7 +186,7 @@
   {#if admin}
     <div class="row">
       <button onclick={() => (naming = !naming)} aria-expanded={naming}>New group</button>
-      <a class="button primary" href="/monitors/new" onclick={link}>Add a monitor</a>
+      <a class="button primary" href={addHref} onclick={link}>Add a monitor</a>
     </div>
   {/if}
 </div>

@@ -373,8 +373,9 @@ func (s *Store) Import(ctx context.Context, snap Snapshot, empty bool) error {
 	if err := s.loadHistory(ctx, tx, snap.History); err != nil {
 		return err
 	}
-	// A backup from before groups has group monitors.
-	if err := s.convertGroupMonitors(ctx, tx); err != nil {
+	// A backup from before groups has group monitors, one from before
+	// monitors ran on agents has agent monitors.
+	if err := s.convertOld(ctx, tx); err != nil {
 		return err
 	}
 	if err := s.resetIdentities(ctx, tx); err != nil {

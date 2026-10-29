@@ -39,15 +39,22 @@ services:
       TZ: Etc/UTC
     volumes:
       - eyrie-data:/data
-      - /var/run/docker.sock:/var/run/docker.sock # for Docker container monitors
+      - /var/run/docker.sock:/var/run/docker.sock:ro # for Docker container monitors
 
 volumes:
   eyrie-data:
+    name: eyrie-data
 ```
 
 ```sh
 docker compose up -d
 ```
+
+The volume's `name` keeps it `eyrie-data` whatever folder the file is in;
+without it, Compose puts the project's name in front (`<folder>_eyrie-data`).
+If your Eyrie already runs from a file without `name`, keep the file as it
+is (`docker volume ls` shows the volume it uses): adding `name` would start
+Eyrie on a new, empty volume.
 
 The Docker socket lets [Docker container](monitors.md#docker-container)
 monitors check this host's containers; leave it out if you do not need
@@ -77,7 +84,7 @@ services:
       PGPASSWORD: a-long-password
     volumes:
       - eyrie-data:/data # still holds the secret key
-      - /var/run/docker.sock:/var/run/docker.sock # for Docker container monitors
+      - /var/run/docker.sock:/var/run/docker.sock:ro # for Docker container monitors
     depends_on:
       - db
 
@@ -93,7 +100,9 @@ services:
 
 volumes:
   eyrie-data:
+    name: eyrie-data
   eyrie-db:
+    name: eyrie-db
 ```
 
 Choose your own password. Keep it out of the URL: Eyrie's PostgreSQL

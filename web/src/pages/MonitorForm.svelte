@@ -2,9 +2,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import TagChip from '../components/TagChip.svelte';
-  import { type Agent, type Channel, type Monitor, type MonitorChange, type Tag, type Workload, message } from '../lib/api.ts';
+  import { suggestions } from '../lib/agents.ts';
+  import {
+    type Agent,
+    type Channel,
+    type Monitor,
+    type MonitorChange,
+    type MonitorType,
+    type Tag,
+    type Workload,
+    message,
+  } from '../lib/api.ts';
   import { live, loadMonitors } from '../lib/live.svelte.ts';
-  import { go, link } from '../lib/nav.svelte.ts';
+  import { go, link, nav } from '../lib/nav.svelte.ts';
+  import { queryValue } from '../lib/route.ts';
   import { api } from '../lib/session.svelte.ts';
   import { fields, shown, toSettings, toValues } from '../lib/settings.ts';
   import { buildTree, groupChoices } from '../lib/tree.ts';
@@ -12,7 +23,7 @@
   /** The monitor to edit; 0 makes a new one. */
   let { id = 0 }: { id?: number } = $props();
 
-  let types = $state<{ name: string; label: string }[]>([]);
+  let types = $state<MonitorType[]>([]);
   let allChannels = $state<Channel[]>([]);
   // The channels ticked; for a new monitor, the default ones.
   let channels = $state<number[]>([]);
@@ -30,9 +41,12 @@
   let newGroupName = $state('');
   let addingGroup = $state(false);
   let existing = $state<Monitor | null>(null);
-  // For agent monitors: the agents, and what the chosen one reports.
+  // The agents it can run on, and what the chosen one reports, for
+  // suggestions.
   let agents = $state<Agent[]>([]);
   let workloads = $state<Workload[]>([]);
+  // The agent it is checked on; 0 for Eyrie.
+  let agentID = $state(0);
   let error = $state('');
   let busy = $state(false);
 
@@ -67,6 +81,7 @@
         name = m.name;
         description = m.description;
         groupID = m.group_id ?? 0;
+        agentID = m.agent_id ?? 0;
         active = m.active;
         interval = m.interval;
         retryInterval = m.retry_interval;
@@ -78,6 +93,10 @@
         channels = [...m.channels];
         tagIDs = m.tags.map((t) => t.id);
         tagValues = Object.fromEntries(m.tags.map((t) => [t.id, t.value]));
+      } else {
+        // Added with a group chosen in the list: in that group.
+        const g = Number(queryValue(nav.search, 'group'));
+        if (live.groups.some((x) => x.id === g)) groupID = g;
       }
     } catch (e) {
       error = message(e);
@@ -86,25 +105,22 @@
 
   const typeFields = $derived(fields[type] ?? []);
 
+  const typeInfo = $derived(types.find((t) => t.name === type));
+  // Checked only on an agent: the first one, until another is chosen.
   $effect(() => {
-    const agent = type === 'agent' ? Number(values.agent) : 0;
-    if (!agent) {
+    if (typeInfo?.agent_only && !agentID && agents.length) agentID = agents[0].id;
+  });
+  // What the chosen agent reports, when the type's fields can suggest from it.
+  $effect(() => {
+    const agent = agentID;
+    if (!agent || !typeFields.some((f) => f.suggest)) {
       workloads = [];
       return;
     }
     api
       .workloads(agent)
       .then((w) => (workloads = w))
-      .catch((e) => (error = message(e)));
-  });
-  // The workloads by group (Compose project, stack, namespace or node).
-  const workloadGroups = $derived.by(() => {
-    const groups = new Map<string, Workload[]>();
-    for (const w of workloads) {
-      const g = w.group ?? '';
-      groups.set(g, [...(groups.get(g) ?? []), w]);
-    }
-    return [...groups.entries()];
+      .catch(() => (workloads = []));
   });
   const checked = $derived(type !== 'push' && type !== 'manual');
 
@@ -116,6 +132,7 @@
       name,
       type,
       group_id: groupID || null,
+      agent_id: typeInfo?.agents && agentID ? agentID : null,
       active,
       interval,
       retry_interval: retryInterval,
@@ -185,6 +202,26 @@
     </select>
   </label>
   <label>Name <input bind:value={name} maxlength="100" required /></label>
+  {#if typeInfo?.agents}
+    <label
+      >Runs on
+      <select bind:value={agentID} required={typeInfo.agent_only}>
+        {#if typeInfo.agent_only}
+          <option value={0} disabled>Choose an agent</option>
+        {:else}
+          <option value={0}>Eyrie</option>
+        {/if}
+        {#each agents as a (a.id)}
+          <option value={a.id}>Agent {a.name}{a.status === 'online' ? '' : ` (${a.status})`}</option>
+        {/each}
+      </select>
+    </label>
+    <span class="muted help"
+      >{typeInfo.agent_only ? 'This type is checked on an agent where the workloads are' : 'Where the check runs from'}{agents.length
+        ? ''
+        : '; add agents in Settings → Agents'}</span
+    >
+  {/if}
 
   {#each typeFields as f (f.key)}
     {#if shown(f, values)}
@@ -221,41 +258,34 @@
             ><input type="checkbox" bind:group={clearSecrets} value={f.key} /> Remove the saved {f.label.toLowerCase()}</label
           >
         {/if}
-      {:else if f.kind === 'agent'}
-        <label
-          >{f.label}
-          <select bind:value={values[f.key]} required>
-            <option value="" disabled>Choose an agent</option>
-            {#each agents as a (a.id)}
-              <option value={String(a.id)}>{a.name}{a.status === 'online' ? '' : ` (${a.status})`}</option>
-            {/each}
-          </select>
-        </label>
-      {:else if f.kind === 'workload'}
-        <label
-          >{f.label}
-          <select bind:value={values[f.key]} required>
-            <option value="" disabled>Choose a workload</option>
-            {#each workloadGroups as [group, ws] (group)}
-              <optgroup label={group || 'Ungrouped'}>
-                {#each ws as w (w.key)}
-                  <option value={w.key}>{w.name} · {w.kind}{w.up ? '' : ' (down)'}</option>
-                {/each}
-              </optgroup>
-            {/each}
-            {#if values[f.key] && !workloads.some((w) => w.key === values[f.key])}
-              <option value={values[f.key]}>{values[f.key]} (not reported now)</option>
-            {/if}
-          </select>
-        </label>
       {:else if f.kind === 'textarea'}
         <label>{f.label} <textarea bind:value={values[f.key]} placeholder={f.placeholder} rows={f.rows ?? 3}></textarea></label>
       {:else if f.kind === 'number'}
-        <label>{f.label} <input type="number" bind:value={values[f.key]} min={f.min} max={f.max} placeholder={f.placeholder} /></label>
+        <label
+          >{f.label}
+          <input
+            type="number"
+            bind:value={values[f.key]}
+            min={f.min}
+            max={f.max}
+            placeholder={f.placeholder}
+            list={f.suggest && workloads.length ? `suggest-${f.key}` : undefined} /></label
+        >
       {:else if f.kind === 'url'}
         <label>{f.label} <input type="url" bind:value={values[f.key]} placeholder={f.placeholder} /></label>
       {:else}
-        <label>{f.label} <input bind:value={values[f.key]} placeholder={f.placeholder} /></label>
+        <label
+          >{f.label}
+          <input
+            bind:value={values[f.key]}
+            placeholder={f.placeholder}
+            list={f.suggest && workloads.length ? `suggest-${f.key}` : undefined} /></label
+        >
+      {/if}
+      {#if f.suggest && workloads.length}
+        <datalist id="suggest-{f.key}">
+          {#each suggestions(f.suggest, workloads) as v (v)}<option value={v}></option>{/each}
+        </datalist>
       {/if}
       {#if f.help}<span class="muted help">{f.help}</span>{/if}
     {/if}
@@ -268,8 +298,6 @@
     </p>
   {:else if type === 'manual'}
     <p class="muted">Its status is set by hand, on the monitor's page.</p>
-  {:else if type === 'agent' && !agents.length}
-    <p class="muted">No agents yet: add one in Settings → Agents, and run it where the workloads are.</p>
   {/if}
 
   <fieldset>

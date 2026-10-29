@@ -5,7 +5,9 @@ Code: `internal/agentauth` (keys, signatures, messages), `internal/agents`
 agents list), `internal/api/agents.go` (routes), `internal/store/agents.go`.
 For running agents, see [Agents](../user/agents.md).
 
-Agents call Eyrie; Eyrie never calls an agent and sends it nothing to do.
+Agents call Eyrie; Eyrie never calls an agent. It hands an agent the
+checks of the monitors that run on it in answer to the agent's own
+requests (see [Checks](#checks)).
 The agent routes are on Eyrie under `/api/agent/v1/`, at the same address
 as the web app. They are outside sessions and CSRF; Go's cross-origin
 protection lets them through, because agents send no `Origin` or
@@ -68,12 +70,14 @@ cleared.
 | `POST /api/agent/v1/enroll` | `{"token", "public_key", "hostname", "platform", "version"}`, not signed | `200 {"agent", "name"}`; `400` for a malformed body or key; `401` for an unknown, used or expired token; `429` after 10 refused tokens within a minute from one client address |
 | `POST /api/agent/v1/report` | `{"version", "platform", "hostname", "error", "workloads": [...]}` | `204`; `400` for more than 10,000 workloads, or a workload with an empty, repeated or over-300-byte key |
 | `POST /api/agent/v1/rotate` | `{"new_key", "ts", "proof"}` | `204`; `400` for a malformed key or a proof that does not verify; `401` if signed with the previous key for a key other than the current one |
+| `POST /api/agent/v1/jobs` | `{}` | `200 {"jobs": [{"id", "monitor", "type", "settings", "timeout_ms"}]}`: the checks to run, at once when there are some, else after up to 15 seconds with none |
+| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped |
 
 A workload is `{"key", "name", "kind", "group", "up", "status"}`: `kind`
 is `container`, `service`, `deployment`, `statefulset`, `daemonset`,
 `lxc` or `vm`; `group` the Compose project, stack, namespace or Proxmox
 node; `up` and `status` what the agent decided (see
-[Agent workload](../user/monitors.md#agent-workload)). Names, groups and
+[the workload types](../user/monitors.md#docker-swarm-service-kubernetes-workload-proxmox-ve-guest)). Names, groups and
 statuses are cut to 300 bytes, `error` to 1,000.
 
 ## Enrollment
@@ -109,15 +113,49 @@ Eyrie keeps each agent's last report in memory and in `agents`:
 client address), `version`, `platform`, `hostname`, `error`, and the
 workloads when they changed. It compares the workloads with the last
 report; for those new, gone or with another `up` or `status`, it checks
-their Agent workload monitors at once (`Engine.CheckMatching`). It checks
-all of the agent's monitors when the report carries an error, the last one
-did, or the agent had been offline.
+the agent's monitors of them at once (`Engine.CheckMatching`): Docker
+container monitors by the container's name, Swarm service monitors by
+`service/<name>`, Kubernetes workload monitors by
+`<namespace>/<kind>/<name>`, Proxmox VE guest monitors by `lxc/<vmid>` and
+`qemu/<vmid>`. It checks all of the agent's monitors when the report
+carries an error, the last one did, or the agent had been offline. The
+reports also give the monitor form its suggestions.
+
+## Checks
+
+A monitor with `agent_id` set is checked on that agent. The engine
+schedules it like any other; when a check is due, its checker
+(`Manager.Checker`) does this:
+
+1. If the agent was removed, is not enrolled or is offline, the check
+   fails at once with that reason.
+2. Otherwise it queues a job for the agent: a random 32-hex-digit ID, the
+   monitor's ID, type and timeout, and its settings with their secrets
+   opened (`check.Opened`).
+3. The agent's request for jobs, held by Eyrie for up to **15 seconds**,
+   is answered with every queued job; an agent asks again as soon as it
+   has an answer, so a job waits moments. After an error it waits 5
+   seconds, after a refusal 5 minutes.
+4. The agent runs up to 64 checks at once, each with the job's timeout,
+   with the same code as Eyrie (`check.Parse`): its own network, its
+   `DOCKER_HOST` as the default of Docker container monitors, and its
+   platform's workloads for the workload types. Each result is posted to
+   `results` as soon as the check ends.
+5. Eyrie waits for the result up to the monitor's timeout plus **20
+   seconds**. A result in time is the check's result, recorded as if Eyrie
+   had checked; otherwise the check fails: `The agent edge did not fetch
+   the check in time` (the job is withdrawn) or `The agent edge sent no
+   result in time`. Removing the agent fails its waiting checks at once.
+
+The settings travel in the clear inside the HTTPS request; over plain
+`http://` they can be read on the way. A forged answer cannot reach an
+agent over HTTPS: the agent checks Eyrie's certificate.
 
 ## Offline
 
 An enrolled agent with no report for **90 seconds** is offline. Every 15
 seconds Eyrie looks for agents that went offline, logs `agent stopped
-reporting`, and checks their monitors, which go down. The next report logs
+reporting`, and checks the monitors that run on them, which go down. The next report logs
 `agent reporting again`.
 
 ## Key rotation

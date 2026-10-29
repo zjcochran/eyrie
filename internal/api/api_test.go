@@ -130,11 +130,13 @@ func newEnv(t *testing.T) *env {
 		UI: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Write([]byte("the app"))
 		}),
-		now: e.clock,
+		now:      e.clock,
+		jobsWait: 200 * time.Millisecond,
 	}
 	e.srv = httptest.NewServer(e.s.Handler())
 	t.Cleanup(e.srv.Close)
 	eng.Publish = e.s.Publish
+	eng.Agents = e.s.Agents
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- eng.Run(ctx) }()

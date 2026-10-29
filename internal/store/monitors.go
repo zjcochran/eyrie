@@ -17,6 +17,7 @@ type Monitor struct {
 	Name          string
 	Type          string
 	GroupID       int64 // the group it is in; 0 for none
+	AgentID       int64 // the agent it is checked on; 0 for Eyrie
 	Position      int   // its place among the groups and monitors in its group
 	Active        bool  // false: paused
 	Interval      time.Duration
@@ -32,7 +33,7 @@ type Monitor struct {
 	UpdatedAt     time.Time
 }
 
-const monitorCols = `id, name, type, COALESCE(group_id, 0), position, active, interval_s, retry_interval_s, retries,
+const monitorCols = `id, name, type, COALESCE(group_id, 0), COALESCE(agent_id, 0), position, active, interval_s, retry_interval_s, retries,
 	resend_every, timeout_ms, upside_down, description, config, COALESCE(push_token, ''), created_at, updated_at`
 
 func scanMonitor(sc interface{ Scan(...any) error }) (Monitor, error) {
@@ -40,7 +41,7 @@ func scanMonitor(sc interface{ Scan(...any) error }) (Monitor, error) {
 	var interval, retry, timeout int64
 	var config string
 	var created, updated int64
-	err := sc.Scan(&m.ID, &m.Name, &m.Type, &m.GroupID, &m.Position, &m.Active, &interval, &retry, &m.Retries,
+	err := sc.Scan(&m.ID, &m.Name, &m.Type, &m.GroupID, &m.AgentID, &m.Position, &m.Active, &interval, &retry, &m.Retries,
 		&m.ResendEvery, &timeout, &m.UpsideDown, &m.Description, &config, &m.PushToken, &created, &updated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Monitor{}, ErrNotFound
@@ -98,10 +99,10 @@ func (s *Store) CreateMonitor(ctx context.Context, m Monitor, now time.Time) (Mo
 	// Parameterized: every value is a bound argument, not SQL text.
 	// nosemgrep
 	err = tx.QueryRowContext(ctx, s.q(`
-		INSERT INTO monitors (name, type, group_id, position, active, interval_s, retry_interval_s, retries, resend_every,
+		INSERT INTO monitors (name, type, group_id, agent_id, position, active, interval_s, retry_interval_s, retries, resend_every,
 			timeout_ms, upside_down, description, config, push_token, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
-		m.Name, m.Type, nullable(m.GroupID), m.Position, m.Active, int64(m.Interval/time.Second), int64(m.RetryInterval/time.Second),
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`),
+		m.Name, m.Type, nullable(m.GroupID), nullable(m.AgentID), m.Position, m.Active, int64(m.Interval/time.Second), int64(m.RetryInterval/time.Second),
 		m.Retries, m.ResendEvery, m.Timeout.Milliseconds(), m.UpsideDown, m.Description, string(m.Config),
 		nullable(m.PushToken), now.UnixMilli(), now.UnixMilli()).Scan(&id)
 	if isUnique(err) {
@@ -146,10 +147,10 @@ func (s *Store) UpdateMonitor(ctx context.Context, m Monitor, now time.Time) (Mo
 	// Parameterized: every value is a bound argument, not SQL text.
 	// nosemgrep
 	_, err = tx.ExecContext(ctx, s.q(`
-		UPDATE monitors SET name = ?, group_id = ?, position = ?, active = ?, interval_s = ?, retry_interval_s = ?, retries = ?,
+		UPDATE monitors SET name = ?, group_id = ?, agent_id = ?, position = ?, active = ?, interval_s = ?, retry_interval_s = ?, retries = ?,
 			resend_every = ?, timeout_ms = ?, upside_down = ?, description = ?, config = ?, push_token = ?, updated_at = ?
 		WHERE id = ?`),
-		m.Name, nullable(m.GroupID), m.Position, m.Active, int64(m.Interval/time.Second), int64(m.RetryInterval/time.Second),
+		m.Name, nullable(m.GroupID), nullable(m.AgentID), m.Position, m.Active, int64(m.Interval/time.Second), int64(m.RetryInterval/time.Second),
 		m.Retries, m.ResendEvery, m.Timeout.Milliseconds(), m.UpsideDown, m.Description, string(m.Config),
 		nullable(m.PushToken), now.UnixMilli(), m.ID)
 	if isUnique(err) {

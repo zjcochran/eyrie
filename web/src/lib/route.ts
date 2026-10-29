@@ -19,6 +19,7 @@ export type Page =
   | 'tags'
   | 'audit'
   | 'maintenance'
+  | 'events'
   | 'status-pages'
   | 'new-status-page'
   | 'status-page'
@@ -54,6 +55,7 @@ export function routeFor(path: string): Route {
   if (p === '/settings') return { page: 'account', id: 0 };
   if (p === '/monitors/new') return { page: 'new-monitor', id: 0 };
   if (p === '/maintenance') return { page: 'maintenance', id: 0 };
+  if (p === '/events') return { page: 'events', id: 0 };
   if (p === '/status-pages') return { page: 'status-pages', id: 0 };
   if (p === '/status-pages/new') return { page: 'new-status-page', id: 0 };
   const sp = /^\/status-pages\/([1-9][0-9]*)$/.exec(p);

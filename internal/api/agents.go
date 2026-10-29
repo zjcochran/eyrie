@@ -106,6 +106,31 @@ func (s *Server) agentReport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// agentJobs answers an agent with the checks it is to run, waiting up to
+// agentauth.JobsWait for one.
+func (s *Server) agentJobs(w http.ResponseWriter, r *http.Request) {
+	var req struct{}
+	a, _, ok := s.agentRequest(w, r, &req)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, agentauth.Jobs{Jobs: s.Agents.Jobs(r.Context(), a.ID, s.jobsWait)})
+}
+
+// agentResults takes the results of an agent's checks.
+func (s *Server) agentResults(w http.ResponseWriter, r *http.Request) {
+	var req agentauth.Results
+	a, _, ok := s.agentRequest(w, r, &req)
+	if !ok {
+		return
+	}
+	if err := s.Agents.Deliver(a.ID, req.Results); err != nil {
+		s.agentError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) agentRotate(w http.ResponseWriter, r *http.Request) {
 	var req agentauth.RotateRequest
 	a, key, ok := s.agentRequest(w, r, &req)

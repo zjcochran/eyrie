@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// How to run an agent on each platform, with its enrollment token.
+// How to run an agent on each platform, with its enrollment token, and
+// what the workloads it reports suggest for the monitor form.
+
+import type { Workload } from './api.ts';
+import type { Suggest } from './settings.ts';
 
 export const platforms = [
   { id: 'docker', label: 'Docker' },
@@ -20,17 +24,19 @@ export function agentSetup(platform: Platform, url: string, token: string): stri
       return `# compose.yaml on the Docker host
 services:
   eyrie-agent:
+    container_name: eyrie-agent
     image: ${image}
     command: agent
     restart: unless-stopped
     environment:
 ${env}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - eyrie-agent:/data
 
 volumes:
-  eyrie-agent:`;
+  eyrie-agent:
+    name: eyrie-agent`;
     case 'swarm':
       return `# eyrie-agent.yaml, then: docker stack deploy -c eyrie-agent.yaml eyrie
 services:
@@ -41,7 +47,7 @@ services:
       EYRIE_AGENT_PLATFORM: swarm
 ${env}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - agent:/data
     deploy:
       replicas: 1
@@ -49,7 +55,8 @@ ${env}
         constraints: [node.role == manager]
 
 volumes:
-  agent:`;
+  agent:
+    name: eyrie-agent`;
     case 'kubernetes':
       return `# deploy/kubernetes/eyrie-agent.yaml is in Eyrie's source code.
 kubectl create namespace eyrie
@@ -61,6 +68,7 @@ kubectl apply -f eyrie-agent.yaml`;
       return `# compose.yaml on any host that reaches Proxmox's API
 services:
   eyrie-agent:
+    container_name: eyrie-agent
     image: ${image}
     command: agent
     restart: unless-stopped
@@ -75,6 +83,24 @@ ${env}
       - eyrie-agent:/data
 
 volumes:
-  eyrie-agent:`;
+  eyrie-agent:
+    name: eyrie-agent`;
   }
+}
+
+/** The values a field suggests from an agent's workloads, sorted. */
+export function suggestions(kind: Suggest, workloads: Workload[]): string[] {
+  const kinds: Record<Suggest, string[]> = {
+    container: ['container'],
+    service: ['service'],
+    kubernetes: ['deployment', 'statefulset', 'daemonset'],
+    proxmox: ['lxc', 'vm'],
+  };
+  const out = new Set<string>();
+  for (const w of workloads) {
+    if (!kinds[kind].includes(w.kind)) continue;
+    // A Proxmox VE guest is chosen by its ID: lxc/101 or qemu/101.
+    out.add(kind === 'proxmox' ? w.key.slice(w.key.indexOf('/') + 1) : w.name);
+  }
+  return [...out].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }

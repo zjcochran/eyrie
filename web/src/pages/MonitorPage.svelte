@@ -133,6 +133,7 @@
       <h1><StatusDot status={m.status.status} active={m.active} /> {m.name}</h1>
       <p class="muted">
         {m.type} · every {duration(m.interval)}
+        {#if m.agent_id}· on {m.agent_name ? `agent ${m.agent_name}` : 'a removed agent'}{/if}
         {#if group}· in <a href="/groups/{group.id}" onclick={link}>{group.name}</a>{/if}
         {#if !m.active}· paused{/if}
         {#if m.description}· {m.description}{/if}

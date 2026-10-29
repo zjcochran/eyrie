@@ -47,6 +47,15 @@ Admins drag monitors and groups in the list to arrange it, and add a group
 with **New group**. See [Monitors](monitors.md) for the dashboard, groups,
 each monitor's page, adding monitors and every type.
 
+## Events
+
+**Events**, at the top, lists every monitor's status changes, newest
+first: when each went down, came back up, became pending, or went into or
+out of maintenance, with the check's message. A monitor's name opens its
+page. New changes appear as they happen; **Older** loads the next 100.
+They are kept as long as heartbeats (**Settings → History**). Viewers see
+it too.
+
 ## Status pages
 
 **Status pages**, at the top, lists the status pages; each opens on its
@@ -181,7 +190,7 @@ Proxmox VE), with Eyrie's address and the token filled in.
 
 **New token** makes a new enrollment token and forgets the agent's key:
 the agent is refused until it enrolls again with the new token. **Remove**
-deletes the agent; the monitors of its workloads go down.
+deletes the agent; the monitors that run on it go down.
 
 ### Audit log
 

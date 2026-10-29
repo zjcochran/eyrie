@@ -69,9 +69,11 @@ type Server struct {
 	limiter *limiter
 	// enrollLimit limits failed agent enrollments per client address.
 	enrollLimit *limiter
-	codes       *pendingCodes
-	sso         *sso.Client
-	hub         *hub
+	// jobsWait is how long an agent's request for jobs waits for one.
+	jobsWait time.Duration
+	codes    *pendingCodes
+	sso      *sso.Client
+	hub      *hub
 }
 
 // Handler returns the routes, wrapped in cross-origin protection and the
@@ -82,6 +84,9 @@ func (s *Server) Handler() http.Handler {
 	}
 	s.limiter = newLimiter(5, 15*time.Minute)
 	s.enrollLimit = newLimiter(10, time.Minute)
+	if s.jobsWait == 0 {
+		s.jobsWait = agentauth.JobsWait
+	}
 	if s.Agents == nil {
 		s.Agents = agents.New(s.Store, s.Log)
 		s.Agents.Now = s.now
@@ -91,7 +96,7 @@ func (s *Server) Handler() http.Handler {
 		s.Agents.Changed = func(agent int64, keys []string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			if err := s.Engine.CheckMatching(ctx, "agent", agents.Matcher(agent, keys)); err != nil {
+			if err := s.Engine.CheckMatching(ctx, agents.Matcher(agent, keys)); err != nil {
 				s.Log.Warn("cannot check an agent's monitors", "err", err)
 			}
 		}
@@ -155,6 +160,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST "+agentauth.PathEnroll, s.agentEnroll)
 	mux.HandleFunc("POST "+agentauth.PathReport, s.agentReport)
 	mux.HandleFunc("POST "+agentauth.PathRotate, s.agentRotate)
+	mux.HandleFunc("POST "+agentauth.PathJobs, s.agentJobs)
+	mux.HandleFunc("POST "+agentauth.PathResults, s.agentResults)
 	mux.Handle("GET /api/v1/tokens", s.admin(s.listTokens))
 	mux.Handle("POST /api/v1/tokens", s.admin(s.createToken))
 	mux.Handle("DELETE /api/v1/tokens/{id}", s.admin(s.deleteToken))
@@ -164,6 +171,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/push/{token}", s.push)
 	mux.Handle("GET /api/v1/events", s.read(s.events))
 	mux.Handle("GET /api/v1/monitor-types", s.read(s.monitorTypes))
+	mux.Handle("GET /api/v1/status-changes", s.read(s.changes))
 	mux.Handle("GET /api/v1/monitors", s.read(s.listMonitors))
 	mux.Handle("GET /api/v1/monitors/{id}", s.read(s.getMonitor))
 	mux.Handle("GET /api/v1/monitors/{id}/heartbeats", s.read(s.heartbeats))
