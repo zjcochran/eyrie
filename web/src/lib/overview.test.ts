@@ -37,7 +37,7 @@ describe('overview', () => {
     assert.deepEqual(o.counts, { unknown: 0, up: 2, down: 1, pending: 1, maintenance: 0, paused: 1 });
     assert.equal(o.active, 4);
     assert.equal(o.uptimeDay, 2.5 / 3);
-    assert.ok(Math.abs((o.uptimeMonth ?? 0) - 2.89 / 3) < 1e-9);
+    assert.equal(Math.round((o.uptimeMonth ?? 0) * 1e6), Math.round((2.89 / 3) * 1e6));
     assert.equal(o.latencyDay, 60);
     assert.equal(o.certsSoon, 1);
     assert.deepEqual(
