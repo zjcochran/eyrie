@@ -145,7 +145,7 @@ cannot change later.
 | Name | | 1 to 100 characters |
 | Runs on | Eyrie | Where it is checked from: Eyrie, or one of its [agents](agents.md#monitors-on-an-agent). Not for push and manual monitors; the platform types (Swarm services, Kubernetes workloads, Proxmox VE guests) run only on an agent. |
 | Check every | 60 s | 20 seconds to 1 day, whole seconds. For push monitors: how often a push is expected. |
-| Timeout | 80% of the interval, at most 48 s | How long a check may take, from 0.1 seconds to the interval. When adding a monitor, it follows the interval until you change it. Not used by push and manual monitors. |
+| Timeout | 80% of the interval, at most 48 s | How long a check may take, from 0.1 seconds to the interval. When adding a monitor, it follows the interval until you change it; lowering the interval below the timeout brings the timeout down to 80% of it. Not used by push and manual monitors. |
 | Retries before down | 0 | Failed checks in a row that leave the monitor **pending** before it goes **down**. 0: down at the first failure. |
 | Retry every | the interval | How soon a pending monitor is checked again. |
 | Notify again every | 0 (never) | While down, notify again every this many checks. |
