@@ -60,6 +60,12 @@
   let retries = $state(0);
   let resendEvery = $state(0);
   let timeout = $state(48);
+  // A new monitor's timeout follows its interval, as Eyrie's default does
+  // (80%, at most 48 s), until it is changed by hand.
+  let timeoutSet = $state(false);
+  $effect(() => {
+    if (!timeoutSet && interval > 0) timeout = Math.min(48, Math.round(interval * 8) / 10);
+  });
   let upsideDown = $state(false);
   let resetToken = $state(false);
   // Each field's value: text, a number from a number input, or a box's state.
@@ -88,6 +94,7 @@
         retries = m.retries;
         resendEvery = m.resend_every;
         timeout = m.timeout;
+        timeoutSet = true;
         upsideDown = m.upside_down;
         values = toValues(m.type, m.settings);
         channels = [...m.channels];
@@ -307,7 +314,15 @@
       <input type="number" bind:value={interval} min="20" max="86400" required /></label
     >
     {#if checked}
-      <label>Timeout (seconds) <input type="number" bind:value={timeout} min="0.1" step="0.1" required /></label>
+      <label>Timeout (seconds) <input
+          type="number"
+          bind:value={timeout}
+          oninput={() => (timeoutSet = true)}
+          min="0.1"
+          max={interval}
+          step="0.1"
+          required
+        /></label>
     {/if}
     <label>Retries before down <input type="number" bind:value={retries} min="0" max="100" /></label>
     <label
