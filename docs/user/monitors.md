@@ -12,8 +12,19 @@ in sees them.
 The **Monitors** page has the list of every [group](#groups) and monitor on
 the left, and what you click in it on the right: a monitor's page, a
 group's page, or the form to add or change a monitor. With nothing chosen,
-the right shows what is down, pending or in maintenance. The list stays in
-place while the right side scrolls. On a narrow screen they take turns: the
+the right shows the overview:
+
+- the number of active monitors (and paused ones), the average uptime
+  of the active monitors over 24 hours and 30 days, their average
+  response time over 24 hours, and how many certificates expire within
+  30 days;
+- a bar of the active monitors by status;
+- what is down, pending or in maintenance;
+- the six latest [events](web-ui.md#events), the five monitors with the
+  lowest uptime over 30 days (below 100%), the five slowest over 24
+  hours, and the five certificates that expire next.
+
+The list stays in place while the right side scrolls. On a narrow screen they take turns: the
 list, then what you chose, with **← Monitors** to go back.
 
 The list is in the order admins give it (see [Arranging the
@@ -45,7 +56,8 @@ A group keeps monitors together in the list, and can be in another group.
 It is not a monitor: nothing is checked, and it has no history of its own.
 
 - **New group**, above the list (admins), asks only for a name and makes
-  the group at the end of the list; its page opens.
+  the group at the end of the group chosen in the list (shown open), or at
+  the end of the list when no group is chosen; its page opens.
 - **Add group** under a monitor's **Group** setting makes one on the spot
   and puts the monitor in it.
 - A group's page lists the monitors in it with their status. Admins change

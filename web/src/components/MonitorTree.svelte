@@ -70,7 +70,8 @@
 
   let error = $state('');
 
-  // A new group: just a name, at the end of the top level.
+  // A new group: just a name, at the end of the group shown beside the
+  // list, or of the top level.
   let naming = $state(false);
   let newName = $state('');
   let creating = $state(false);
@@ -80,7 +81,9 @@
     creating = true;
     error = '';
     try {
-      const g = await api.createGroup({ name: newName.trim(), parent_id: null, alert: 'none', channels: [], alert_monitors: [] });
+      const parent = selected.startsWith('g') ? Number(selected.slice(1)) : null;
+      const g = await api.createGroup({ name: newName.trim(), parent_id: parent, alert: 'none', channels: [], alert_monitors: [] });
+      if (parent !== null) setCollapsed(parent, false);
       await loadMonitors();
       naming = false;
       newName = '';
