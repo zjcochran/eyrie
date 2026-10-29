@@ -95,6 +95,12 @@
     test = null;
     try {
       test = await api.testAnalysis({ ...form, timeout_s: Number(form.timeout_s), channel_id: testChannel });
+      // The test runs whether analysis is on or not; down alerts do not.
+      if (test.ok && !form.enabled) {
+        test.message += '\n\nAnalyse down alerts is not ticked: down alerts get no analysis until you tick it and save.';
+      } else if (test.ok && !saved?.enabled) {
+        test.message += '\n\nSave to turn analysis on for down alerts.';
+      }
     } catch (e) {
       test = { ok: false, message: message(e) };
     } finally {
@@ -106,6 +112,9 @@
 {#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
 
 {#if saved}
+  {#if !saved.enabled}
+    <p class="notice error" role="status">Alert analysis is off: down alerts are sent without an analysis.</p>
+  {/if}
   <section class="card">
     <p>
       When a monitor goes down, Eyrie can ask a language model what most likely went wrong, and send the answer in a

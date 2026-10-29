@@ -1,6 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import TagChip from '../components/TagChip.svelte';
   import { suggestions } from '../lib/agents.ts';
   import {
@@ -61,10 +61,13 @@
   let resendEvery = $state(0);
   let timeout = $state(48);
   // A new monitor's timeout follows its interval, as Eyrie's default does
-  // (80%, at most 48 s), until it is changed by hand.
+  // (80%, at most 48 s), until it is changed by hand. A shorter interval
+  // than the timeout brings the timeout down with it, so a saved monitor
+  // can be checked more often without touching its timeout.
   let timeoutSet = $state(false);
   $effect(() => {
-    if (!timeoutSet && interval > 0) timeout = Math.min(48, Math.round(interval * 8) / 10);
+    const i = interval;
+    if (i > 0 && (!timeoutSet || untrack(() => timeout) > i)) timeout = Math.min(48, Math.round(i * 8) / 10);
   });
   let upsideDown = $state(false);
   let resetToken = $state(false);

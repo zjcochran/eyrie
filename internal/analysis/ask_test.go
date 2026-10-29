@@ -3,10 +3,12 @@
 package analysis
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -29,9 +31,14 @@ func TestAnalyzeWithTheAPI(t *testing.T) {
 	if got := a.Analyze(m, store.Beat{At: t0, Status: "down"}); got != "" {
 		t.Errorf("off, but got %q", got)
 	}
+	var log bytes.Buffer
+	a.Log = slog.New(slog.NewTextHandler(&log, nil))
 	a.SetSettings(apiSettings())
 	if got := a.Analyze(m, store.Beat{At: t0, Status: "down", Message: "Status 502"}); got != "The upstream behind the proxy is failing." {
 		t.Errorf("got %q", got)
+	}
+	if !strings.Contains(log.String(), `level=INFO msg="asking the model to analyse the alert" monitor=`) {
+		t.Errorf("log %s", log.String())
 	}
 	bodies, headers := f.requests()
 	b, h := bodies[0], headers[0]
