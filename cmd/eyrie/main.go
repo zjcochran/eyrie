@@ -158,7 +158,8 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
-	// Plain TCP: Go listens with MPTCP by default on Linux.
+	// Plain TCP: Go listens with MPTCP by default on Linux, and
+	// CVE-2026-98432 is reported to be exploitable through MPTCP listeners.
 	var lc net.ListenConfig
 	lc.SetMultipathTCP(false)
 	ln, err := lc.Listen(ctx, "tcp", cfg.Listen)

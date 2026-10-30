@@ -8,7 +8,7 @@ variable.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `EYRIE_LISTEN` | `:8080` | Address the web server listens on: `host:port` or `:port`. |
+| `EYRIE_LISTEN` | `:8080` | Address the web server listens on: `host:port` or `:port`. It listens with plain TCP, never MPTCP ([Security](security.md#listening-socket)). |
 | `EYRIE_DATA_DIR` | `/data` | Folder for the SQLite database (`eyrie.db`) and the secret key file (`secret.key`). Created (mode 0700) when SQLite is used and it is missing. |
 | `EYRIE_DATABASE_URL` | empty | Empty: SQLite in `EYRIE_DATA_DIR`. A URL starting with `postgres://` or `postgresql://`: that PostgreSQL database. Anything else is refused. What the URL leaves out, such as the password, is read from the libpq variables (`PGPASSWORD`, `PGSSLMODE`, …), as pgx does. |
 | `EYRIE_BACKUP_DIR` | `<EYRIE_DATA_DIR>/backups` | Folder for [scheduled backup files](../user/backup-and-restore.md#scheduled-backups), created (mode 0750) at the first scheduled backup. |
