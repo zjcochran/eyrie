@@ -158,7 +158,10 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 		ReadHeaderTimeout: 10 * time.Second,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
-	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.Listen)
+	// Plain TCP: Go listens with MPTCP by default on Linux.
+	var lc net.ListenConfig
+	lc.SetMultipathTCP(false)
+	ln, err := lc.Listen(ctx, "tcp", cfg.Listen)
 	if err != nil {
 		return err
 	}
