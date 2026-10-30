@@ -44,7 +44,8 @@ func TestServe(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	addrs := make(chan string, 1)
 	done := make(chan error, 1)
-	var log bytes.Buffer
+	// The backup schedule can still log as serve returns.
+	var log syncBuffer
 	go func() { done <- serve(ctx, vars, &log, func(a string) { addrs <- a }) }()
 	var addr string
 	select {
