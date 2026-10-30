@@ -379,6 +379,15 @@ the key can recover it. Old files are deleted only if their names match
 `eyrie-backup-YYYYMMDD-HHMMSS.json`, and downloads of stored files accept
 only such names, so no other path can be read.
 
+## Listening socket
+
+Eyrie's web server listens with plain TCP, never multipath TCP (MPTCP),
+which Go otherwise uses for listeners on Linux. This is because of
+CVE-2026-98432, a use-after-free in the Linux kernel's TCP code, which is
+reported to be exploitable remotely through an MPTCP listener. Plain TCP
+does not fix the kernel, so update the host's kernel as well. The agent
+does not listen at all.
+
 ## Response headers
 
 See [HTTP interface](http-interface.md#response-headers).
