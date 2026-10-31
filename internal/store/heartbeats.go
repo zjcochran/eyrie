@@ -355,7 +355,8 @@ func (s *Store) totals(ctx context.Context, table string, from int64) (map[int64
 	// The table name is one of two constants; from is a bound argument.
 	// nosemgrep
 	rows, err := s.db.QueryContext(ctx, s.q(`SELECT monitor_id, CAST(SUM(up) AS BIGINT), CAST(SUM(down) AS BIGINT),
-		CAST(SUM(latency_us_sum) AS BIGINT), CAST(SUM(latency_count) AS BIGINT)
+		CAST(SUM(latency_us_sum) AS BIGINT), CAST(SUM(latency_count) AS BIGINT), CAST(SUM(cpu_bp_sum) AS BIGINT),
+		CAST(SUM(memory_bp_sum) AS BIGINT), CAST(SUM(usage_count) AS BIGINT)
 		FROM `+table+` WHERE bucket >= ? GROUP BY monitor_id`), from)
 	if err != nil {
 		return nil, err
@@ -365,7 +366,8 @@ func (s *Store) totals(ctx context.Context, table string, from int64) (map[int64
 	for rows.Next() {
 		var id int64
 		var t Totals
-		if err := rows.Scan(&id, &t.Up, &t.Down, &t.LatencySum, &t.LatencyCount); err != nil {
+		if err := rows.Scan(&id, &t.Up, &t.Down, &t.LatencySum, &t.LatencyCount, &t.CPUSum, &t.MemorySum,
+			&t.UsageCount); err != nil {
 			return nil, err
 		}
 		out[id] = t

@@ -190,16 +190,24 @@ the request, the model Anthropic recommends answers instead.
 The monitor's:
 
 - name, type, group and description;
-- schedule: interval, timeout, retries;
+- where it runs: Eyrie, or the agent's name and its host's name;
+- schedule: interval, timeout, retries (or that it goes down on the first
+  failed check);
 - settings, without anything that can be a credential. An HTTP monitor's
   URL is sent without its user, password, query and fragment; of its
   request headers, only the names; of a request body, only that there is
   one. A TCP monitor's host and port, a ping monitor's host, a DNS
   monitor's name, record type and server;
-- the failing check's message and time;
-- the last 24 hours' uptime and average response time;
+- the failing check's message and time, and, after retries, when the
+  failing began and how many checks in a row failed;
+- the last 24 hours' uptime and average response time, or for a System
+  resources monitor its host's average CPU and memory use;
 - the last 30 checks of the last 24 hours: time, status, response time and
   message.
+
+The model is told how to read them: a pending check is a failed check
+during retries, and a System resources monitor's CPU figure covers one
+second, so one high reading can be a short burst.
 
 Check messages can contain text from the monitored service, such as the
 start of a page without the keyword. The model is told that everything
