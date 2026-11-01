@@ -141,11 +141,14 @@ func (s *SNMP) describe() []Fact {
 type snmpChecker struct {
 	s   *SNMP
 	env *Env
+	// engine is the SNMPv3 agent's engine, once discovered.
+	engine *usm
 }
 
 // PDU types.
 const (
 	pduGet      = 0xa0
+	pduGetNext  = 0xa1
 	pduResponse = 0xa2
 	pduReport   = 0xa8
 )
@@ -159,13 +162,14 @@ func randInt31() int64 {
 	return int64(binary.BigEndian.Uint32(b) & 0x7fffffff)
 }
 
-// getPDU is a GetRequest for oid, or for nothing when oid is nil.
-func getPDU(reqID int64, oid []uint64) []byte {
+// requestPDU is a request of type tag (GetRequest or GetNextRequest) for
+// oid, or for nothing when oid is nil.
+func requestPDU(tag byte, reqID int64, oid []uint64) []byte {
 	var binds []byte
 	if oid != nil {
 		binds = tlv(berSequence, berOIDValue(oid), tlv(berNull))
 	}
-	return tlv(pduGet, berInt(reqID), berInt(0), berInt(0), tlv(berSequence, binds))
+	return tlv(tag, berInt(reqID), berInt(0), berInt(0), tlv(berSequence, binds))
 }
 
 // pduAnswer is what a response or report PDU holds.
@@ -220,12 +224,7 @@ func (c *snmpChecker) Check(ctx context.Context) Result {
 	conn.SetDeadline(deadline(ctx)) //nolint:errcheck,gosec // a failure shows as a timeout
 	oid, _ := parseOID(c.s.OID)
 	start := time.Now()
-	var a pduAnswer
-	if c.s.Version == "3" {
-		a, err = c.v3(ctx, conn, oid)
-	} else {
-		a, err = c.community(ctx, conn, oid)
-	}
+	a, err := c.ask(ctx, conn, pduGet, oid)
 	if err != nil {
 		return failErr(err)
 	}
@@ -247,6 +246,14 @@ func (c *snmpChecker) Check(ctx context.Context) Result {
 	return r
 }
 
+// ask sends one request of type tag (pduGet or pduGetNext) for oid.
+func (c *snmpChecker) ask(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
+	if c.s.Version == "3" {
+		return c.v3(ctx, conn, tag, oid)
+	}
+	return c.community(ctx, conn, tag, oid)
+}
+
 // udpExchange sends a request and reads answers until accept takes one.
 func udpExchange(ctx context.Context, conn net.Conn, req []byte, accept func([]byte) bool) error {
 	if _, err := conn.Write(req); err != nil {
@@ -265,13 +272,13 @@ func udpExchange(ctx context.Context, conn net.Conn, req []byte, accept func([]b
 }
 
 // community asks with SNMP version 1 or 2c.
-func (c *snmpChecker) community(ctx context.Context, conn net.Conn, oid []uint64) (pduAnswer, error) {
+func (c *snmpChecker) community(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
 	ver := int64(1)
 	if c.s.Version == "1" {
 		ver = 0
 	}
 	reqID := randInt31()
-	req := tlv(berSequence, berInt(ver), berString([]byte(c.s.Community)), getPDU(reqID, oid))
+	req := tlv(berSequence, berInt(ver), berString([]byte(c.s.Community)), requestPDU(tag, reqID, oid))
 	var a pduAnswer
 	err := udpExchange(ctx, conn, req, func(b []byte) bool {
 		msg, _, err := berExpect(b, berSequence)
@@ -538,23 +545,26 @@ var usmReports = map[string]string{
 	"1.3.6.1.6.3.15.1.1.6.0": "wrong privacy password or protocol",
 }
 
-// v3 asks with SNMPv3: first to discover the agent's engine, then for the
-// OID.
-func (c *snmpChecker) v3(ctx context.Context, conn net.Conn, oid []uint64) (pduAnswer, error) {
+// v3 asks with SNMPv3: first, once, to discover the agent's engine, then
+// for the OID.
+func (c *snmpChecker) v3(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
 	s := c.s
 	if (s.AuthProtocol != "none" && len(s.AuthPassword) < 8) || (s.PrivProtocol != "none" && len(s.PrivPassword) < 8) {
 		return pduAnswer{}, errors.New("SNMPv3 passwords are at least 8 characters")
 	}
-	found, err := c.send(ctx, conn, usm{}, nil, nil)
-	if err != nil {
-		return pduAnswer{}, err
+	if c.engine == nil {
+		found, err := c.send(ctx, conn, usm{}, pduGet, nil, nil)
+		if err != nil {
+			return pduAnswer{}, err
+		}
+		if len(found.usm.engineID) == 0 {
+			return pduAnswer{}, errors.New("the agent did not say its engine ID")
+		}
+		c.engine = &found.usm
 	}
-	u := found.usm
-	if len(u.engineID) == 0 {
-		return pduAnswer{}, errors.New("the agent did not say its engine ID")
-	}
+	u := c.engine
 	for try := 0; ; try++ {
-		got, err := c.send(ctx, conn, usm{engineID: u.engineID, boots: u.boots, time: u.time, user: []byte(s.Username)}, oid, &u)
+		got, err := c.send(ctx, conn, usm{engineID: u.engineID, boots: u.boots, time: u.time, user: []byte(s.Username)}, tag, oid, u)
 		if err != nil {
 			return got.pdu, err
 		}
@@ -575,14 +585,14 @@ type v3answer struct {
 	pdu pduAnswer
 }
 
-// send sends one SNMPv3 GetRequest. Without oid it is the discovery
-// request: no security, no variables.
-func (c *snmpChecker) send(ctx context.Context, conn net.Conn, u usm, oid []uint64, keyFor *usm) (v3answer, error) {
+// send sends one SNMPv3 request of type tag. Without oid it is the
+// discovery request: no security, no variables.
+func (c *snmpChecker) send(ctx context.Context, conn net.Conn, u usm, tag byte, oid []uint64, keyFor *usm) (v3answer, error) {
 	s := c.s
 	msgID, reqID := randInt31(), randInt31()
 	flags := byte(0x04) // reportable
 	var sec v3security
-	scoped := tlv(berSequence, berString(u.engineID), berString([]byte(s.ContextName)), getPDU(reqID, oid))
+	scoped := tlv(berSequence, berString(u.engineID), berString([]byte(s.ContextName)), requestPDU(tag, reqID, oid))
 	if oid != nil && s.AuthProtocol != "none" {
 		sec.hash = authHashes[s.AuthProtocol]
 		sec.authKey = localKey(sec.hash, s.AuthPassword, keyFor.engineID)

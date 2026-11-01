@@ -175,3 +175,42 @@ func TestMatcher(t *testing.T) {
 		t.Error("matched")
 	}
 }
+
+func TestDiscover(t *testing.T) {
+	h := newHarness(t)
+	ctx := context.Background()
+	a, _ := h.enroll(t)
+	settings := json.RawMessage(`{"host":"switch.example.com"}`)
+	for _, c := range []struct {
+		result agentauth.Result
+		err    string
+	}{
+		{agentauth.Result{OK: true, Found: json.RawMessage(`{"name":"switch"}`)}, ""},
+		{agentauth.Result{Message: "no answer: is the community right?"}, "no answer: is the community right?"},
+		{agentauth.Result{Message: "The agent cannot check this monitor: the OID is not valid"}, "the agent edge cannot discover: update it to this version of Eyrie"},
+		{agentauth.Result{OK: true}, "the agent edge found nothing"},
+	} {
+		type answer struct {
+			found json.RawMessage
+			err   error
+		}
+		out := make(chan answer, 1)
+		go func() {
+			f, err := h.m.Discover(ctx, a.ID, "snmp", settings, 30*time.Second)
+			out <- answer{f, err}
+		}()
+		jobs := h.m.Jobs(ctx, a.ID, time.Second)
+		if len(jobs) != 1 || !jobs[0].Discover || jobs[0].Type != "snmp" || jobs[0].TimeoutMS != 30000 || string(jobs[0].Settings) != string(settings) {
+			t.Fatalf("jobs %+v", jobs)
+		}
+		c.result.ID = jobs[0].ID
+		h.m.Deliver(a.ID, []agentauth.Result{c.result})
+		got := <-out
+		switch {
+		case c.err == "" && (got.err != nil || string(got.found) != `{"name":"switch"}`):
+			t.Errorf("found %s %v", got.found, got.err)
+		case c.err != "" && (got.err == nil || got.err.Error() != c.err):
+			t.Errorf("%+v: %v", c.result, got.err)
+		}
+	}
+}

@@ -30,6 +30,24 @@ func (a *fakeAgent) value(oid string) []byte {
 	return tlv(berNoInst)
 }
 
+// answer answers a GetRequest, or a GetNextRequest with the next OID.
+func (a *fakeAgent) answer(reqID int64, tag byte, oid string) []byte {
+	if tag != pduGetNext {
+		return a.response(reqID, oid)
+	}
+	var next string
+	for k := range a.values {
+		if after(k, oid) && (next == "" || after(next, k)) {
+			next = k
+		}
+	}
+	if next == "" {
+		o, _ := parseOID(oid)
+		return tlv(pduResponse, berInt(reqID), berInt(0), berInt(0), tlv(berSequence, tlv(berSequence, berOIDValue(o), tlv(berEndOfMIB))))
+	}
+	return a.response(reqID, next)
+}
+
 func (a *fakeAgent) response(reqID int64, oid string) []byte {
 	o, _ := parseOID(oid)
 	return tlv(pduResponse, berInt(reqID), berInt(a.errStatus), berInt(0), tlv(berSequence, tlv(berSequence, berOIDValue(o), a.value(oid))))
@@ -57,8 +75,8 @@ func (a *fakeAgent) serve(c net.Conn) {
 			continue // agents drop wrong communities
 		}
 		// An answer to another request first.
-		c.Write(tlv(berSequence, berInt(ver), berString(comm), a.response(p.reqID+1, p.oid)))
-		c.Write(tlv(berSequence, berInt(ver), berString(comm), a.response(p.reqID, p.oid)))
+		c.Write(tlv(berSequence, berInt(ver), berString(comm), a.answer(p.reqID+1, p.tag, p.oid)))
+		c.Write(tlv(berSequence, berInt(ver), berString(comm), a.answer(p.reqID, p.tag, p.oid)))
 	}
 }
 
@@ -100,7 +118,7 @@ func (a *fakeAgent) v3(b []byte, m v3msg) []byte {
 	if m.usm.boots != 5 && m.usm.boots != 6 {
 		return nil
 	}
-	scoped := tlv(berSequence, berString(a.engineID), berString(nil), a.response(req.reqID, req.oid))
+	scoped := tlv(berSequence, berString(a.engineID), berString(nil), a.answer(req.reqID, req.tag, req.oid))
 	flags := byte(0)
 	if sec.authKey != nil {
 		flags |= 0x01

@@ -3,6 +3,7 @@
   import { onMount, untrack } from 'svelte';
   import TagChip from '../components/TagChip.svelte';
   import { suggestions } from '../lib/agents.ts';
+  import { draftValues, localName, takeDraft } from '../lib/discover.ts';
   import {
     type Agent,
     type Channel,
@@ -107,6 +108,14 @@
         // Added with a group chosen in the list: in that group.
         const g = Number(queryValue(nav.search, 'group'));
         if (live.groups.some((x) => x.id === g)) groupID = g;
+        // Added from discovery: what was found.
+        const d = takeDraft();
+        if (d) {
+          type = d.type;
+          name = d.name;
+          agentID = d.agentID;
+          values = draftValues(d);
+        }
       }
     } catch (e) {
       error = message(e);
@@ -219,7 +228,7 @@
         {#if typeInfo.agent_only}
           <option value={0} disabled>Choose an agent</option>
         {:else}
-          <option value={0}>Eyrie</option>
+          <option value={0}>{localName}</option>
         {/if}
         {#each agents as a (a.id)}
           <option value={a.id}>Agent {a.name}{a.status === 'online' ? '' : ` (${a.status})`}</option>

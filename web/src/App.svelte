@@ -11,6 +11,7 @@
   import Agents from './pages/Agents.svelte';
   import Analysis from './pages/Analysis.svelte';
   import Audit from './pages/Audit.svelte';
+  import Discover from './pages/Discover.svelte';
   import Events from './pages/Events.svelte';
   import Backup from './pages/Backup.svelte';
   import Login from './pages/Login.svelte';
@@ -108,6 +109,9 @@
     <a class="brand" href="/" onclick={link}><img src={logo} alt="" width="28" height="28" /> Eyrie</a>
     <nav>
       <a href="/" onclick={link} aria-current={inMonitors ? 'page' : undefined}>Monitors</a>
+      {#if user.role === 'admin'}
+        <a href="/discover" onclick={link} aria-current={page === 'discover' ? 'page' : undefined}>Discover</a>
+      {/if}
       <a href="/events" onclick={link} aria-current={page === 'events' ? 'page' : undefined}>Events</a>
       <a href="/maintenance" onclick={link} aria-current={page === 'maintenance' ? 'page' : undefined}>Maintenance</a>
       <a href="/status-pages" onclick={link} aria-current={inStatusPages ? 'page' : undefined}>Status pages</a>
@@ -124,6 +128,8 @@
   <main class:wide={inSettings} class:split={inMonitors}>
     {#if inMonitors}
       <Monitors {route} admin={user.role === 'admin'} />
+    {:else if page === 'discover' && user.role === 'admin'}
+      <Discover />
     {:else if page === 'events'}
       <Events />
     {:else if page === 'maintenance'}

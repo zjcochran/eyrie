@@ -47,6 +47,13 @@ Admins drag monitors and groups in the list to arrange it, and add a group
 with **New group**. See [Monitors](monitors.md) for the dashboard, groups,
 each monitor's page, adding monitors and every type.
 
+## Discover
+
+**Discover**, at the top (admins), lists a Docker engine's containers,
+what an agent's platform runs, or a network device's interfaces, and opens
+a monitor of what you choose in the monitor form. See
+[Discovery](discovery.md).
+
 ## Events
 
 **Events**, at the top, lists every monitor's status changes, newest

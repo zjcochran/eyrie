@@ -7,8 +7,10 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/zjcochran/eyrie/internal/agentauth"
@@ -29,7 +31,7 @@ type queue struct {
 // waiter is a job waiting for its agent's result.
 type waiter struct {
 	agent  int64
-	result chan check.Result
+	result chan agentauth.Result
 }
 
 func (m *Manager) queue(agent int64) *queue {
@@ -53,8 +55,8 @@ func (m *Manager) dropJobs(agent int64) {
 	}
 }
 
-func failed(format string, args ...any) check.Result {
-	return check.Result{Message: fmt.Sprintf(format, args...), Latency: -1}
+func failed(format string, args ...any) agentauth.Result {
+	return agentauth.Result{Message: fmt.Sprintf(format, args...), LatencyUS: -1}
 }
 
 // unavailable says why an agent cannot run checks; "" when it can.
@@ -100,11 +102,34 @@ func (r *remote) Check(ctx context.Context) check.Result {
 
 // Run gives a job to an agent and waits for its result until ctx ends.
 func (m *Manager) Run(ctx context.Context, agent int64, job agentauth.Job) check.Result {
+	return toCheck(m.run(ctx, agent, job))
+}
+
+// Discover has an agent discover what settings of type typ point at (an
+// SNMP device) within timeout, waiting until ctx ends, and returns what
+// it found.
+func (m *Manager) Discover(ctx context.Context, agent int64, typ string, settings json.RawMessage, timeout time.Duration) (json.RawMessage, error) {
+	r := m.run(ctx, agent, agentauth.Job{Type: typ, Settings: settings, TimeoutMS: timeout.Milliseconds(), Discover: true})
+	a, _ := m.Get(agent)
+	switch {
+	// Agents from before discovery check the settings, which have no OID.
+	case strings.HasPrefix(r.Message, "The agent cannot check"):
+		return nil, fmt.Errorf("the agent %s cannot discover: update it to this version of Eyrie", a.Name)
+	case !r.OK:
+		return nil, errors.New(r.Message)
+	case len(r.Found) == 0:
+		return nil, fmt.Errorf("the agent %s found nothing", a.Name)
+	}
+	return r.Found, nil
+}
+
+// run gives a job to an agent and waits for its result until ctx ends.
+func (m *Manager) run(ctx context.Context, agent int64, job agentauth.Job) agentauth.Result {
 	if why := m.unavailable(agent); why != "" {
 		return failed("%s", why)
 	}
 	job.ID = newJobID()
-	w := &waiter{agent: agent, result: make(chan check.Result, 1)}
+	w := &waiter{agent: agent, result: make(chan agentauth.Result, 1)}
 	m.mu.Lock()
 	q := m.queue(agent)
 	q.jobs = append(q.jobs, job)
@@ -181,19 +206,25 @@ func (m *Manager) Deliver(agent int64, results []agentauth.Result) error {
 		if !ok || w.agent != agent {
 			continue
 		}
-		res := check.Result{OK: r.OK, Message: clip(r.Message, 1000), Latency: -1}
-		if r.LatencyUS >= 0 {
-			res.Latency = time.Duration(r.LatencyUS) * time.Microsecond
-		}
-		if r.CertExpires != nil {
-			res.CertExpires = *r.CertExpires
-		}
-		if r.Usage != nil {
-			res.Usage = &check.Usage{CPU: percent(r.Usage.CPU), Memory: percent(r.Usage.Memory)}
-		}
-		w.result <- res
+		r.Message = clip(r.Message, 1000)
+		w.result <- r
 	}
 	return nil
+}
+
+// toCheck turns an agent's result into a check's.
+func toCheck(r agentauth.Result) check.Result {
+	res := check.Result{OK: r.OK, Message: r.Message, Latency: -1}
+	if r.LatencyUS >= 0 {
+		res.Latency = time.Duration(r.LatencyUS) * time.Microsecond
+	}
+	if r.CertExpires != nil {
+		res.CertExpires = *r.CertExpires
+	}
+	if r.Usage != nil {
+		res.Usage = &check.Usage{CPU: percent(r.Usage.CPU), Memory: percent(r.Usage.Memory)}
+	}
+	return res
 }
 
 // Matcher matches the monitors that run on agent and, with keys, check

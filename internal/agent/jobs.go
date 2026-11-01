@@ -4,6 +4,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -57,12 +58,35 @@ func (a *Agent) jobLoop(ctx context.Context) {
 	}
 }
 
-// runJob runs one check and sends its result.
+// runJob runs one check, or discovery, and sends its result.
 func (a *Agent) runJob(ctx context.Context, job agentauth.Job) {
+	if job.Discover {
+		a.post(ctx, a.discover(ctx, job))
+		return
+	}
 	a.send1(ctx, job.ID, a.check(ctx, job))
 }
 
-// send1 sends the result of a job.
+// discover runs a discovery job, with its timeout.
+func (a *Agent) discover(ctx context.Context, job agentauth.Job) agentauth.Result {
+	r := agentauth.Result{ID: job.ID, LatencyUS: -1}
+	if job.Type != "snmp" {
+		r.Message = "The agent cannot discover " + job.Type
+		return r
+	}
+	cctx, cancel := context.WithTimeout(ctx, timeout(job))
+	defer cancel()
+	d, err := check.DiscoverSNMP(cctx, a.Env, job.Settings)
+	if err != nil {
+		r.Message = err.Error()
+		return r
+	}
+	r.OK = true
+	r.Found, _ = json.Marshal(d) //nolint:errchkjson // a struct of strings and numbers
+	return r
+}
+
+// send1 sends the result of a check.
 func (a *Agent) send1(ctx context.Context, id string, res check.Result) {
 	r := agentauth.Result{ID: id, OK: res.OK, Message: res.Message, LatencyUS: -1}
 	if res.Latency >= 0 {
@@ -75,6 +99,11 @@ func (a *Agent) send1(ctx context.Context, id string, res check.Result) {
 	if res.Usage != nil {
 		r.Usage = &agentauth.Usage{CPU: res.Usage.CPU, Memory: res.Usage.Memory}
 	}
+	a.post(ctx, r)
+}
+
+// post sends the result of a job.
+func (a *Agent) post(ctx context.Context, r agentauth.Result) {
 	if err := a.do(ctx, agentauth.PathResults, agentauth.Results{Results: []agentauth.Result{r}}); err != nil && ctx.Err() == nil {
 		a.Log.Warn("cannot send a check's result to Eyrie", "err", err)
 	}
@@ -89,11 +118,17 @@ func (a *Agent) check(ctx context.Context, job agentauth.Job) check.Result {
 	if c == nil {
 		return check.Result{Message: "The agent cannot check this type of monitor", Latency: -1}
 	}
-	timeout := time.Duration(job.TimeoutMS) * time.Millisecond
-	if timeout <= 0 || timeout > 10*time.Minute {
-		timeout = 48 * time.Second
-	}
-	cctx, cancel := context.WithTimeout(ctx, timeout)
+	cctx, cancel := context.WithTimeout(ctx, timeout(job))
 	defer cancel()
 	return c.Check(cctx)
+}
+
+// timeout is a job's timeout: 48 seconds when it has none, or one over 10
+// minutes.
+func timeout(job agentauth.Job) time.Duration {
+	t := time.Duration(job.TimeoutMS) * time.Millisecond
+	if t <= 0 || t > 10*time.Minute {
+		t = 48 * time.Second
+	}
+	return t
 }

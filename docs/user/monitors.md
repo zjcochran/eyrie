@@ -134,7 +134,8 @@ Admins also get **Check now**, **Pause** or **Resume**, **Edit** and
 
 **Add a monitor** on the dashboard (admins). With a group chosen in the
 list, the new monitor's **Group** is that group. Choose the type first; it
-cannot change later.
+cannot change later. [Discovery](discovery.md) opens this form filled in,
+for a container, service, workload, guest or network interface it found.
 
 ![The form to add a monitor, for an HTTP(S) monitor](../images/add-monitor-dark.png)
 
@@ -143,7 +144,7 @@ cannot change later.
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | Name | | 1 to 100 characters |
-| Runs on | Eyrie | Where it is checked from: Eyrie, or one of its [agents](agents.md#monitors-on-an-agent). Not for push and manual monitors; the platform types (Swarm services, Kubernetes workloads, Proxmox VE guests) run only on an agent. |
+| Runs on | Eyrie server (local) | Where it is checked from: **Eyrie server (local)**, the host Eyrie runs on, or one of its [agents](agents.md#monitors-on-an-agent). Not for push and manual monitors; the platform types (Swarm services, Kubernetes workloads, Proxmox VE guests) run only on an agent. |
 | Check every | 60 s | 20 seconds to 1 day, whole seconds. For push monitors: how often a push is expected. |
 | Timeout | 80% of the interval, at most 48 s | How long a check may take, from 0.1 seconds to the interval. When adding a monitor, it follows the interval until you change it; lowering the interval below the timeout brings the timeout down to 80% of it. Not used by push and manual monitors. |
 | Retries before down | 0 | Failed checks in a row that leave the monitor **pending** before it goes **down**. 0: down at the first failure. |
@@ -441,7 +442,7 @@ with a chart of each for 24 hours, 7 or 30 days, and
 
 **Runs on** picks the host:
 
-- **Eyrie**: the host Eyrie runs on. In a Docker container, these `/proc`
+- **Eyrie server (local)**: the host Eyrie runs on. In a Docker container, these `/proc`
   files show the whole host, not the container, so it needs no volume,
   privilege or Docker socket.
 - **An [agent](agents.md)**: the host the agent runs on, in the same way.

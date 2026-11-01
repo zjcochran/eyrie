@@ -24,6 +24,7 @@ import (
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/sso"
 	"github.com/zjcochran/eyrie/internal/store"
+	"github.com/zjcochran/eyrie/internal/workload"
 )
 
 // Server answers HTTP requests. Set its fields, then call Handler once.
@@ -71,9 +72,12 @@ type Server struct {
 	enrollLimit *limiter
 	// jobsWait is how long an agent's request for jobs waits for one.
 	jobsWait time.Duration
-	codes    *pendingCodes
-	sso      *sso.Client
-	hub      *hub
+	// dockerLister lists the containers of Eyrie's Docker engine, for
+	// discovery; nil: workload.NewDocker.
+	dockerLister func(host string) (workload.Lister, error)
+	codes        *pendingCodes
+	sso          *sso.Client
+	hub          *hub
 }
 
 // Handler returns the routes, wrapped in cross-origin protection and the
@@ -106,6 +110,9 @@ func (s *Server) Handler() http.Handler {
 	s.hub = newHub()
 	if s.HTTP == nil {
 		s.HTTP = http.DefaultClient
+	}
+	if s.dockerLister == nil {
+		s.dockerLister = func(host string) (workload.Lister, error) { return workload.NewDocker(host) }
 	}
 
 	mux := http.NewServeMux()
@@ -157,6 +164,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/agents/{id}/token", s.admin(s.renewAgentToken))
 	mux.Handle("DELETE /api/v1/agents/{id}", s.admin(s.removeAgent))
 	mux.Handle("GET /api/v1/agents/{id}/workloads", s.admin(s.agentWorkloads))
+	mux.Handle("POST /api/v1/discover", s.admin(s.discover))
 	mux.HandleFunc("POST "+agentauth.PathEnroll, s.agentEnroll)
 	mux.HandleFunc("POST "+agentauth.PathReport, s.agentReport)
 	mux.HandleFunc("POST "+agentauth.PathRotate, s.agentRotate)

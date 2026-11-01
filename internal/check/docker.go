@@ -27,7 +27,8 @@ type Docker struct {
 	IgnoreTLS  bool   `json:"ignore_tls"`
 }
 
-const defaultDockerHost = "unix:///var/run/docker.sock"
+// DefaultDockerHost is the Docker host of docker monitors that name none.
+const DefaultDockerHost = "unix:///var/run/docker.sock"
 
 var containerName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,254}$`)
 
@@ -38,7 +39,7 @@ func (d *Docker) normalize() error {
 	}
 	d.DockerHost = strings.TrimSpace(d.DockerHost)
 	if d.DockerHost == "" {
-		d.DockerHost = defaultDockerHost
+		d.DockerHost = DefaultDockerHost
 	}
 	u, err := url.Parse(d.DockerHost)
 	switch {
@@ -66,7 +67,7 @@ type dockerChecker struct {
 // client is an HTTP client for the Docker daemon, and its base URL.
 func (c *dockerChecker) client() (*http.Client, string) {
 	host := c.d.DockerHost
-	if host == defaultDockerHost && c.env.DockerHost != "" {
+	if host == DefaultDockerHost && c.env.DockerHost != "" {
 		host = c.env.DockerHost
 	}
 	u, _ := url.Parse(host)

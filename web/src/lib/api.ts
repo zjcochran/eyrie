@@ -155,6 +155,24 @@ export interface Workload {
   status: string;
 }
 
+/** Something discovery found: a monitor that could be added. */
+export interface Found {
+  name: string;
+  detail: string;
+  group?: string;
+  up: boolean;
+  /** The monitor's settings, over those discovery was given. */
+  settings: Record<string, unknown>;
+  /** The monitor that already checks it. */
+  monitor_id?: number;
+}
+
+export interface Discovered {
+  /** An SNMP device's name and description. */
+  device?: string;
+  found: Found[];
+}
+
 export interface Token {
   id: number;
   name: string;
@@ -709,6 +727,9 @@ export class Client {
   renewAgentToken = (id: number) => this.request<{ agent: Agent; token: string }>('POST', `/api/v1/agents/${id}/token`);
   removeAgent = (id: number) => this.request<void>('DELETE', `/api/v1/agents/${id}`);
   workloads = (id: number) => this.request<Workload[]>('GET', `/api/v1/agents/${id}/workloads`);
+  /** What a source has, from Eyrie (agentID 0) or an agent; settings: an SNMP device's. */
+  discover = (type: string, agentID: number, settings?: Record<string, unknown>) =>
+    this.request<Discovered>('POST', '/api/v1/discover', { type, agent_id: agentID, settings });
   tokens = () => this.request<Token[]>('GET', '/api/v1/tokens');
   createToken = (name: string) => this.request<Token & { token: string }>('POST', '/api/v1/tokens', { name });
   deleteToken = (id: number) => this.request<void>('DELETE', `/api/v1/tokens/${id}`);

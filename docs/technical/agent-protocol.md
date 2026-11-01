@@ -70,8 +70,8 @@ cleared.
 | `POST /api/agent/v1/enroll` | `{"token", "public_key", "hostname", "platform", "version"}`, not signed | `200 {"agent", "name"}`; `400` for a malformed body or key; `401` for an unknown, used or expired token; `429` after 10 refused tokens within a minute from one client address |
 | `POST /api/agent/v1/report` | `{"version", "platform", "hostname", "error", "workloads": [...]}` | `204`; `400` for more than 10,000 workloads, or a workload with an empty, repeated or over-300-byte key |
 | `POST /api/agent/v1/rotate` | `{"new_key", "ts", "proof"}` | `204`; `400` for a malformed key or a proof that does not verify; `401` if signed with the previous key for a key other than the current one |
-| `POST /api/agent/v1/jobs` | `{}` | `200 {"jobs": [{"id", "monitor", "type", "settings", "timeout_ms"}]}`: the checks to run, at once when there are some, else after up to 15 seconds with none |
-| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires", "usage"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped. `usage` (`{"cpu", "memory"}`, in percent, kept from 0 to 100) only from system-resources checks |
+| `POST /api/agent/v1/jobs` | `{}` | `200 {"jobs": [{"id", "monitor", "type", "settings", "timeout_ms", "discover"}]}`: the checks to run, and [discoveries](#discovery) (`"discover": true`), at once when there are some, else after up to 15 seconds with none |
+| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires", "usage", "found"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped. `usage` (`{"cpu", "memory"}`, in percent, kept from 0 to 100) only from system-resources checks; `found` only from discoveries |
 
 A workload is `{"key", "name", "kind", "group", "up", "status"}`: `kind`
 is `container`, `service`, `deployment`, `statefulset`, `daemonset`,
@@ -150,6 +150,24 @@ schedules it like any other; when a check is due, its checker
 The settings travel in the clear inside the HTTPS request; over plain
 `http://` they can be read on the way. A forged answer cannot reach an
 agent over HTTPS: the agent checks Eyrie's certificate.
+
+## Discovery
+
+[Discovery](../user/discovery.md) of a platform's workloads reads the
+agent's last report: nothing is sent to the agent. Discovery of an SNMP
+device on an agent is a job like a check (steps 1 to 3 above), with
+`"discover": true`, `monitor` 0, type `snmp`, the device's settings as
+typed (the community and passwords included) and a 60-second timeout. The
+agent asks the device (`check.DiscoverSNMP`, the same code as Eyrie) and
+posts a result whose `found` is
+`{"name", "description", "interfaces": [{"index", "name", "alias", "admin", "oper"}]}`;
+on a failure, `ok` is false and `message` says why. Eyrie waits 80
+seconds for it, and cuts each text to its first line and 200 bytes.
+
+An agent from before discovery ignores `discover` and checks the
+settings, which have no OID: its answer starts `The agent cannot check`,
+and Eyrie answers `The agent edge cannot discover: update it to this
+version of Eyrie.`
 
 ## Offline
 
