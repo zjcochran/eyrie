@@ -273,6 +273,9 @@ func TestUsageBeats(t *testing.T) {
 		if len(hours) != 1 || *hours[0].AvgUsage() != (Usage{CPU: 30.5, Memory: 75}) {
 			t.Errorf("hours %+v", hours)
 		}
+		if totals, _ := s.HourlyTotals(ctx, at); totals[a.ID].AvgUsage() == nil || *totals[a.ID].AvgUsage() != (Usage{CPU: 30.5, Memory: 75}) {
+			t.Errorf("totals %+v", totals[a.ID])
+		}
 		if (Totals{}).AvgUsage() != nil {
 			t.Error("use without checks")
 		}

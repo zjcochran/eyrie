@@ -136,9 +136,10 @@ func TestPrompt(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"<monitor_data>\nMonitor: Shop website (HTTP(S))\nIn group: Web\nDescription: the shop\n",
-		"Checked every 1m0s, timeout 48s; down after 2 failed retries, 30s apart",
+		"Runs on: Eyrie\nChecked every 1m0s, timeout 48s; down after 2 failed retries, 30s apart",
 		"URL: https://shop.example.com/health\n", "Request headers (values not shown): Authorization",
-		"Alert: down at 2027-01-15T08:30:00Z: Status 503 Service Unavailable",
+		"Alert: down at 2027-01-15T08:30:00Z: Status 503 Service Unavailable\n" +
+			"Failing since 2027-01-15T08:29:00Z: 2 failed checks in a row\n",
 		"Last 24 hours: 100.00% of 3 checks up, average response time 150 ms",
 		"Last 3 checks, newest first:\n2027-01-15T08:29:00Z pending msg pending\n2027-01-15T08:28:00Z up 200 ms msg up\n",
 		"</monitor_data>"} {
@@ -151,8 +152,58 @@ func TestPrompt(t *testing.T) {
 			t.Errorf("%q leaks into\n%s", secret, p)
 		}
 	}
-	if !strings.Contains(render(store.Monitor{Type: "nope", UpsideDown: true}, store.Beat{}, "", nil, nil, store.Totals{}), "(nope)\n") {
+	if !strings.Contains(render(store.Monitor{Type: "nope", UpsideDown: true}, store.Beat{}, "", "Eyrie", nil, nil, store.Totals{}), "(nope)\n") {
 		t.Error("unknown type")
+	}
+}
+
+// A System resources monitor on an agent: the prompt names the agent and
+// its host, and gives the host's usual CPU and memory use.
+func TestPromptResources(t *testing.T) {
+	a := newAnalyzer(t)
+	ctx := context.Background()
+	ag, _, err := a.Store.AddAgent(ctx, "edge", t0, t0.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := a.Store.CreateMonitor(ctx, store.Monitor{Name: "Host", Type: "system-resources", AgentID: ag.ID, Active: true,
+		Interval: 20 * time.Second, Timeout: 16 * time.Second, Config: json.RawMessage(`{"cpu_max":90}`)}, t0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var recs []store.Record
+	for i, cpu := range []float64{20, 30} {
+		at := t0.Add(time.Duration(i-2) * time.Minute)
+		recs = append(recs, store.Record{Beat: store.Beat{MonitorID: m.ID, At: at, Status: "up", Latency: -1, Message: "fine",
+			Usage: &store.Usage{CPU: cpu, Memory: 40}}, State: store.MonitorState{MonitorID: m.ID, Status: "up", Since: at, LastCheck: at, Latency: -1}})
+	}
+	if err := a.Store.Save(ctx, recs); err != nil {
+		t.Fatal(err)
+	}
+	alert := store.Beat{At: t0, Status: "down", Message: "CPU is above 90%"}
+	p, err := a.prompt(ctx, m, alert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Runs on: the agent \"edge\"\n", "down on the first failed check\n",
+		"CPU limit: 90%", "Last 24 hours: 100.00% of 2 checks up, average CPU 25.0%, average memory 40.0%\n"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("missing %q in\n%s", want, p)
+		}
+	}
+	if strings.Contains(p, "Failing since") || strings.Contains(p, "response time") {
+		t.Errorf("one failed check, no response times:\n%s", p)
+	}
+
+	if err := a.Store.SaveAgentReport(ctx, ag.ID, store.AgentReport{Seen: t0, Hostname: "host1.example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if p, _ := a.prompt(ctx, m, alert); !strings.Contains(p, "Runs on: the agent \"edge\", on the host host1.example.com\n") {
+		t.Errorf("hostname:\n%s", p)
+	}
+	m.AgentID = ag.ID + 1
+	if p, _ := a.prompt(ctx, m, alert); !strings.Contains(p, "Runs on: an agent that was removed\n") {
+		t.Errorf("removed agent:\n%s", p)
 	}
 }
 
