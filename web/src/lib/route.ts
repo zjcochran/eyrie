@@ -7,6 +7,7 @@ export type Page =
   | 'group'
   | 'new-monitor'
   | 'edit-monitor'
+  | 'discover'
   | 'account'
   | 'users'
   | 'sso'
@@ -54,6 +55,7 @@ export function routeFor(path: string): Route {
   if (p === '/') return { page: 'home', id: 0 };
   if (p === '/settings') return { page: 'account', id: 0 };
   if (p === '/monitors/new') return { page: 'new-monitor', id: 0 };
+  if (p === '/discover') return { page: 'discover', id: 0 };
   if (p === '/maintenance') return { page: 'maintenance', id: 0 };
   if (p === '/events') return { page: 'events', id: 0 };
   if (p === '/status-pages') return { page: 'status-pages', id: 0 };

@@ -169,6 +169,14 @@ under `/api/agent/v1/`, are in [Agent protocol](agent-protocol.md#routes).
 | `DELETE /api/v1/agents/{id}` | | `204`; the monitors on it stay on it, and go down |
 | `GET /api/v1/agents/{id}/workloads` | | `200` `[{"key","name","kind","group","up","status"}]`, the last report's, for the monitor form's suggestions |
 
+### Discovery
+
+An admin route. See [Discovery](../user/discovery.md).
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `POST /api/v1/discover` | `{"type","agent_id","settings"}`: `type` is `docker`, `docker-swarm`, `kubernetes`, `proxmox` or `snmp`; `agent_id` the agent to discover from, `0` or absent for Eyrie; `settings` an SNMP device's, as an `snmp` monitor's without the OID | `200` `{"device","found":[{"name","detail","group","up","settings","monitor_id"}]}`: `device` an SNMP device's name and description; for each thing found, a monitor's name, how it is now, its group (Compose project, stack, namespace or node), its settings to merge over the request's, and the monitor that already checks it (absent: none). `400` for another type, `404` for an unknown agent, `422` with why nothing could be listed. Nothing is added. |
+
 ### Notification channels
 
 All admin routes. See [Notifications](../user/notifications.md).

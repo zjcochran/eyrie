@@ -246,6 +246,10 @@ type Job struct {
 	Type      string          `json:"type"`
 	Settings  json.RawMessage `json:"settings"`
 	TimeoutMS int64           `json:"timeout_ms"`
+	// Discover asks the agent to discover what the settings point at (an
+	// SNMP device), for no monitor, instead of checking it. The result's
+	// Found holds what it found.
+	Discover bool `json:"discover,omitempty"`
 }
 
 // Jobs is Eyrie's answer to a request for jobs.
@@ -264,6 +268,9 @@ type Result struct {
 	// Usage is the agent's host's use, from a system-resources check; nil:
 	// none.
 	Usage *Usage `json:"usage,omitempty"`
+	// Found is what a discovery job found (a check.SNMPDevice); nil for
+	// checks.
+	Found json.RawMessage `json:"found,omitempty"`
 }
 
 // Usage is how busy a host is, in percent.

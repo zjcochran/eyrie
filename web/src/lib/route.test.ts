@@ -25,6 +25,7 @@ describe('pageFor', () => {
   });
   it('reads monitor pages and their IDs', () => {
     assert.deepEqual(routeFor('/monitors/new'), { page: 'new-monitor', id: 0 });
+    assert.deepEqual(routeFor('/discover'), { page: 'discover', id: 0 });
     assert.deepEqual(routeFor('/monitors/12'), { page: 'monitor', id: 12 });
     assert.deepEqual(routeFor('/monitors/12/edit'), { page: 'edit-monitor', id: 12 });
     assert.equal(pageFor('/monitors/0'), 'not-found');

@@ -48,7 +48,7 @@ folder (`/data/agent`), so keep that folder: in Docker, a volume on
 
 ## Monitors on an agent
 
-A monitor's **Runs on** is **Eyrie** (the default) or one of the agents;
+A monitor's **Runs on** is **Eyrie server (local)** (the default) or one of the agents;
 an admin can move a monitor between them at any time. On its page, a
 monitor on an agent says `on agent edge`.
 
