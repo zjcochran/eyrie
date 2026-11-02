@@ -4,7 +4,7 @@
   import StatusDot from '../components/StatusDot.svelte';
   import { type Agent, type Discovered, type Found, message } from '../lib/api.ts';
   import { agentsFor, localName, setDraft, sources } from '../lib/discover.ts';
-  import { go, link } from '../lib/nav.svelte.ts';
+  import { go } from '../lib/nav.svelte.ts';
   import { api } from '../lib/session.svelte.ts';
   import { fields, shown, toSettings, toValues } from '../lib/settings.ts';
 
@@ -125,6 +125,9 @@
 {#if result}
   <section class="card">
     <h2>{result.device ?? `${source.label}: ${result.found.length}`}</h2>
+    {#if result.monitored}
+      <p class="muted">Not listed: {result.monitored} monitored already.</p>
+    {/if}
     {#if result.found.length}
       <div class="table-wrap">
         <table>
@@ -135,20 +138,14 @@
                 <td>{f.name}</td>
                 <td><StatusDot status={f.up ? 'up' : 'down'} /> {f.detail}</td>
                 {#if grouped}<td>{f.group ?? ''}</td>{/if}
-                <td class="actions">
-                  {#if f.monitor_id}
-                    <a href="/monitors/{f.monitor_id}" onclick={link}>Monitored</a>
-                  {:else}
-                    <button onclick={() => add(f)}>Add monitor</button>
-                  {/if}
-                </td>
+                <td class="actions"><button onclick={() => add(f)}>Add monitor</button></td>
               </tr>
             {/each}
           </tbody>
         </table>
       </div>
     {:else}
-      <p class="muted">Nothing found.</p>
+      <p class="muted">{result.monitored ? 'Nothing new found.' : 'Nothing found.'}</p>
     {/if}
   </section>
 {/if}

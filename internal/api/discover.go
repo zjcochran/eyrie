@@ -17,6 +17,7 @@ import (
 
 	"github.com/zjcochran/eyrie/internal/agents"
 	"github.com/zjcochran/eyrie/internal/check"
+	"github.com/zjcochran/eyrie/internal/store"
 	"github.com/zjcochran/eyrie/internal/workload"
 )
 
@@ -58,14 +59,14 @@ type found struct {
 	Up     bool   `json:"up"`
 	// Settings are the monitor's settings, over those of the request.
 	Settings map[string]any `json:"settings"`
-	// MonitorID is a monitor that already checks it; 0: none.
-	MonitorID int64 `json:"monitor_id,omitempty"`
 }
 
 type discovered struct {
 	// Device names an SNMP device and what it says it is.
 	Device string  `json:"device,omitempty"`
 	Found  []found `json:"found"`
+	// Monitored counts what was found but left out: a monitor checks it.
+	Monitored int `json:"monitored"`
 }
 
 func (s *Server) discover(w http.ResponseWriter, r *http.Request) {
@@ -106,11 +107,11 @@ func (s *Server) discover(w http.ResponseWriter, r *http.Request) {
 		invalid(w, http.StatusUnprocessableEntity, msg)
 		return
 	}
-	if err := s.markMonitored(r.Context(), b.Type, b.AgentID, b.Settings, out.Found); err != nil {
+	if err := s.dropMonitored(r.Context(), b.Type, b.AgentID, b.Settings, &out); err != nil {
 		s.fail(w, r, err)
 		return
 	}
-	s.audit(r, "discovery", "type", b.Type, "runs_on", where, "found", len(out.Found), "by", sessionFrom(r).User.Username)
+	s.audit(r, "discovery", "type", b.Type, "runs_on", where, "found", len(out.Found)+out.Monitored, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -244,10 +245,10 @@ func clipText(s string) string {
 	return s
 }
 
-// markMonitored sets the monitor that already checks each thing found: on
-// the same agent (or Eyrie), of the same workload, or of the same SNMP
-// device and OID.
-func (s *Server) markMonitored(ctx context.Context, typ string, agent int64, settings json.RawMessage, fs []found) error {
+// dropMonitored leaves out what a monitor already checks: one on the same
+// agent (or Eyrie), of the same workload, or of the same SNMP device and
+// OID.
+func (s *Server) dropMonitored(ctx context.Context, typ string, agent int64, settings json.RawMessage, out *discovered) error {
 	mons, err := s.Store.Monitors(ctx)
 	if err != nil {
 		return err
@@ -256,17 +257,17 @@ func (s *Server) markMonitored(ctx context.Context, typ string, agent int64, set
 		Host string `json:"host"`
 	}
 	_ = json.Unmarshal(settings, &dev)
-	for i := range fs {
-		for _, m := range mons {
-			if m.Type != typ || m.AgentID != agent {
-				continue
-			}
-			if monitors(typ, m.Config, fs[i].Settings, dev.Host) {
-				fs[i].MonitorID = m.ID
-				break
-			}
+	kept := out.Found[:0]
+	for _, f := range out.Found {
+		if slices.ContainsFunc(mons, func(m store.Monitor) bool {
+			return m.Type == typ && m.AgentID == agent && monitors(typ, m.Config, f.Settings, dev.Host)
+		}) {
+			out.Monitored++
+			continue
 		}
+		kept = append(kept, f)
 	}
+	out.Found = kept
 	return nil
 }
 
