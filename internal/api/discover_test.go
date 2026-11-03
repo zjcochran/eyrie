@@ -41,14 +41,13 @@ func TestDiscoverDocker(t *testing.T) {
 		t.Fatalf("monitor: %d", code)
 	}
 
-	// On Eyrie: its Docker engine's containers; shop is monitored already.
+	// On Eyrie: its Docker engine's containers, without shop, monitored already.
 	var got discovered
 	if code := admin.call("POST", "/api/v1/discover", map[string]any{"type": "docker"}, &got); code != http.StatusOK {
 		t.Fatalf("discover: %d", code)
 	}
-	if host != check.DefaultDockerHost || len(got.Found) != 2 || got.Found[0].MonitorID == 0 || got.Found[1].MonitorID != 0 ||
-		!reflect.DeepEqual(got.Found[0], found{Name: "shop", Detail: "Running, healthy", Group: "store", Up: true,
-			Settings: map[string]any{"container": "shop"}, MonitorID: got.Found[0].MonitorID}) {
+	if host != check.DefaultDockerHost || !reflect.DeepEqual(got, discovered{Monitored: 1, Found: []found{{Name: "cache",
+		Detail: "Exited (exit code 1)", Settings: map[string]any{"container": "cache"}}}}) {
 		t.Errorf("found %s %+v", host, got)
 	}
 	e.s.Env.DockerHost = "tcp://docker.example.com:2375"
@@ -66,7 +65,7 @@ func TestDiscoverDocker(t *testing.T) {
 	// On an agent: what it reported; not yet monitored there.
 	got = discovered{}
 	if code := admin.call("POST", "/api/v1/discover", map[string]any{"type": "docker", "agent_id": a.id}, &got); code != http.StatusOK ||
-		len(got.Found) != 1 || got.Found[0].Name != "web" || got.Found[0].MonitorID != 0 {
+		len(got.Found) != 1 || got.Found[0].Name != "web" || got.Monitored != 0 {
 		t.Errorf("agent: %d %+v", code, got)
 	}
 }
@@ -165,15 +164,12 @@ func TestDiscoverSNMP(t *testing.T) {
 	if job.Type != "snmp" || !strings.Contains(string(job.Settings), `"private"`) || job.TimeoutMS != 60000 {
 		t.Errorf("job %+v", job)
 	}
+	// Without ge-0/0/1, monitored already.
 	want := []found{
 		{Name: "switch1", Detail: "Example switch OS 1.0", Up: true, Settings: map[string]any{"oid": "1.3.6.1.2.1.1.3.0", "operator": "==", "expected": ""}},
-		{Name: "switch1 ge-0/0/1", Detail: "Up: uplink", Up: true, Settings: map[string]any{"oid": "1.3.6.1.2.1.2.2.1.8.1", "operator": "==", "expected": "1"}},
 		{Name: "switch1 ge-0/0/2", Detail: "Down, turned off", Settings: map[string]any{"oid": "1.3.6.1.2.1.2.2.1.8.2", "operator": "==", "expected": "1"}},
 	}
-	if len(got.Found) == 3 {
-		want[1].MonitorID = got.Found[1].MonitorID
-	}
-	if got.Device != "switch1: Example switch OS 1.0" || !reflect.DeepEqual(got.Found, want) || want[1].MonitorID == 0 {
+	if got.Device != "switch1: Example switch OS 1.0" || !reflect.DeepEqual(got.Found, want) || got.Monitored != 1 {
 		t.Errorf("found %+v", got)
 	}
 

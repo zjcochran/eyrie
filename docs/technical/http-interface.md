@@ -175,7 +175,7 @@ An admin route. See [Discovery](../user/discovery.md).
 
 | Method and path | Body | Answer |
 | --- | --- | --- |
-| `POST /api/v1/discover` | `{"type","agent_id","settings"}`: `type` is `docker`, `docker-swarm`, `kubernetes`, `proxmox` or `snmp`; `agent_id` the agent to discover from, `0` or absent for Eyrie; `settings` an SNMP device's, as an `snmp` monitor's without the OID | `200` `{"device","found":[{"name","detail","group","up","settings","monitor_id"}]}`: `device` an SNMP device's name and description; for each thing found, a monitor's name, how it is now, its group (Compose project, stack, namespace or node), its settings to merge over the request's, and the monitor that already checks it (absent: none). `400` for another type, `404` for an unknown agent, `422` with why nothing could be listed. Nothing is added. |
+| `POST /api/v1/discover` | `{"type","agent_id","settings"}`: `type` is `docker`, `docker-swarm`, `kubernetes`, `proxmox` or `snmp`; `agent_id` the agent to discover from, `0` or absent for Eyrie; `settings` an SNMP device's, as an `snmp` monitor's without the OID | `200` `{"device","found":[{"name","detail","group","up","settings"}],"monitored"}`: `device` an SNMP device's name and description; for each thing found that no monitor checks yet, a monitor's name, how it is now, its group (Compose project, stack, namespace or node) and its settings to merge over the request's; `monitored` how many were left out because a monitor (same type, same agent or Eyrie, same workload or SNMP host and OID) checks them already. `400` for another type, `404` for an unknown agent, `422` with why nothing could be listed. Nothing is added. |
 
 ### Notification channels
 

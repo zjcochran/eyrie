@@ -13,7 +13,8 @@ when you ask, for one type at a time, and adds nothing by itself.
    [agents](agents.md) that can find it. Only those are offered; when none
    can, the page says to add one.
 3. For a network device, enter the device and its credentials (below).
-4. **Discover** lists what was found, with how each one is now.
+4. **Discover** lists what was found, with how each one is now, leaving
+   out what is monitored already (below).
 
 | Find | Eyrie server (local) | Agents | What is listed | The monitor |
 | --- | --- | --- | --- | --- |
@@ -29,10 +30,13 @@ not reporting, or could not list its platform, says so instead:
 
 **Add monitor** opens **Add a monitor** with the type, the name, **Runs
 on** and the settings of what was chosen; everything else has its usual
-default. Change what you like, then **Add**. **Monitored** takes the place
-of **Add monitor** when a monitor already checks it: one of the same type,
-running on the same place, of the same container, service, workload or
-guest, or of the same SNMP host and OID.
+default. Change what you like, then **Add**.
+
+What a monitor already checks is not listed: one of the same type, running
+on the same place, of the same container, service, workload or guest, or
+of the same SNMP host and OID. The list says how many it left out
+(`Not listed: 3 monitored already.`), and when that is everything,
+`Nothing new found.`
 
 ## Network devices (SNMP)
 

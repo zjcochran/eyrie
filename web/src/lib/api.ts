@@ -163,14 +163,14 @@ export interface Found {
   up: boolean;
   /** The monitor's settings, over those discovery was given. */
   settings: Record<string, unknown>;
-  /** The monitor that already checks it. */
-  monitor_id?: number;
 }
 
 export interface Discovered {
   /** An SNMP device's name and description. */
   device?: string;
   found: Found[];
+  /** How many were found but left out: a monitor checks them already. */
+  monitored: number;
 }
 
 export interface Token {
