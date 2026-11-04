@@ -9,6 +9,7 @@ export type Page =
   | 'edit-monitor'
   | 'discover'
   | 'account'
+  | 'appearance'
   | 'users'
   | 'sso'
   | 'tokens'
@@ -37,6 +38,7 @@ export interface Route {
 /** The settings tabs, in order; admin tabs are hidden from viewers. */
 export const settingsTabs: { page: Page; path: string; label: string; admin: boolean }[] = [
   { page: 'account', path: '/settings/account', label: 'Your account', admin: false },
+  { page: 'appearance', path: '/settings/appearance', label: 'Appearance', admin: false },
   { page: 'users', path: '/settings/users', label: 'Users', admin: true },
   { page: 'sso', path: '/settings/sso', label: 'Single sign-on', admin: true },
   { page: 'tokens', path: '/settings/api-tokens', label: 'API tokens', admin: true },

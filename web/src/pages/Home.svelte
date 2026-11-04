@@ -45,7 +45,7 @@
 {#if !live.loaded}
   <p class="muted">Loading…</p>
 {:else}
-  <section class="card">
+  <section class="card summary">
     <div class="tiles">
       <div class="tile">
         <span class="label">Monitors</span>
@@ -290,5 +290,50 @@
   .more {
     margin: 0.75rem 0 0;
     font-size: 0.9rem;
+  }
+
+  /* Bento: the figures in a tile of the scheme's colour. */
+  :global(:root[data-layout='bento']) .summary {
+    padding: 1.5rem;
+    color: var(--hero-fg);
+    background:
+      radial-gradient(600px 300px at 100% 0%, var(--hero-glow), transparent 70%),
+      linear-gradient(160deg, var(--hero-a), var(--hero-b));
+    box-shadow: 0 20px 50px -24px var(--hero-a);
+  }
+  :global(:root[data-layout='bento']) .summary .label,
+  :global(:root[data-layout='bento']) .summary .muted {
+    color: color-mix(in srgb, var(--hero-fg) 78%, transparent);
+  }
+  :global(:root[data-layout='bento']) .summary .legend {
+    color: color-mix(in srgb, var(--hero-fg) 85%, transparent);
+  }
+  :global(:root[data-layout='bento']) .value {
+    font-size: 2.1rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+  }
+  :global(:root[data-layout='bento']) .grid {
+    gap: 0 1.25rem;
+  }
+  :global(:root[data-layout='bento']) h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  /* Aurora: figures lit in the scheme's gradient. */
+  :global(:root[data-layout='aurora']) .value {
+    font-size: 2rem;
+    letter-spacing: -0.03em;
+    background: linear-gradient(90deg, var(--logo-a), var(--logo-b));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Console: figures in the monospaced face. */
+  :global(:root[data-layout='console']) .value {
+    font-family: var(--mono);
+    font-weight: 500;
   }
 </style>

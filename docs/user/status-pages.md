@@ -11,7 +11,7 @@ A status page shows only monitors' **names**, statuses, uptime and,
 optionally, tags and certificate expiry. It never shows check messages,
 URLs, hosts or any other setting, nor who wrote an incident update.
 
-**Status pages**, at the top, lists them. Admins add, change and delete
+**Status pages**, in the menu, lists them. Admins add, change and delete
 pages and incidents; viewers see the list, the pages (also unpublished, as
 a preview) and their incidents.
 

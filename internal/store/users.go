@@ -60,6 +60,7 @@ type User struct {
 	Picture    time.Time // when the profile picture was stored; zero: none
 	CreatedAt  time.Time
 	LastLogin  time.Time // zero: never
+	Appearance Appearance
 }
 
 // IsAdmin reports whether the user has the admin role.
@@ -252,13 +253,14 @@ func (s *Store) TouchLogin(ctx context.Context, id int64, now time.Time) error {
 
 const userCols = `id, username, role, disabled, password_hash IS NOT NULL,
 	EXISTS (SELECT 1 FROM oidc_identities o WHERE o.user_id = users.id), totp_secret <> '', sso_picture,
-	COALESCE((SELECT updated_at FROM user_pictures p WHERE p.user_id = users.id), 0), created_at, last_login`
+	COALESCE((SELECT updated_at FROM user_pictures p WHERE p.user_id = users.id), 0), created_at, last_login,
+	layout, scheme, mode`
 
 func scanUser(sc interface{ Scan(...any) error }) (User, error) {
 	var u User
 	var picture, created, last int64
 	err := sc.Scan(&u.ID, &u.Username, &u.Role, &u.Disabled, &u.HasLocal, &u.HasSSO, &u.TwoFactor, &u.SSOPicture,
-		&picture, &created, &last)
+		&picture, &created, &last, &u.Appearance.Layout, &u.Appearance.Scheme, &u.Appearance.Mode)
 	if errors.Is(err, sql.ErrNoRows) {
 		return User{}, ErrNotFound
 	}

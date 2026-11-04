@@ -21,7 +21,7 @@ comes back up during it notifies that it is back up.
 The status from before is kept in the database, so restarting Eyrie during a
 window changes nothing.
 
-Windows are on the **Maintenance** page, at the top. Everyone can see them;
+Windows are on the **Maintenance** page, in the menu. Everyone can see them;
 admins add, change, turn off and delete them.
 
 ## What a window covers

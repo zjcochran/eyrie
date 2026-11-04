@@ -62,6 +62,17 @@
   .back {
     display: none;
   }
+  /* Bento: the overview across the page, the list below it. */
+  :global(:root[data-layout='bento']) .split:not(.chosen) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :global(:root[data-layout='bento']) .split:not(.chosen) .pane {
+    order: -1;
+  }
+  :global(:root[data-layout='bento']) .split:not(.chosen) .side {
+    position: static;
+    max-height: none;
+  }
   @media (max-width: 56rem) {
     .split {
       grid-template-columns: minmax(0, 1fr);

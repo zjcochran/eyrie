@@ -9,6 +9,7 @@ describe('pageFor', () => {
     assert.equal(pageFor(''), 'home');
     assert.equal(pageFor('/settings'), 'account');
     assert.equal(pageFor('/settings/account/'), 'account');
+    assert.equal(pageFor('/settings/appearance'), 'appearance');
     assert.equal(pageFor('/settings/users'), 'users');
     assert.equal(pageFor('/settings/sso'), 'sso');
     assert.equal(pageFor('/settings/api-tokens'), 'tokens');

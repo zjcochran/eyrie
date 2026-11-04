@@ -1,8 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import logo from './assets/logo.svg';
   import Avatar from './components/Avatar.svelte';
+  import Icon from './components/Icon.svelte';
+  import Logo from './components/Logo.svelte';
+  import { isNight, normalize } from './lib/appearance.ts';
   import { go, link, nav } from './lib/nav.svelte.ts';
   import { connect, disconnect, loadMonitors } from './lib/live.svelte.ts';
   import { routeFor, settingsTabs } from './lib/route.ts';
@@ -10,6 +12,7 @@
   import Account from './pages/Account.svelte';
   import Agents from './pages/Agents.svelte';
   import Analysis from './pages/Analysis.svelte';
+  import Appearance from './pages/Appearance.svelte';
   import Audit from './pages/Audit.svelte';
   import Discover from './pages/Discover.svelte';
   import Events from './pages/Events.svelte';
@@ -28,7 +31,15 @@
   import Tokens from './pages/Tokens.svelte';
   import Users from './pages/Users.svelte';
 
-  onMount(refresh);
+  // Whether the system is in dark mode, for the "system" mode.
+  const dark = matchMedia('(prefers-color-scheme: dark)');
+  let systemDark = $state(dark.matches);
+  onMount(() => {
+    refresh();
+    const follow = () => (systemDark = dark.matches);
+    dark.addEventListener('change', follow);
+    return () => dark.removeEventListener('change', follow);
+  });
 
   const user = $derived(app.session?.user ?? null);
   const route = $derived(routeFor(nav.path));
@@ -49,6 +60,34 @@
     }
   });
   const tabs = $derived(settingsTabs.filter((t) => !t.admin || user?.role === 'admin'));
+
+  // How the app looks (themes.css): the user's choice, or the default before
+  // signing in. Public status pages keep their own theme.
+  const look = $derived(normalize(user?.appearance));
+  $effect(() => {
+    const root = document.documentElement.dataset;
+    if (page === 'status') {
+      delete root.layout;
+      delete root.scheme;
+      delete root.mode;
+      return;
+    }
+    root.layout = look.layout;
+    root.scheme = look.scheme;
+    root.mode = isNight(look.mode, systemDark) ? 'night' : 'day';
+  });
+
+  // The pages in the menu.
+  const links = $derived(
+    [
+      { href: '/', label: 'Monitors', icon: 'monitors', current: inMonitors, show: true },
+      { href: '/discover', label: 'Discover', icon: 'discover', current: page === 'discover', show: user?.role === 'admin' },
+      { href: '/events', label: 'Events', icon: 'events', current: page === 'events', show: true },
+      { href: '/maintenance', label: 'Maintenance', icon: 'maintenance', current: page === 'maintenance', show: true },
+      { href: '/status-pages', label: 'Status pages', icon: 'status-pages', current: inStatusPages, show: true },
+      { href: '/settings/account', label: 'Settings', icon: 'settings', current: inSettings, show: true },
+    ] as const,
+  );
 
   // Signed in on the sign-in page: go to the app.
   $effect(() => {
@@ -105,86 +144,100 @@
 {:else if !user}
   <Login />
 {:else}
-  <header>
-    <a class="brand" href="/" onclick={link}><img src={logo} alt="" width="28" height="28" /> Eyrie</a>
-    <nav>
-      <a href="/" onclick={link} aria-current={inMonitors ? 'page' : undefined}>Monitors</a>
-      {#if user.role === 'admin'}
-        <a href="/discover" onclick={link} aria-current={page === 'discover' ? 'page' : undefined}>Discover</a>
-      {/if}
-      <a href="/events" onclick={link} aria-current={page === 'events' ? 'page' : undefined}>Events</a>
-      <a href="/maintenance" onclick={link} aria-current={page === 'maintenance' ? 'page' : undefined}>Maintenance</a>
-      <a href="/status-pages" onclick={link} aria-current={inStatusPages ? 'page' : undefined}>Status pages</a>
-      <a href="/settings/account" onclick={link} aria-current={inSettings ? 'page' : undefined}>Settings</a>
-    </nav>
-    <details class="me" bind:this={menu} bind:open={menuOpen}>
-      <summary aria-label="Account menu for {user.username}"><Avatar {user} /><span>{user.username}</span></summary>
-      <div class="menu">
-        <a href="/settings/account" onclick={link}>Your account</a>
-        <button onclick={signOut}>Sign out</button>
-      </div>
-    </details>
-  </header>
-  <main class:wide={inSettings} class:split={inMonitors}>
-    {#if inMonitors}
-      <Monitors {route} admin={user.role === 'admin'} />
-    {:else if page === 'discover' && user.role === 'admin'}
-      <Discover />
-    {:else if page === 'events'}
-      <Events />
-    {:else if page === 'maintenance'}
-      <Maintenance />
-    {:else if page === 'status-pages'}
-      <StatusPages />
-    {:else if page === 'status-page' || (page === 'new-status-page' && user.role === 'admin')}
-      {#key route.id}<StatusPageEdit id={route.id} />{/key}
-    {:else if page === 'not-found' || !tabs.some((t) => t.page === page)}
-      <h1>Not found</h1>
-      <p><a href="/" onclick={link}>Back to the start</a></p>
-    {:else}
-      <h1>Settings</h1>
-      <div class="tabs" role="tablist">
-        {#each tabs as t (t.page)}
-          <a href={t.path} onclick={link} role="tab" aria-selected={t.page === page}>{t.label}</a>
+  <div class="shell">
+    <header>
+      <a class="brand" href="/" onclick={link}><Logo size={34} /><span class="label">Eyrie</span></a>
+      <nav aria-label="Main">
+        {#each links as l (l.href)}
+          {#if l.show}
+            <a href={l.href} onclick={link} aria-current={l.current ? 'page' : undefined} title={l.label}
+              ><Icon name={l.icon} /><span class="label">{l.label}</span></a
+            >
+          {/if}
         {/each}
-      </div>
-      {#if page === 'account'}
-        <Account />
-      {:else if page === 'users'}
-        <Users />
-      {:else if page === 'sso'}
-        <SSO />
-      {:else if page === 'tokens'}
-        <Tokens />
-      {:else if page === 'agents'}
-        <Agents />
-      {:else if page === 'retention'}
-        <Retention />
-      {:else if page === 'backup'}
-        <Backup />
-      {:else if page === 'notifications'}
-        <Notifications />
-      {:else if page === 'tags'}
-        <Tags />
-      {:else if page === 'analysis'}
-        <Analysis />
-      {:else if page === 'audit'}
-        <Audit />
-      {/if}
-    {/if}
-  </main>
+      </nav>
+      <details class="me" bind:this={menu} bind:open={menuOpen}>
+        <summary aria-label="Account menu for {user.username}"><Avatar {user} /><span class="label">{user.username}</span></summary>
+        <div class="menu">
+          <a href="/settings/account" onclick={link}>Your account</a>
+          <a href="/settings/appearance" onclick={link}>Appearance</a>
+          <button onclick={signOut}>Sign out</button>
+        </div>
+      </details>
+    </header>
+    <div class="content">
+      <main class:wide={inSettings} class:split={inMonitors}>
+        {#if inMonitors}
+          <Monitors {route} admin={user.role === 'admin'} />
+        {:else if page === 'discover' && user.role === 'admin'}
+          <Discover />
+        {:else if page === 'events'}
+          <Events />
+        {:else if page === 'maintenance'}
+          <Maintenance />
+        {:else if page === 'status-pages'}
+          <StatusPages />
+        {:else if page === 'status-page' || (page === 'new-status-page' && user.role === 'admin')}
+          {#key route.id}<StatusPageEdit id={route.id} />{/key}
+        {:else if page === 'not-found' || !tabs.some((t) => t.page === page)}
+          <h1>Not found</h1>
+          <p><a href="/" onclick={link}>Back to the start</a></p>
+        {:else}
+          <h1>Settings</h1>
+          <div class="tabs" role="tablist">
+            {#each tabs as t (t.page)}
+              <a href={t.path} onclick={link} role="tab" aria-selected={t.page === page}>{t.label}</a>
+            {/each}
+          </div>
+          {#if page === 'account'}
+            <Account />
+          {:else if page === 'appearance'}
+            <Appearance />
+          {:else if page === 'users'}
+            <Users />
+          {:else if page === 'sso'}
+            <SSO />
+          {:else if page === 'tokens'}
+            <Tokens />
+          {:else if page === 'agents'}
+            <Agents />
+          {:else if page === 'retention'}
+            <Retention />
+          {:else if page === 'backup'}
+            <Backup />
+          {:else if page === 'notifications'}
+            <Notifications />
+          {:else if page === 'tags'}
+            <Tags />
+          {:else if page === 'analysis'}
+            <Analysis />
+          {:else if page === 'audit'}
+            <Audit />
+          {/if}
+        {/if}
+      </main>
+      {@render source()}
+    </div>
+  </div>
+{/if}
+{#if !user || page === 'status'}
+  {@render source()}
 {/if}
 
 <!-- Eyrie is under the AGPL: every page offers the source of the running version. -->
-<footer class="muted">
-  Eyrie {app.session?.version ?? ''} ·
-  <a href="https://www.gnu.org/licenses/agpl-3.0.html" rel="license noreferrer" target="_blank">AGPL-3.0-or-later</a>
-  {#if app.session?.source}
-    · <a href={app.session.source} rel="noreferrer" target="_blank">Source code</a>
-  {/if}
-</footer>
+{#snippet source()}
+  <footer class="muted">
+    Eyrie {app.session?.version ?? ''} ·
+    <a href="https://www.gnu.org/licenses/agpl-3.0.html" rel="license noreferrer" target="_blank">AGPL-3.0-or-later</a>
+    {#if app.session?.source}
+      · <a href={app.session.source} rel="noreferrer" target="_blank">Source code</a>
+    {/if}
+  </footer>
+{/snippet}
 
 <style>
+  /* The menu of pages: along the top (Bento, and every layout on a phone),
+     a sidebar with names (Console) or a rail of icons (Aurora). */
   header {
     display: flex;
     flex-wrap: wrap;
@@ -197,24 +250,35 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
     font-weight: 700;
     font-size: 1.15rem;
+    letter-spacing: -0.02em;
     color: var(--fg);
     text-decoration: none;
   }
   nav {
     flex: 1;
     display: flex;
-    gap: 1rem;
+    gap: 0.25rem;
   }
   nav a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: calc(var(--radius) * 0.7);
     color: var(--muted);
     text-decoration: none;
+  }
+  nav a:hover {
+    color: var(--fg);
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
   }
   nav a[aria-current='page'] {
     color: var(--fg);
     font-weight: 600;
+    background: color-mix(in srgb, var(--fg) 8%, transparent);
   }
   .me {
     position: relative;
@@ -223,8 +287,8 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.25rem 0.4rem;
-    border-radius: var(--radius);
+    padding: 0.3rem 0.45rem;
+    border-radius: calc(var(--radius) * 0.7);
     color: var(--muted);
     cursor: pointer;
     list-style: none;
@@ -239,7 +303,7 @@
   .me summary:hover,
   .me[open] summary {
     color: var(--fg);
-    background: var(--bg);
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
   }
   .menu {
     position: absolute;
@@ -252,7 +316,7 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.3);
   }
   .menu a,
   .menu button {
@@ -270,8 +334,122 @@
   }
   .menu a:hover,
   .menu button:hover {
-    background: var(--bg);
+    background: color-mix(in srgb, var(--fg) 7%, transparent);
   }
+  .content {
+    min-width: 0;
+  }
+
+  /* Bento: a floating bar, the pages as pills. */
+  :global(:root[data-layout='bento']) header {
+    margin: 1rem 1.5rem 0;
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  }
+  :global(:root[data-layout='bento']) nav {
+    justify-content: center;
+  }
+  :global(:root[data-layout='bento']) nav a {
+    border-radius: 999px;
+    padding: 0.45rem 0.95rem;
+  }
+  :global(:root[data-layout='bento']) nav a :global(svg) {
+    display: none;
+  }
+  :global(:root[data-layout='bento']) nav a[aria-current='page'] {
+    background: var(--fg);
+    color: var(--bg);
+  }
+  :global(:root[data-layout='bento']) .me summary {
+    border-radius: 999px;
+  }
+
+  /* Console and Aurora on a wide screen: the menu down the left. */
+  @media (min-width: 56rem) {
+    :global(:root[data-layout='console']) .shell,
+    :global(:root[data-layout='aurora']) .shell {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    :global(:root[data-layout='console']) header,
+    :global(:root[data-layout='aurora']) header {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      box-sizing: border-box;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      gap: 0.75rem;
+    }
+    :global(:root[data-layout='console']) nav,
+    :global(:root[data-layout='aurora']) nav {
+      flex-direction: column;
+    }
+    :global(:root[data-layout='console']) .menu,
+    :global(:root[data-layout='aurora']) .menu {
+      top: auto;
+      bottom: calc(100% + 0.35rem);
+      left: 0;
+      right: auto;
+    }
+
+    :global(:root[data-layout='console']) header {
+      width: 15rem;
+      padding: 1rem 0.75rem;
+      border-bottom: 0;
+      border-right: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+    }
+    :global(:root[data-layout='console']) .brand {
+      padding: 0 0.4rem 0.75rem;
+    }
+    :global(:root[data-layout='console']) .me {
+      border-top: 1px solid var(--border);
+      padding-top: 0.6rem;
+    }
+
+    :global(:root[data-layout='aurora']) header {
+      width: 4.75rem;
+      margin: 1rem 0 1rem 1rem;
+      height: calc(100vh - 2rem);
+      top: 1rem;
+      padding: 0.85rem 0.6rem;
+      align-items: center;
+      border: 1px solid color-mix(in srgb, var(--fg) 13%, transparent);
+      border-radius: 24px;
+      background: color-mix(in srgb, var(--surface) 50%, transparent);
+      backdrop-filter: blur(24px) saturate(140%);
+    }
+    :global(:root[data-layout='aurora']) .label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    :global(:root[data-layout='aurora']) nav a {
+      justify-content: center;
+      width: 2.9rem;
+      height: 2.9rem;
+      padding: 0;
+      border-radius: 14px;
+    }
+    :global(:root[data-layout='aurora']) nav a[aria-current='page'] {
+      background: var(--fg);
+      color: var(--bg);
+    }
+    :global(:root[data-layout='aurora']) .me summary::after {
+      content: none;
+    }
+  }
+
   /* On a phone: the account menu at the top right, beside the logo, and
      the page menu on its own line below them. */
   @media (max-width: 48rem) {
@@ -283,11 +461,19 @@
       flex-basis: 100%;
       flex-wrap: wrap;
     }
+    :global(:root[data-layout='bento']) header {
+      margin: 0.75rem 0.75rem 0;
+      border-radius: 24px;
+    }
   }
   main {
     max-width: 60rem;
     margin: 1.5rem auto;
     padding: 0 1rem;
+  }
+  :global(:root[data-layout='aurora']) main,
+  :global(:root[data-layout='console']) main {
+    padding: 0 1.5rem;
   }
   /* Room for every settings tab on one line. */
   main.wide {
@@ -315,7 +501,7 @@
   }
   .tabs a[aria-selected='true'] {
     color: var(--fg);
-    border-bottom-color: var(--accent);
+    border-bottom-color: var(--chart, var(--accent));
   }
   footer {
     text-align: center;

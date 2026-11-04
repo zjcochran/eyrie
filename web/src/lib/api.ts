@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Calls to Eyrie's JSON API (/api/v1), documented in
 // docs/technical/http-interface.md.
+import type { Appearance } from './appearance.ts';
 
 /** What GET /api/v1/info answers. */
 export interface Info {
@@ -23,6 +24,7 @@ export interface User {
   created_at: string;
   last_login: string | null;
   role_from_group: boolean;
+  appearance: Appearance;
 }
 
 export interface SSOButton {
@@ -611,6 +613,7 @@ export class Client {
     this.request<{ codes: string[] }>('POST', '/api/v1/account/two-factor/recovery-codes', { password });
   twoFactorDisable = (password: string) =>
     this.request<void>('POST', '/api/v1/account/two-factor/disable', { password });
+  setAppearance = (a: Appearance) => this.request<User>('PUT', '/api/v1/account/appearance', a);
   uploadPicture = (file: Blob) => this.request<User>('PUT', '/api/v1/account/picture', file);
   removePicture = () => this.request<User>('DELETE', '/api/v1/account/picture');
   useSSOPicture = () => this.request<User>('POST', '/api/v1/account/picture/sso');
