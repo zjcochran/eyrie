@@ -247,6 +247,8 @@ has it too). Each choice applies at once.
 The sign-in page uses Console with Ash. Public status pages keep their own
 theme and accent colour.
 
+![Settings, Appearance: the three layouts, the colours and day and night](../images/appearance-dark.png)
+
 ## Dark mode and phones
 
 Eyrie follows your device's light or dark setting unless you choose Day or
