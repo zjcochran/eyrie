@@ -530,9 +530,6 @@
   font-family: 'Outfit', system-ui, sans-serif;
   font-size: 15.5px;
 }
-:root[data-layout] a {
-  color: var(--link, var(--accent));
-}
 :root[data-layout] code,
 :root[data-layout] .mono {
   font-family: var(--mono);
@@ -571,10 +568,8 @@
   border-radius: 12px;
 }
 
-/* Aurora: frosted glass over colour that drifts behind everything. */
-:root[data-layout='aurora'] body {
-  background: var(--bg);
-}
+/* Aurora: frosted glass over colour that drifts behind everything (the
+   root paints the ground; a background on body would hide the colour). */
 :root[data-layout='aurora'] body::before {
   content: '';
   position: fixed;
