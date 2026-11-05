@@ -5,7 +5,7 @@ import { close, closed, intervals } from './updates.ts';
 
 describe('updates', () => {
   it('offers intervals with a day among them', () => {
-    assert.ok(intervals.some((i) => i.hours === 24));
+    assert.equal(intervals.some((i) => i.hours === 24), true);
   });
   it('remembers a closed reminder per version', () => {
     const m = new Map<string, string>();
