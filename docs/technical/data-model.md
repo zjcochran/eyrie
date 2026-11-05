@@ -108,6 +108,7 @@ Accounts (migration `00002_users`).
 | `sso_picture` | `BOOLEAN` | Single sign-on may set the picture; off once the user removes one it set |
 | `created_at` | `BIGINT` | |
 | `last_login` | `BIGINT` | `0`: never |
+| `layout`, `scheme`, `mode` | `TEXT` | How the web app looks for the user (migration `00014_appearance`): default `console`, `ash` and `system` |
 
 ### sessions
 

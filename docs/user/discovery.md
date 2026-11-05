@@ -1,6 +1,6 @@
 # Discovery
 
-**Discover**, at the top (admins only), lists what one source has: the
+**Discover**, in the menu (admins only), lists what one source has: the
 containers of a Docker engine, what an agent's platform runs, or a network
 device and its interfaces. **Add monitor** on one of them opens the
 monitor form, filled in, for you to check and save. Discovery runs only

@@ -32,13 +32,22 @@ type userView struct {
 	LastLogin  *time.Time `json:"last_login"` // null: never
 	// RoleFromGroup is set when the single sign-on admin group decides the
 	// role (accounts without a password while an admin group is set).
-	RoleFromGroup bool `json:"role_from_group"`
+	RoleFromGroup bool           `json:"role_from_group"`
+	Appearance    appearanceView `json:"appearance"`
+}
+
+// appearanceView is how the web app looks for a user.
+type appearanceView struct {
+	Layout string `json:"layout"`
+	Scheme string `json:"scheme"`
+	Mode   string `json:"mode"`
 }
 
 func viewUser(u store.User, sso sso.Settings) userView {
 	v := userView{ID: u.ID, Username: u.Username, Role: u.Role, Disabled: u.Disabled, Password: u.HasLocal,
 		SSO: u.HasSSO, TwoFactor: u.TwoFactor, SSOPicture: u.SSOPicture, CreatedAt: u.CreatedAt,
-		RoleFromGroup: sso.Enabled && sso.AdminGroup != "" && !u.HasLocal}
+		RoleFromGroup: sso.Enabled && sso.AdminGroup != "" && !u.HasLocal,
+		Appearance:    appearanceView(u.Appearance)}
 	if !u.Picture.IsZero() {
 		// The time in the URL changes with the picture, so it can be cached.
 		v.Picture = fmt.Sprintf("/api/v1/users/%d/picture?v=%d", u.ID, u.Picture.UnixMilli())

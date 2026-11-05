@@ -329,6 +329,20 @@ func (s *Server) useSSOPicture(w http.ResponseWriter, r *http.Request) {
 	s.writeUser(w, r, me.ID)
 }
 
+// setAppearance stores how the web app looks for the signed-in user.
+func (s *Server) setAppearance(w http.ResponseWriter, r *http.Request) {
+	var b appearanceView
+	if !readJSON(w, r, &b) {
+		return
+	}
+	me := sessionFrom(r).User
+	if err := s.Store.SetAppearance(r.Context(), me.ID, store.Appearance(b)); err != nil {
+		s.storeError(w, r, err)
+		return
+	}
+	s.writeUser(w, r, me.ID)
+}
+
 // writeUser answers with a user as it is now.
 func (s *Server) writeUser(w http.ResponseWriter, r *http.Request, id int64) {
 	u, err := s.Store.UserByID(r.Context(), id)

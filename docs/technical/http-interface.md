@@ -85,7 +85,8 @@ it and to the licence on every page, signed in or not.
   "sso_picture": true,
   "created_at": "2027-01-15T08:00:00Z",
   "last_login": null,
-  "role_from_group": false
+  "role_from_group": false,
+  "appearance": { "layout": "console", "scheme": "ash", "mode": "system" }
 }
 ```
 
@@ -94,6 +95,8 @@ linked. `picture` is `""` without a picture; its `v` changes with the
 picture. `sso_picture`: single sign-on may set the picture.
 `role_from_group`: the single sign-on admin group decides the role (an
 account without a password while an admin group is set).
+`appearance`: how the web app looks for the user (see
+[Appearance](../user/web-ui.md#appearance)).
 
 ### Your account
 
@@ -107,6 +110,7 @@ All session routes.
 | `POST /api/v1/account/two-factor/enable` | `{"sealed","code","password"}` | `200` `{"codes":[…]}`: 10 recovery codes, shown once. `422` wrong password, wrong code, or a `sealed` value that does not open. |
 | `POST /api/v1/account/two-factor/recovery-codes` | `{"password"}` | `200` `{"codes":[…]}`, replacing all earlier codes. `422` when off or wrong password. |
 | `POST /api/v1/account/two-factor/disable` | `{"password"}` | `204`. `422` wrong password. |
+| `PUT /api/v1/account/appearance` | `{"layout","scheme","mode"}`: `layout` is `console`, `bento` or `aurora`; `scheme` one of the layout's (`console`: `ash`, `dusk`, `glacier`; `bento`: `ash`, `cobalt`, `lagoon`; `aurora`: `ash`, `borealis`, `ember`); `mode` is `system`, `day` or `night` | `200` user. `422` for anything else. Not in the audit log. |
 | `PUT /api/v1/account/picture` | the image itself | `200` user. PNG, JPEG, GIF or WebP by content, at most 1 MiB; otherwise `422`. |
 | `DELETE /api/v1/account/picture` | | `200` user. Removing a picture from single sign-on also stops single sign-on from setting one. |
 | `POST /api/v1/account/picture/sso` | | `200` user: single sign-on may set the picture again, from the next sign-in. |

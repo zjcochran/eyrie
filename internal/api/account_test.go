@@ -32,6 +32,24 @@ func TestAccount(t *testing.T) {
 	}
 }
 
+func TestAppearance(t *testing.T) {
+	e := newEnv(t)
+	c := e.setup()
+	var u userView
+	if code := c.call("PUT", "/api/v1/account/appearance", map[string]string{"layout": "bento", "scheme": "lagoon", "mode": "day"}, &u); code != http.StatusOK ||
+		u.Appearance != (appearanceView{Layout: "bento", Scheme: "lagoon", Mode: "day"}) {
+		t.Fatalf("set: %d %+v", code, u.Appearance)
+	}
+	var sess sessionView
+	if c.call("GET", "/api/v1/session", nil, &sess); sess.User == nil || sess.User.Appearance.Scheme != "lagoon" {
+		t.Errorf("session: %+v", sess.User)
+	}
+	if code, msg := c.errorOf("PUT", "/api/v1/account/appearance", map[string]string{"layout": "console", "scheme": "lagoon", "mode": "day"}); code != http.StatusUnprocessableEntity ||
+		msg != "The console layout's colour schemes are ash, dusk and glacier." {
+		t.Errorf("wrong scheme: %d %s", code, msg)
+	}
+}
+
 func TestChangePassword(t *testing.T) {
 	e := newEnv(t)
 	c := e.setup()

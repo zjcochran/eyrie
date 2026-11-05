@@ -134,6 +134,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/account/two-factor/enable", s.user(s.enableTwoFactor))
 	mux.Handle("POST /api/v1/account/two-factor/recovery-codes", s.user(s.newRecoveryCodes))
 	mux.Handle("POST /api/v1/account/two-factor/disable", s.user(s.disableTwoFactor))
+	mux.Handle("PUT /api/v1/account/appearance", s.user(s.setAppearance))
 	mux.Handle("PUT /api/v1/account/picture", s.user(s.uploadPicture))
 	mux.Handle("DELETE /api/v1/account/picture", s.user(s.removePicture))
 	mux.Handle("POST /api/v1/account/picture/sso", s.user(s.useSSOPicture))

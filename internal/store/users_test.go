@@ -59,7 +59,7 @@ func TestFirstAdmin(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := User{ID: admin.ID, Username: "Alice", Role: RoleAdmin, HasLocal: true, SSOPicture: true, CreatedAt: t0}
+		want := User{ID: admin.ID, Username: "Alice", Role: RoleAdmin, HasLocal: true, SSOPicture: true, CreatedAt: t0, Appearance: DefaultAppearance}
 		if admin != want {
 			t.Fatalf("first admin %+v", admin)
 		}

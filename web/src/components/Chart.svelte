@@ -89,7 +89,7 @@
   }
   .line {
     fill: none;
-    stroke: var(--accent);
+    stroke: var(--chart, var(--accent));
     stroke-width: 1.5;
   }
   .down {

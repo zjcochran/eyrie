@@ -74,7 +74,7 @@ body {
 }
 
 a {
-  color: var(--accent);
+  color: var(--link, var(--accent));
 }
 
 h1 {

@@ -33,30 +33,33 @@ only way in, the password fields are not shown.
 - With [two-factor sign-in](#two-factor-sign-in), a second step asks for a
   code.
 - A session lasts 7 days from the last time you used Eyrie. **Sign out**,
-  in the menu under your name at the top right, ends it. The menu also
-  has **Your account**; on a phone it stays at the top right, with the
-  page menu on its own line below.
+  in the menu under your name, ends it: at the top right in the Bento
+  layout, and at the bottom of the sidebar or rail in Console and Aurora.
+  The menu also has **Your account** and **Appearance**; on a phone it
+  stays at the top right, with the page menu on its own line below.
 
 If you opened a page while signed out, you land on it after signing in.
 
 ## Monitors
 
 The start page is the dashboard of monitors: the list of groups and
-monitors on the left, and the monitor or group chosen in it on the right.
+monitors on the left, and the monitor or group chosen in it on the right
+(in the Bento [layout](#appearance), the overview first and the list below
+it).
 Admins drag monitors and groups in the list to arrange it, and add a group
 with **New group**. See [Monitors](monitors.md) for the dashboard, groups,
 each monitor's page, adding monitors and every type.
 
 ## Discover
 
-**Discover**, at the top (admins), lists a Docker engine's containers,
+**Discover**, in the menu (admins), lists a Docker engine's containers,
 what an agent's platform runs, or a network device's interfaces, and opens
 a monitor of what you choose in the monitor form. See
 [Discovery](discovery.md).
 
 ## Events
 
-**Events**, at the top, lists every monitor's status changes, newest
+**Events**, in the menu, lists every monitor's status changes, newest
 first: when each went down, came back up, became pending, or went into or
 out of maintenance, with the check's message. A monitor's name opens its
 page. New changes appear as they happen; **Older** loads the next 100.
@@ -65,20 +68,21 @@ it too.
 
 ## Status pages
 
-**Status pages**, at the top, lists the status pages; each opens on its
+**Status pages**, in the menu, lists the status pages; each opens on its
 settings, sections, logo, incidents and badges (admins change them; viewers
 see the incidents). A published page is public at `/status/<address>`. See
 [Status pages, incidents and badges](status-pages.md).
 
 ## Maintenance
 
-**Maintenance**, at the top, lists the maintenance windows, when each is on
+**Maintenance**, in the menu, lists the maintenance windows, when each is on
 and what it covers; admins add, change, turn off and delete them there. See
 [Maintenance windows](maintenance.md).
 
 ## Settings
 
-**Settings**, at the top, has tabs. Everyone has **Your account**; admins
+**Settings**, in the menu, has tabs. Everyone has **Your account** and
+**Appearance**; admins
 also have **Users**, **Single sign-on**, **API tokens**, **Agents** (see
 [Agents](agents.md)), **Tags** (see
 [Tags](monitors.md#tags)), **Notifications** (see
@@ -217,9 +221,38 @@ an account it created, show the account's user and `via=sso`.
 The same lines are in Eyrie's log. Entries are kept 400 days, like the
 daily totals, and a backup with history includes them.
 
+### Appearance
+
+How Eyrie looks for you, on every device you sign in on (the account menu
+has it too). Each choice applies at once.
+
+- **Layout**:
+  - **Console** (the default): the pages in a sidebar, the monitors in a
+    list with the chosen one beside it.
+  - **Bento**: the pages in a bar along the top, and the overview across
+    the page in tiles, above the list.
+  - **Aurora**: the pages as a rail of icons, and frosted-glass panels over
+    slowly drifting colour (still for those who ask their device for
+    reduced motion).
+- **Colours**: three schemes for each layout. Every layout has **Ash**
+  (charcoal, silver and amber; the default). Console also has **Dusk**
+  (violet, lime and magenta) and **Glacier** (cyan, mint and orange);
+  Bento has **Cobalt** (cobalt, tangerine and lime) and **Lagoon** (teal,
+  coral and yellow); Aurora has **Borealis** (teal, violet, magenta and
+  amber) and **Ember** (gold, orange and crimson). Changing the layout
+  keeps Ash, and picks the layout's first scheme otherwise.
+- **Day and night**: **System** (the default) follows your device's light
+  or dark setting; **Day** and **Night** keep one.
+
+The sign-in page uses Console with Ash. Public status pages keep their own
+theme and accent colour.
+
+![Settings, Appearance: the three layouts, the colours and day and night](../images/appearance-dark.png)
+
 ## Dark mode and phones
 
-Eyrie follows your device's light or dark setting, and its pages fit a
-phone's screen.
+Eyrie follows your device's light or dark setting unless you choose Day or
+Night in [Appearance](#appearance), and its pages fit a phone's screen: on
+a narrow screen every layout puts the pages along the top.
 
 ![The dashboard on a phone, in dark mode](../images/narrow-dashboard-dark.png)

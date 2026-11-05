@@ -1,0 +1,627 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* The signed-in app's looks (lib/appearance.ts): App.svelte sets
+   data-layout, data-scheme and data-mode (day or night) on the root.
+   Without them, as on public status pages, app.css's colours apply. */
+
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('./assets/fonts/geist.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('./assets/fonts/geist-mono.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('./assets/fonts/plus-jakarta-sans.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('./assets/fonts/outfit.woff2') format('woff2');
+}
+
+/* Schemes. Each sets every colour app.css has, and these:
+   --surface-2: raised controls and inputs; --faint: the quietest text;
+   --accent-soft: a tint of the accent; --chart: lines and areas;
+   --glow-1 to 4: Aurora's drifting colour and Bento's background;
+   --hero-a, --hero-b, --hero-glow, --hero-fg: Bento's first tile;
+   --logo-a, --logo-b: the logo's gradient; --link: links, where the
+   accent is too dark for them. */
+
+:root[data-scheme='ash'][data-mode='night'] {
+  --logo-a: #c3c8cf;
+  --logo-b: #e8a33d;
+  color-scheme: dark;
+  --bg: #111214;
+  --surface: #1a1b1e;
+  --surface-2: #24262a;
+  --fg: #eef0f2;
+  --muted: #a9aeb6;
+  --faint: #868c95;
+  --border: #2d3035;
+  --accent: #e8a33d;
+  --accent-fg: #111214;
+  --accent-soft: rgb(232 163 61 / 0.14);
+  --chart: #c3c8cf;
+  --error: #f59674;
+  --error-bg: rgb(242 120 75 / 0.14);
+  --ok: #8fd3b6;
+  --ok-bg: rgb(143 211 182 / 0.12);
+  --up: #8fd3b6;
+  --down: #f2784b;
+  --pending: #e8a33d;
+  --unknown: #6b7079;
+  --maintenance: #9fb3c8;
+  --glow-1: rgb(195 205 218 / 0.22);
+  --glow-2: rgb(110 120 135 / 0.38);
+  --glow-3: rgb(232 163 61 / 0.28);
+  --glow-4: rgb(150 165 185 / 0.22);
+  --hero-a: #3a3e45;
+  --hero-b: #1b1d21;
+  --hero-glow: rgb(232 163 61 / 0.45);
+  --hero-fg: #f4f5f6;
+}
+:root[data-scheme='ash'][data-mode='day'] {
+  --logo-a: #3a3f46;
+  --logo-b: #b5701a;
+  --link: #8a5410;
+  color-scheme: light;
+  --bg: #f4f5f6;
+  --surface: #ffffff;
+  --surface-2: #eceef0;
+  --fg: #1c1f23;
+  --muted: #545a63;
+  --faint: #666c75;
+  --border: #dcdfe3;
+  --accent: #2a2d32;
+  --accent-fg: #f4f5f6;
+  --accent-soft: rgb(181 112 26 / 0.12);
+  --chart: #4a4f57;
+  --error: #a9400f;
+  --error-bg: #f8eae3;
+  --ok: #22704f;
+  --ok-bg: #e6f1ec;
+  --up: #2f8a66;
+  --down: #d0511f;
+  --pending: #b5701a;
+  --unknown: #9aa0a8;
+  --maintenance: #5f7a95;
+  --glow-1: rgb(160 170 182 / 0.4);
+  --glow-2: rgb(110 120 135 / 0.26);
+  --glow-3: rgb(232 163 61 / 0.28);
+  --glow-4: rgb(200 205 212 / 0.55);
+  --hero-a: #3e434b;
+  --hero-b: #202327;
+  --hero-glow: rgb(232 163 61 / 0.55);
+  --hero-fg: #f4f5f6;
+}
+
+:root[data-scheme='dusk'][data-mode='night'] {
+  --logo-a: #a97bff;
+  --logo-b: #c8ff4d;
+  color-scheme: dark;
+  --bg: #0d0a14;
+  --surface: #150f20;
+  --surface-2: #1c1629;
+  --fg: #f6f2ff;
+  --muted: #b9aed0;
+  --faint: #8d80a6;
+  --border: #2a2238;
+  --accent: #c8ff4d;
+  --accent-fg: #0d0a14;
+  --accent-soft: rgb(169 123 255 / 0.16);
+  --chart: #a97bff;
+  --error: #ff7aa8;
+  --error-bg: rgb(255 77 141 / 0.14);
+  --ok: #c8ff4d;
+  --ok-bg: rgb(200 255 77 / 0.1);
+  --up: #c8ff4d;
+  --down: #ff4d8d;
+  --pending: #ffb020;
+  --unknown: #6e6386;
+  --maintenance: #a97bff;
+  --glow-1: rgb(122 60 255 / 0.45);
+  --glow-2: rgb(255 77 141 / 0.38);
+  --glow-3: rgb(200 255 77 / 0.2);
+  --glow-4: rgb(169 123 255 / 0.36);
+  --hero-a: #7a3cff;
+  --hero-b: #2a1270;
+  --hero-glow: #ff4d8d;
+  --hero-fg: #ffffff;
+}
+:root[data-scheme='dusk'][data-mode='day'] {
+  --logo-a: #7a3cff;
+  --logo-b: #e0246e;
+  color-scheme: light;
+  --bg: #fbf8ff;
+  --surface: #ffffff;
+  --surface-2: #f1eafb;
+  --fg: #1b1030;
+  --muted: #574b6e;
+  --faint: #6b5f83;
+  --border: #e4dbf1;
+  --accent: #7a3cff;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(122 60 255 / 0.1);
+  --chart: #7a3cff;
+  --error: #b8135a;
+  --error-bg: #fde8f0;
+  --ok: #3d7a00;
+  --ok-bg: #eef8e0;
+  --up: #5baa00;
+  --down: #e0246e;
+  --pending: #c27a00;
+  --unknown: #9a8fb0;
+  --maintenance: #7a3cff;
+  --glow-1: rgb(122 60 255 / 0.25);
+  --glow-2: rgb(255 77 141 / 0.18);
+  --glow-3: rgb(200 255 77 / 0.3);
+  --glow-4: rgb(169 123 255 / 0.22);
+  --hero-a: #7a3cff;
+  --hero-b: #3e1a9e;
+  --hero-glow: #ff4d8d;
+  --hero-fg: #ffffff;
+}
+
+:root[data-scheme='glacier'][data-mode='night'] {
+  --logo-a: #38bdf8;
+  --logo-b: #34e3a0;
+  color-scheme: dark;
+  --bg: #06111a;
+  --surface: #0c1b27;
+  --surface-2: #122433;
+  --fg: #eaf6ff;
+  --muted: #9db7c9;
+  --faint: #7894a8;
+  --border: #1a3142;
+  --accent: #38bdf8;
+  --accent-fg: #06111a;
+  --accent-soft: rgb(56 189 248 / 0.14);
+  --chart: #38bdf8;
+  --error: #ff8c66;
+  --error-bg: rgb(255 106 61 / 0.14);
+  --ok: #34e3a0;
+  --ok-bg: rgb(52 227 160 / 0.12);
+  --up: #34e3a0;
+  --down: #ff6a3d;
+  --pending: #ffc23d;
+  --unknown: #5d7a8e;
+  --maintenance: #7d9dff;
+  --glow-1: rgb(56 189 248 / 0.45);
+  --glow-2: rgb(52 227 160 / 0.3);
+  --glow-3: rgb(255 106 61 / 0.18);
+  --glow-4: rgb(14 90 200 / 0.4);
+  --hero-a: #0e7fc0;
+  --hero-b: #062f4f;
+  --hero-glow: #34e3a0;
+  --hero-fg: #ffffff;
+}
+:root[data-scheme='glacier'][data-mode='day'] {
+  --logo-a: #0a7bc2;
+  --logo-b: #0f9a68;
+  color-scheme: light;
+  --bg: #f2f8fb;
+  --surface: #ffffff;
+  --surface-2: #e2eef5;
+  --fg: #0b2233;
+  --muted: #456173;
+  --faint: #587486;
+  --border: #d3e3ec;
+  --accent: #0a7bc2;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(10 123 194 / 0.09);
+  --chart: #0a7bc2;
+  --error: #b53a12;
+  --error-bg: #fcebe4;
+  --ok: #0b7a52;
+  --ok-bg: #e3f6ee;
+  --up: #0f9a68;
+  --down: #d9481b;
+  --pending: #b07a00;
+  --unknown: #8ea6b5;
+  --maintenance: #3b5bdb;
+  --glow-1: rgb(56 189 248 / 0.3);
+  --glow-2: rgb(52 227 160 / 0.25);
+  --glow-3: rgb(255 106 61 / 0.12);
+  --glow-4: rgb(14 90 200 / 0.16);
+  --hero-a: #0a7bc2;
+  --hero-b: #063f6b;
+  --hero-glow: #34e3a0;
+  --hero-fg: #ffffff;
+}
+
+:root[data-scheme='cobalt'][data-mode='night'] {
+  --logo-a: #8f98ff;
+  --logo-b: #b8ff3d;
+  color-scheme: dark;
+  --bg: #0a0d22;
+  --surface: #141936;
+  --surface-2: #1e2449;
+  --fg: #eef0ff;
+  --muted: #a3a9d1;
+  --faint: #8188b5;
+  --border: #232a52;
+  --accent: #5865ff;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(88 101 255 / 0.2);
+  --chart: #8f98ff;
+  --error: #ff916e;
+  --error-bg: rgb(255 106 61 / 0.14);
+  --ok: #4fe8be;
+  --ok-bg: rgb(25 211 160 / 0.13);
+  --up: #19d3a0;
+  --down: #ff6a3d;
+  --pending: #e9a21a;
+  --unknown: #5d6494;
+  --maintenance: #b8ff3d;
+  --glow-1: rgb(43 59 255 / 0.38);
+  --glow-2: rgb(255 106 26 / 0.16);
+  --glow-3: rgb(184 255 61 / 0.1);
+  --glow-4: rgb(123 77 255 / 0.3);
+  --hero-a: #3442ff;
+  --hero-b: #151c8f;
+  --hero-glow: #8b5cff;
+  --hero-fg: #ffffff;
+}
+:root[data-scheme='cobalt'][data-mode='day'] {
+  --logo-a: #2b3bff;
+  --logo-b: #ff6a1a;
+  color-scheme: light;
+  --bg: #e9ecfb;
+  --surface: #ffffff;
+  --surface-2: #f0f2fa;
+  --fg: #0e1330;
+  --muted: #555b7c;
+  --faint: #636a8c;
+  --border: #e2e5f3;
+  --accent: #2b3bff;
+  --accent-fg: #ffffff;
+  --accent-soft: #e6e9ff;
+  --chart: #2b3bff;
+  --error: #c93a10;
+  --error-bg: #fff1ea;
+  --ok: #007a5c;
+  --ok-bg: #e8fbf4;
+  --up: #00b386;
+  --down: #ff4f1f;
+  --pending: #e09000;
+  --unknown: #a4aac7;
+  --maintenance: #5b2bff;
+  --glow-1: #d6dbff;
+  --glow-2: #ffe3d3;
+  --glow-3: rgb(184 255 61 / 0.25);
+  --glow-4: rgb(123 77 255 / 0.18);
+  --hero-a: #2b3bff;
+  --hero-b: #1a22b8;
+  --hero-glow: #7b4dff;
+  --hero-fg: #ffffff;
+}
+
+:root[data-scheme='lagoon'][data-mode='night'] {
+  --logo-a: #5fdcd8;
+  --logo-b: #ffc300;
+  color-scheme: dark;
+  --bg: #041a1c;
+  --surface: #0a2a2d;
+  --surface-2: #123538;
+  --fg: #e6faf8;
+  --muted: #93bab7;
+  --faint: #74a19e;
+  --border: #15393c;
+  --accent: #14b8b5;
+  --accent-fg: #041a1c;
+  --accent-soft: rgb(20 184 181 / 0.16);
+  --chart: #5fdcd8;
+  --error: #ff9a82;
+  --error-bg: rgb(255 122 92 / 0.13);
+  --ok: #5ee6bf;
+  --ok-bg: rgb(45 212 164 / 0.12);
+  --up: #2dd4a4;
+  --down: #ff7a5c;
+  --pending: #ffc300;
+  --unknown: #4f7774;
+  --maintenance: #8fb8ff;
+  --glow-1: rgb(10 147 150 / 0.35);
+  --glow-2: rgb(255 195 0 / 0.1);
+  --glow-3: rgb(238 108 77 / 0.12);
+  --glow-4: rgb(20 184 181 / 0.2);
+  --hero-a: #0b8f92;
+  --hero-b: #043c3e;
+  --hero-glow: rgb(255 195 0 / 0.4);
+  --hero-fg: #ffffff;
+}
+:root[data-scheme='lagoon'][data-mode='day'] {
+  --logo-a: #0a7f82;
+  --logo-b: #ee6c4d;
+  color-scheme: light;
+  --bg: #e3f3f2;
+  --surface: #ffffff;
+  --surface-2: #eaf5f4;
+  --fg: #06292c;
+  --muted: #40605f;
+  --faint: #52706f;
+  --border: #d4e9e7;
+  --accent: #0a7f82;
+  --accent-fg: #ffffff;
+  --accent-soft: #ddf2f1;
+  --chart: #0a9396;
+  --error: #b53a22;
+  --error-bg: #fdede8;
+  --ok: #06775a;
+  --ok-bg: #e2f6ef;
+  --up: #0aa37a;
+  --down: #e2553a;
+  --pending: #d99a00;
+  --unknown: #9bb7b5;
+  --maintenance: #3b6fd8;
+  --glow-1: #c4ece8;
+  --glow-2: #ffe6c2;
+  --glow-3: rgb(238 108 77 / 0.15);
+  --glow-4: rgb(10 147 150 / 0.18);
+  --hero-a: #0a9396;
+  --hero-b: #05585a;
+  --hero-glow: rgb(255 195 0 / 0.5);
+  --hero-fg: #ffffff;
+}
+
+:root[data-scheme='borealis'][data-mode='night'] {
+  --logo-a: #00e0c6;
+  --logo-b: #ff3d9a;
+  color-scheme: dark;
+  --bg: #060d18;
+  --surface: #121a2a;
+  --surface-2: #1a2336;
+  --fg: #eef3ff;
+  --muted: #b3bdd3;
+  --faint: #8a95ad;
+  --border: #263049;
+  --accent: #4fffd2;
+  --accent-fg: #060d18;
+  --accent-soft: rgb(110 70 255 / 0.2);
+  --chart: #6e46ff;
+  --error: #ffb3c7;
+  --error-bg: rgb(255 92 138 / 0.2);
+  --ok: #4fffd2;
+  --ok-bg: rgb(79 255 210 / 0.14);
+  --up: #4fffd2;
+  --down: #ff5c8a;
+  --pending: #ffb547;
+  --unknown: #66708a;
+  --maintenance: #9c7bff;
+  --glow-1: rgb(0 224 198 / 0.5);
+  --glow-2: rgb(255 61 154 / 0.4);
+  --glow-3: rgb(255 181 71 / 0.35);
+  --glow-4: rgb(110 70 255 / 0.42);
+  --hero-a: #6e46ff;
+  --hero-b: #1a1060;
+  --hero-glow: #00e0c6;
+  --hero-fg: #ffffff;
+}
+:root[data-scheme='borealis'][data-mode='day'] {
+  --logo-a: #00b8a3;
+  --logo-b: #e0247e;
+  color-scheme: light;
+  --bg: #f3f4ff;
+  --surface: #ffffff;
+  --surface-2: #eceefb;
+  --fg: #121633;
+  --muted: #4b5070;
+  --faint: #5f6585;
+  --border: #dfe2f3;
+  --accent: #5b33f0;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(91 51 240 / 0.1);
+  --chart: #5b33f0;
+  --error: #b0124a;
+  --error-bg: rgb(224 36 94 / 0.1);
+  --ok: #00775c;
+  --ok-bg: rgb(0 184 143 / 0.12);
+  --up: #00b88f;
+  --down: #e0245e;
+  --pending: #e08a00;
+  --unknown: #9aa0c0;
+  --maintenance: #6e46ff;
+  --glow-1: rgb(0 224 198 / 0.34);
+  --glow-2: rgb(255 61 154 / 0.24);
+  --glow-3: rgb(255 181 71 / 0.32);
+  --glow-4: rgb(110 70 255 / 0.24);
+  --hero-a: #5b33f0;
+  --hero-b: #2a1890;
+  --hero-glow: #00e0c6;
+  --hero-fg: #ffffff;
+}
+
+:root[data-scheme='ember'][data-mode='night'] {
+  --logo-a: #ffc83c;
+  --logo-b: #ff2e5b;
+  color-scheme: dark;
+  --bg: #110706;
+  --surface: #1f120e;
+  --surface-2: #2a1914;
+  --fg: #fff3ec;
+  --muted: #cdb0a2;
+  --faint: #a08578;
+  --border: #3a241d;
+  --accent: #ff8a3d;
+  --accent-fg: #110706;
+  --accent-soft: rgb(255 138 61 / 0.16);
+  --chart: #ff8a3d;
+  --error: #ffb0be;
+  --error-bg: rgb(255 77 109 / 0.18);
+  --ok: #7cf5b8;
+  --ok-bg: rgb(124 245 184 / 0.12);
+  --up: #7cf5b8;
+  --down: #ff4d6d;
+  --pending: #ffc83c;
+  --unknown: #8a6e62;
+  --maintenance: #c18bff;
+  --glow-1: rgb(255 122 26 / 0.48);
+  --glow-2: rgb(255 46 91 / 0.4);
+  --glow-3: rgb(255 200 60 / 0.28);
+  --glow-4: rgb(138 43 226 / 0.4);
+  --hero-a: #e8590c;
+  --hero-b: #6e1408;
+  --hero-glow: #ffc83c;
+  --hero-fg: #ffffff;
+}
+:root[data-scheme='ember'][data-mode='day'] {
+  --logo-a: #e8590c;
+  --logo-b: #e0193f;
+  color-scheme: light;
+  --bg: #fff4ee;
+  --surface: #ffffff;
+  --surface-2: #f8e6dc;
+  --fg: #2a0e0a;
+  --muted: #6b4a40;
+  --faint: #7d5c52;
+  --border: #f0dcd1;
+  --accent: #e8590c;
+  --accent-fg: #ffffff;
+  --accent-soft: rgb(232 89 12 / 0.1);
+  --chart: #e8590c;
+  --error: #b0102f;
+  --error-bg: #fde7ea;
+  --ok: #0a7a4c;
+  --ok-bg: #e5f5ec;
+  --up: #0e9f63;
+  --down: #e0193f;
+  --pending: #d98a00;
+  --unknown: #b39c92;
+  --maintenance: #7a22cc;
+  --glow-1: rgb(255 122 26 / 0.3);
+  --glow-2: rgb(255 46 91 / 0.2);
+  --glow-3: rgb(255 200 60 / 0.38);
+  --glow-4: rgb(138 43 226 / 0.16);
+  --hero-a: #f2620a;
+  --hero-b: #a3200f;
+  --hero-glow: #ffc83c;
+  --hero-fg: #ffffff;
+}
+
+/* Layouts: type, corners and surfaces. App.svelte arranges the pages. */
+
+:root[data-layout] {
+  --mono: 'Geist Mono', ui-monospace, monospace;
+}
+:root[data-layout='console'] {
+  --radius: 12px;
+  font-family: 'Geist', system-ui, sans-serif;
+  font-size: 15px;
+}
+:root[data-layout='bento'] {
+  --radius: 22px;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  font-size: 15px;
+}
+:root[data-layout='aurora'] {
+  --radius: 22px;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 15.5px;
+}
+:root[data-layout] code,
+:root[data-layout] .mono {
+  font-family: var(--mono);
+}
+:root[data-layout] h1 {
+  letter-spacing: -0.02em;
+}
+
+/* Console: cards with a hairline and a faint top light. */
+:root[data-layout='console'] .card {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--fg) 8%) -60%, var(--surface) 40%);
+}
+
+/* Bento: borderless tiles with a soft shadow on a glowing ground. */
+:root[data-layout='bento'] body {
+  background:
+    radial-gradient(1200px 500px at 85% -10%, var(--glow-1), transparent 60%),
+    radial-gradient(900px 420px at -10% 10%, var(--glow-2), transparent 55%), var(--bg);
+  background-attachment: fixed;
+}
+:root[data-layout='bento'] .card {
+  border-color: transparent;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.06),
+    0 12px 32px -18px rgb(0 0 0 / 0.25);
+}
+:root[data-layout='bento'] h1 {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+:root[data-layout='bento'] button,
+:root[data-layout='bento'] .button,
+:root[data-layout='bento'] input,
+:root[data-layout='bento'] select {
+  border-radius: 12px;
+}
+
+/* Aurora: frosted glass over colour that drifts behind everything (the
+   root paints the ground; a background on body would hide the colour). */
+:root[data-layout='aurora'] body::before {
+  content: '';
+  position: fixed;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(closest-side at 18% 20%, var(--glow-1), transparent),
+    radial-gradient(closest-side at 85% 35%, var(--glow-2), transparent),
+    radial-gradient(closest-side at 45% 95%, var(--glow-3), transparent),
+    radial-gradient(closest-side at 60% 5%, var(--glow-4), transparent);
+  animation: eyrie-drift 30s ease-in-out infinite alternate;
+}
+@keyframes eyrie-drift {
+  to {
+    transform: translate(3%, -2%) scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-layout='aurora'] body::before {
+    animation: none;
+  }
+}
+:root[data-layout='aurora'] .card {
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  border-color: color-mix(in srgb, var(--fg) 13%, transparent);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 14%, transparent),
+    0 30px 60px -36px rgb(0 0 0 / 0.55);
+}
+:root[data-layout='aurora'] button,
+:root[data-layout='aurora'] .button,
+:root[data-layout='aurora'] input,
+:root[data-layout='aurora'] select {
+  border-radius: 12px;
+}
+:root[data-layout='aurora'] input,
+:root[data-layout='aurora'] select {
+  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+}
+
+/* Every layout: rounder controls and a clear primary. */
+:root[data-layout] button.primary,
+:root[data-layout] .button.primary {
+  font-weight: 600;
+}
+:root[data-layout] input:focus-visible,
+:root[data-layout] select:focus-visible,
+:root[data-layout] button:focus-visible,
+:root[data-layout] a:focus-visible {
+  outline: 2px solid var(--chart);
+  outline-offset: 2px;
+}
