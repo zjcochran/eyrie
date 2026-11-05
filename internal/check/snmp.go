@@ -143,6 +143,21 @@ type snmpChecker struct {
 	env *Env
 	// engine is the SNMPv3 agent's engine, once discovered.
 	engine *usm
+	// keys are the SNMPv3 keys for keysFor, the engine they are localized
+	// to: deriving one takes a megabyte of hashing, so once per engine.
+	authKey, privKey []byte
+	keysFor          string
+}
+
+// localKeys returns the authentication and privacy keys for an engine.
+func (c *snmpChecker) localKeys(h authHash, engineID []byte) (auth, priv []byte) {
+	if c.authKey == nil || c.keysFor != string(engineID) {
+		c.authKey, c.privKey, c.keysFor = localKey(h, c.s.AuthPassword, engineID), nil, string(engineID)
+		if c.s.PrivProtocol != "none" {
+			c.privKey = localKey(h, c.s.PrivPassword, engineID)
+		}
+	}
+	return c.authKey, c.privKey
 }
 
 // PDU types.
@@ -595,12 +610,13 @@ func (c *snmpChecker) send(ctx context.Context, conn net.Conn, u usm, tag byte, 
 	scoped := tlv(berSequence, berString(u.engineID), berString([]byte(s.ContextName)), requestPDU(tag, reqID, oid))
 	if oid != nil && s.AuthProtocol != "none" {
 		sec.hash = authHashes[s.AuthProtocol]
-		sec.authKey = localKey(sec.hash, s.AuthPassword, keyFor.engineID)
+		var privKey []byte
+		sec.authKey, privKey = c.localKeys(sec.hash, keyFor.engineID)
 		flags |= 0x01
 		u.authParams = make([]byte, sec.hash.macLen)
 		if s.PrivProtocol != "none" {
 			flags |= 0x02
-			sec.priv = privacy{s.PrivProtocol, localKey(sec.hash, s.PrivPassword, keyFor.engineID)}
+			sec.priv = privacy{s.PrivProtocol, privKey}
 			enc, salt, err := sec.priv.encrypt(scoped, u.boots, u.time)
 			if err != nil {
 				return v3answer{}, err
