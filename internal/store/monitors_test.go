@@ -203,7 +203,7 @@ func TestChanges(t *testing.T) {
 		if err := s.Save(ctx, recs); err != nil {
 			t.Fatal(err)
 		}
-		all, err := s.Changes(ctx, 0, 10)
+		all, err := s.Changes(ctx, 0, 0, 10)
 		if err != nil || len(all) != 4 {
 			t.Fatalf("changes %+v %v", all, err)
 		}
@@ -213,9 +213,32 @@ func TestChanges(t *testing.T) {
 		if c := all[3]; c.MonitorID != a.ID || c.Status != "down" || c.Latency != 103*time.Millisecond {
 			t.Errorf("oldest %+v", c)
 		}
-		older, err := s.Changes(ctx, all[1].ID, 1)
+		older, err := s.Changes(ctx, all[1].ID, 0, 1)
 		if err != nil || len(older) != 1 || older[0].ID != all[2].ID {
 			t.Errorf("older %+v %v", older, err)
+		}
+	})
+}
+
+func TestChangePages(t *testing.T) {
+	eachDB(t, func(t *testing.T, s *Store) {
+		ctx := context.Background()
+		_, b := seed(t, s)
+		if err := s.Save(ctx, []Record{beat(b.ID, t0.Add(time.Hour), "down", -1), beat(b.ID, t0.Add(3*time.Hour), "down", -1)}); err != nil {
+			t.Fatal(err)
+		}
+		all, err := s.Changes(ctx, 0, 0, 10)
+		if err != nil || len(all) != 3 {
+			t.Fatalf("changes %+v %v", all, err)
+		}
+		if skipped, err := s.Changes(ctx, 0, 1, 2); err != nil || len(skipped) != 2 || skipped[0].ID != all[1].ID {
+			t.Errorf("offset %+v %v", skipped, err)
+		}
+		if every, err := s.Changes(ctx, 0, 1, All); err != nil || len(every) != 2 {
+			t.Errorf("all %+v %v", every, err)
+		}
+		if n, err := s.CountChanges(ctx); err != nil || n != 3 {
+			t.Errorf("count %d %v", n, err)
 		}
 	})
 }

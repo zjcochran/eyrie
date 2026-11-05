@@ -50,6 +50,15 @@ describe('Client', () => {
     assert.equal(calls[0].method, 'GET');
   });
 
+  it('reads a page of status changes with their total', async () => {
+    const page = [{ id: 9, monitor_id: 1, at: '2027-01-15T08:00:00Z', status: 'down', message: '', important: true }];
+    const { calls, client } = fake(
+      new Response(JSON.stringify(page), { headers: { 'Content-Type': 'application/json', 'X-Total-Count': '120' } }),
+    );
+    assert.deepEqual(await client.statusChangePage(25, 'all'), { changes: page, total: 120 });
+    assert.equal(calls[0].path, '/api/v1/status-changes?offset=25&limit=all');
+  });
+
   it('keeps the CSRF token and sends it with changes only', async () => {
     const { calls, client } = fake(json(session), json([]), json({ id: 1 }, 201));
     await client.session();
@@ -186,6 +195,7 @@ describe('Client', () => {
       [() => client.testSSO('https://id.example.com'), 'POST', '/api/v1/settings/sso/test'],
       [() => client.audit({}), 'GET', '/api/v1/audit'],
       [() => client.audit({ action: 'signed in', user: 'bob', before: 40 }), 'GET', '/api/v1/audit?action=signed+in&user=bob&before=40'],
+      [() => client.audit({ offset: 50, size: 25 }), 'GET', '/api/v1/audit?offset=50&limit=25'],
       [() => client.agents(), 'GET', '/api/v1/agents'],
       [() => client.addAgent('edge'), 'POST', '/api/v1/agents'],
       [() => client.renewAgentToken(5), 'POST', '/api/v1/agents/5/token'],

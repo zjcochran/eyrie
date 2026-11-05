@@ -33,7 +33,16 @@ func TestStatusChanges(t *testing.T) {
 	if bob.call("GET", fmt.Sprintf("/api/v1/status-changes?limit=5000&before=%d", all[0].ID), nil, &page); len(page) != 1 || page[0].ID != all[1].ID {
 		t.Errorf("before %+v", page)
 	}
-	for _, q := range []string{"before=0", "limit=x"} {
+	if resp, _ := bob.do("GET", "/api/v1/status-changes?limit=1&offset=1", nil); resp.Header.Get("X-Total-Count") != "2" {
+		t.Errorf("total %q", resp.Header.Get("X-Total-Count"))
+	}
+	if bob.call("GET", "/api/v1/status-changes?limit=1&offset=1", nil, &page); len(page) != 1 || page[0].ID != all[1].ID {
+		t.Errorf("offset %+v", page)
+	}
+	if bob.call("GET", "/api/v1/status-changes?limit=all", nil, &page); len(page) != 2 {
+		t.Errorf("all %+v", page)
+	}
+	for _, q := range []string{"before=0", "limit=x", "offset=x"} {
 		if code := bob.call("GET", "/api/v1/status-changes?"+q, nil, nil); code != http.StatusBadRequest {
 			t.Errorf("%s: %d", q, code)
 		}

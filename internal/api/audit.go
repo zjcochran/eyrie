@@ -84,27 +84,20 @@ type auditView struct {
 }
 
 // listAudit answers GET /api/v1/audit: the newest entries first, filtered
-// by action and user, before an entry's id for older pages.
+// by action and user, a page at a time (see page), with how many match.
 func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	f := store.AuditFilter{Action: q.Get("action"), Actor: q.Get("user")}
-	for name, p := range map[string]*int64{"before": &f.BeforeID, "limit": nil} {
-		v := q.Get(name)
-		if v == "" {
-			continue
-		}
-		n, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || n < 1 {
-			invalid(w, http.StatusBadRequest, fmt.Sprintf("%s must be a positive number.", capitalize(name)))
-			return
-		}
-		if p != nil {
-			*p = n
-		} else {
-			f.Limit = int(min(n, 1000))
-		}
+	var ok bool
+	if f.BeforeID, f.Offset, f.Limit, ok = page(w, r); !ok {
+		return
 	}
 	entries, err := s.Store.Audit(r.Context(), f)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	total, err := s.Store.CountAudit(r.Context(), f)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -118,7 +111,8 @@ func (s *Server) listAudit(w http.ResponseWriter, r *http.Request) {
 		Entries []auditView `json:"entries"`
 		Actions []string    `json:"actions"`
 		Users   []string    `json:"users"`
-	}{Entries: []auditView{}, Actions: actions, Users: users}
+		Total   int         `json:"total"`
+	}{Entries: []auditView{}, Actions: actions, Users: users, Total: total}
 	for _, e := range entries {
 		out.Entries = append(out.Entries, auditView{e.ID, e.At.UTC(), e.Actor, e.IP, e.Action, e.Details})
 	}

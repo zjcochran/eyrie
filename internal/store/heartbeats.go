@@ -261,14 +261,15 @@ type Change struct {
 }
 
 // Changes returns every monitor's status changes, newest first: limit of
-// them, only those with an ID below before when it is above 0.
-func (s *Store) Changes(ctx context.Context, before int64, limit int) ([]Change, error) {
+// them (see AuditFilter.Limit) after skipping offset, only those with an ID
+// below before when it is above 0.
+func (s *Store) Changes(ctx context.Context, before int64, offset, n int) ([]Change, error) {
 	if before <= 0 {
 		before = math.MaxInt64
 	}
 	rows, err := s.db.QueryContext(ctx, s.q(`
 		SELECT id, monitor_id, at, status, latency_us, message, important FROM heartbeats
-		WHERE important = ? AND id < ? ORDER BY id DESC LIMIT ?`), true, before, limit)
+		WHERE important = ? AND id < ? ORDER BY id DESC LIMIT ? OFFSET ?`), true, before, limit(n), max(offset, 0))
 	if err != nil {
 		return nil, err
 	}
@@ -284,6 +285,13 @@ func (s *Store) Changes(ctx context.Context, before int64, limit int) ([]Change,
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// CountChanges returns how many status changes there are.
+func (s *Store) CountChanges(ctx context.Context) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, s.q(`SELECT COUNT(*) FROM heartbeats WHERE important = ?`), true).Scan(&n)
+	return n, err
 }
 
 // RecentBeats returns the last n heartbeats of every monitor, oldest first.

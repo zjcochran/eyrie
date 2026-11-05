@@ -144,7 +144,7 @@ All admin routes.
 
 | Method and path | Body | Answer |
 | --- | --- | --- |
-| `GET /api/v1/audit?action=<a>&user=<u>&before=<id>&limit=<n>` | | Admin. `200` `{"entries":[{"id","at","user","ip","action","details"}],"actions":[…],"users":[…]}`: entries newest first, `limit` of them (default 100, at most 1000), only those with that action and user when set and with an id below `before`; `actions` and `users` are every action and user in the log, sorted, for filters. `400` when `before` or `limit` is not a positive number |
+| `GET /api/v1/audit?action=<a>&user=<u>&before=<id>&offset=<n>&limit=<n>` | | Admin. `200` `{"entries":[{"id","at","user","ip","action","details"}],"total":<n>,"actions":[…],"users":[…]}`: entries newest first, `limit` of them (default 100, at most 1000, or `all`) after skipping `offset`, only those with that action and user when set and with an id below `before`; `total` is how many entries have that action and user; `actions` and `users` are every action and user in the log, sorted, for filters. `400` when `before` or `limit` is not a positive number, or `offset` is below 0 |
 
 ### API tokens
 
@@ -251,7 +251,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
 | `GET /api/v1/monitors?beats=<n>` | read | | `200` list of [monitors](#monitor), by `position`, then name. With `beats` (1 to 100), each has its last `n` heartbeats, oldest first. |
 | `GET /api/v1/monitors/{id}` | read | | `200` monitor |
 | `GET /api/v1/monitors/{id}/heartbeats?since=<time>&limit=<n>` | read | | `200` [heartbeats](#heartbeat), newest first, from `since` (RFC 3339; default 24 hours ago), at most `limit` (default and most 10000). `400` for a bad `since`. |
-| `GET /api/v1/status-changes?before=<id>&limit=<n>` | read | | `200` every monitor's status changes, newest first: [heartbeats](#heartbeat) with `important` true, each with its `"id"`, `limit` of them (default 100, at most 1000), only those with an id below `before` when set. `400` when `before` or `limit` is not a positive number |
+| `GET /api/v1/status-changes?before=<id>&offset=<n>&limit=<n>` | read | | `200` every monitor's status changes, newest first: [heartbeats](#heartbeat) with `important` true, each with its `"id"`, `limit` of them (default 100, at most 1000, or `all`) after skipping `offset`, only those with an id below `before` when set. The `X-Total-Count` header is how many status changes there are. `400` when `before` or `limit` is not a positive number, or `offset` is below 0 |
 | `GET /api/v1/overview?days=<n>` | read | | `200` `{"days":[{"monitor_id","days":[{"start","up","down"}]}],"hours":[{"start","up","down","avg_latency_ms"}]}`: each monitor's daily counts for the last `n` days (default 30, most 90; days in UTC, days without checks left out), and every monitor's checks added together for each of the last 24 hours, with their mean response time. For the dashboards of the Bento and Aurora layouts and the 90-day uptime of a monitor's page. |
 | `GET /api/v1/monitors/{id}/hours?days=<n>` | read | | `200` `[{"start","up","down","avg_latency_ms","avg_usage"}]`: hourly counts for the last `n` days (default 7, most 35), oldest first; hours without checks are left out. `avg_usage` (`{"cpu","memory"}`, the mean use) only for hours with system-resources checks |
 | `POST /api/v1/monitors` | admin | [monitor settings](#monitor-settings) | `201` monitor. `422` with the reason for a bad setting. |

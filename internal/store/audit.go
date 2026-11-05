@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"math"
 	"time"
 )
 
@@ -17,14 +18,18 @@ type AuditEntry struct {
 	Details string // key=value pairs
 }
 
-// AuditFilter selects audit entries, newest first. BeforeID pages
-// backwards; Action and Actor, when set, must match.
+// AuditFilter selects audit entries, newest first. BeforeID and Offset
+// page backwards; Action and Actor, when set, must match.
 type AuditFilter struct {
 	Action   string
 	Actor    string
 	BeforeID int64
-	Limit    int // default 100, at most 1000
+	Offset   int
+	Limit    int // default 100, at most 1000; All for every entry
 }
+
+// All as a limit returns everything.
+const All = -1
 
 // AddAudit appends to the audit log.
 func (s *Store) AddAudit(ctx context.Context, e AuditEntry) error {
@@ -35,25 +40,9 @@ func (s *Store) AddAudit(ctx context.Context, e AuditEntry) error {
 
 // Audit returns the audit entries matching f, newest first.
 func (s *Store) Audit(ctx context.Context, f AuditFilter) ([]AuditEntry, error) {
-	if f.Limit <= 0 || f.Limit > 1000 {
-		f.Limit = 100
-	}
-	q := `SELECT id, at, actor, ip, action, details FROM audit_log WHERE 1 = 1`
-	var args []any
-	if f.Action != "" {
-		q += ` AND action = ?`
-		args = append(args, f.Action)
-	}
-	if f.Actor != "" {
-		q += ` AND actor = ?`
-		args = append(args, f.Actor)
-	}
-	if f.BeforeID > 0 {
-		q += ` AND id < ?`
-		args = append(args, f.BeforeID)
-	}
-	q += ` ORDER BY id DESC LIMIT ?`
-	args = append(args, f.Limit)
+	where, args := f.where()
+	q := `SELECT id, at, actor, ip, action, details FROM audit_log` + where + ` ORDER BY id DESC LIMIT ? OFFSET ?`
+	args = append(args, limit(f.Limit), max(f.Offset, 0))
 	// Only fixed SQL is added above; the values are bound arguments.
 	// nosemgrep
 	rows, err := s.db.QueryContext(ctx, s.q(q), args...)
@@ -72,6 +61,48 @@ func (s *Store) Audit(ctx context.Context, f AuditFilter) ([]AuditEntry, error) 
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// CountAudit returns how many audit entries match f's action and actor,
+// for every page.
+func (s *Store) CountAudit(ctx context.Context, f AuditFilter) (int, error) {
+	f.BeforeID = 0
+	where, args := f.where()
+	var n int
+	// Only fixed SQL is added by where; the values are bound arguments.
+	// nosemgrep
+	err := s.db.QueryRowContext(ctx, s.q(`SELECT COUNT(*) FROM audit_log`+where), args...).Scan(&n)
+	return n, err
+}
+
+func (f AuditFilter) where() (string, []any) {
+	q := ` WHERE 1 = 1`
+	var args []any
+	if f.Action != "" {
+		q += ` AND action = ?`
+		args = append(args, f.Action)
+	}
+	if f.Actor != "" {
+		q += ` AND actor = ?`
+		args = append(args, f.Actor)
+	}
+	if f.BeforeID > 0 {
+		q += ` AND id < ?`
+		args = append(args, f.BeforeID)
+	}
+	return q, args
+}
+
+// limit is a page size for SQL: 100 by default, at most 1000, or every row
+// for All.
+func limit(n int) int64 {
+	switch {
+	case n == All:
+		return math.MaxInt64
+	case n <= 0 || n > 1000:
+		return 100
+	}
+	return int64(n)
 }
 
 // AuditNames returns the actions and the actors in the audit log, each
