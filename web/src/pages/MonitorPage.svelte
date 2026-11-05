@@ -1,9 +1,10 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import Chart from '../components/Chart.svelte';
-  import StatusDot from '../components/StatusDot.svelte';
   import TagChip from '../components/TagChip.svelte';
-  import { type Beat, type Monitor, message } from '../lib/api.ts';
+  import { type Beat, type Count, type Monitor, message } from '../lib/api.ts';
+  import { normalize } from '../lib/appearance.ts';
+  import { band, dayOf, lastDays } from '../lib/bento.ts';
   import { ago, daysUntil, duration, millis, percent, type Point } from '../lib/format.ts';
   import { live, onBeat } from '../lib/live.svelte.ts';
   import { go, link } from '../lib/nav.svelte.ts';
@@ -31,12 +32,20 @@
   const from = $derived(now - days[period] * 86400000);
   const changes = $derived(beats.filter((b) => b.important).slice(0, 20));
   const resources = $derived(monitor?.type === 'system-resources');
+  const look = $derived(normalize(app.session?.user?.appearance).layout);
+  // The last 90 days, for the uptime heatmap.
+  let daily = $state<Count[]>([]);
+  const ninety = $derived(lastDays(90, now));
+  // Other monitors that are down, for Aurora's "elsewhere".
+  const elsewhere = $derived(live.monitors.filter((x) => x.id !== id && x.active && x.status.status === 'down'));
+  const label = (st: string) => st.charAt(0).toUpperCase() + st.slice(1);
 
   async function load() {
     try {
       monitor = await api.monitor(id);
       beats = await api.heartbeats(id, new Date(Date.now() - 86400000));
       await loadChart();
+      api.history(90).then((h) => (daily = h.days.find((d) => d.monitor_id === id)?.days ?? []), () => {});
     } catch (e) {
       notice = { ok: false, text: message(e) };
     }
@@ -144,25 +153,29 @@
   {@const m = monitor}
   {@const group = live.groups.find((g) => g.id === m.group_id)}
   <div class="head">
-    <div>
-      <h1><StatusDot status={m.status.status} active={m.active} /> {m.name}</h1>
-      <p class="muted">
-        {m.type} · every {duration(m.interval)}
-        {#if m.agent_id}· on {m.agent_name ? `agent ${m.agent_name}` : 'a removed agent'}{/if}
-        {#if group}· in <a href="/groups/{group.id}" onclick={link}>{group.name}</a>{/if}
-        {#if !m.active}· paused{/if}
-        {#if m.description}· {m.description}{/if}
-      </p>
-      {#if m.tags.length}
-        <p class="tags">{#each m.tags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} />{/each}</p>
-      {/if}
+    <div class="who">
+      <span class="badge {m.active ? m.status.status : 'paused'}" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+          ><path d="M2 12h4l2-5 3 10 2-5h9" /></svg
+        >
+      </span>
+      <div class="titles">
+        <div class="crumbs mono">
+          {m.type} · every {duration(m.interval)}
+          {#if m.agent_id}· on {m.agent_name ? `agent ${m.agent_name}` : 'a removed agent'}{/if}
+          {#if group}· in <a href="/groups/{group.id}" onclick={link}>{group.name}</a>{/if}
+        </div>
+        <h1>{m.name}</h1>
+        {#if m.description}<p class="muted desc">{m.description}</p>{/if}
+      </div>
+      <span class="pill {m.active ? m.status.status : 'paused'}"
+        ><i></i>{m.active ? label(m.status.status) : 'Paused'}{m.active && m.status.since ? ` · ${ago(m.status.since, now).replace(' ago', '')}` : ''}</span
+      >
     </div>
     {#if admin}
       <div class="row">
         {#if m.type !== 'push' && m.type !== 'manual' && m.active}
-          <button disabled={busy || m.status.checking} onclick={checkNow}
-            >Check now</button
-          >
+          <button class="primary" disabled={busy || m.status.checking} onclick={checkNow}>Check now</button>
         {/if}
         {#if m.active}
           <button disabled={busy} onclick={() => run(async () => (await api.pauseMonitor(id), 'Paused.'))}>Pause</button>
@@ -174,45 +187,39 @@
       </div>
     {/if}
   </div>
+  {#if m.tags.length}
+    <p class="tags">{#each m.tags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} />{/each}</p>
+  {/if}
+  {#if m.status.maintenance}<p class="notice maint">In maintenance: {m.status.maintenance}</p>{/if}
 
-  <section class="card status">
-    <div>
-      <div class="big"><StatusDot status={m.status.status} active={m.active} label /></div>
-      <div class="muted">{m.status.since ? `since ${new Date(m.status.since).toLocaleString()}` : 'not checked yet'}</div>
-      {#if m.status.maintenance}<div class="muted">{m.status.maintenance}</div>{/if}
-    </div>
-    <div>
-      <div class="muted">Last check</div>
-      <div>{ago(m.status.last_check, now)}</div>
-      <div class="muted msg">{m.status.message}</div>
-    </div>
+  <div class="kpis">
     {#if resources}
-      <div>
-        <div class="muted">Use</div>
-        <div>CPU {m.status.usage ? `${m.status.usage.cpu.toFixed(1)}%` : '–'}</div>
-        <div>Memory {m.status.usage ? `${m.status.usage.memory.toFixed(1)}%` : '–'}</div>
-      </div>
+      <div class="card kpi"><span class="k">CPU</span><span class="v">{m.status.usage ? `${m.status.usage.cpu.toFixed(1)}%` : '–'}</span><span class="s muted">now</span></div>
+      <div class="card kpi"><span class="k">Memory</span><span class="v">{m.status.usage ? `${m.status.usage.memory.toFixed(1)}%` : '–'}</span><span class="s muted">now</span></div>
     {:else}
-      <div>
-        <div class="muted">Response</div>
-        <div>{millis(m.status.latency_ms)}</div>
-        <div class="muted">24 h average {millis(m.uptime.avg_latency_24h_ms)}</div>
+      <div class="card kpi">
+        <span class="k">Response</span><span class="v">{m.status.status === 'down' ? '—' : millis(m.status.latency_ms)}</span>
+        <span class="s muted">24 h average {millis(m.uptime.avg_latency_24h_ms)}</span>
+      </div>
+      <div class="card kpi">
+        <span class="k">Uptime, 24 hours</span><span class="v">{percent(m.uptime['24h'])}</span>
+        <span class="s muted">30 d {percent(m.uptime['30d'])} · 1 y {percent(m.uptime['1y'])}</span>
       </div>
     {/if}
-    <div>
-      <div class="muted">Uptime</div>
-      <div>24 h {percent(m.uptime['24h'])}</div>
-      <div>30 d {percent(m.uptime['30d'])}</div>
-      <div>1 y {percent(m.uptime['1y'])}</div>
+    <div class="card kpi">
+      <span class="k">Last check</span><span class="v">{ago(m.status.last_check, now)}</span>
+      <span class="s" class:bad={m.status.status === 'down'} class:muted={m.status.status !== 'down'}>{m.status.message || '–'}</span>
     </div>
-    {#if m.status.cert_expires}
-      <div>
-        <div class="muted">Certificate</div>
-        <div>expires in {daysUntil(m.status.cert_expires, now)} days</div>
-        <div class="muted">{new Date(m.status.cert_expires).toLocaleDateString()}</div>
-      </div>
-    {/if}
-  </section>
+    <div class="card kpi">
+      <span class="k">Certificate</span>
+      {#if m.status.cert_expires}
+        {@const d = daysUntil(m.status.cert_expires, now)}
+        <span class="v" class:bad={d < 14}>{d} days</span><span class="s muted">until {new Date(m.status.cert_expires).toLocaleDateString()}</span>
+      {:else}
+        <span class="v">—</span><span class="s muted">none checked</span>
+      {/if}
+    </div>
+  </div>
 
   {#if m.push_url}
     <section class="card">
@@ -273,27 +280,55 @@
     </section>
   {/if}
 
-  <section class="card">
-    <h2>Status changes, last 24 hours</h2>
-    {#if changes.length === 0}
-      <p class="muted">None.</p>
+  <div class="pair">
+    {#if look === 'aurora'}
+      <section class="card">
+        <h2>Checked from</h2>
+        <div class="from">
+          <span class="src">{m.agent_id ? 'A' : 'E'}</span>
+          <span class="grow"
+            >{m.agent_id ? `Agent ${m.agent_name ?? '(removed)'}` : 'Eyrie server (local)'}<span class="muted block small"
+              >every {duration(m.interval)}</span
+            ></span
+          >
+          <span class="mono">{millis(m.status.latency_ms)}</span>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Elsewhere right now</h2>
+        {#each elsewhere.slice(0, 3) as x (x.id)}
+          <a class="else" href="/monitors/{x.id}" onclick={link}
+            ><i></i><span class="grow"><strong>{x.name} is down</strong><span class="muted block small">{x.status.message}{x.status.since ? ` · ${ago(x.status.since, now)}` : ''}</span></span></a
+          >
+        {:else}
+          <p class="muted">Every other monitor is answering.</p>
+        {/each}
+      </section>
     {:else}
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Time</th><th>Status</th><th>Message</th></tr></thead>
-          <tbody>
-            {#each changes as b (b.at + b.status)}
-              <tr>
-                <td>{new Date(b.at).toLocaleString()}</td>
-                <td><StatusDot status={b.status} label /></td>
-                <td>{b.message}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <section class="card">
+        <div class="row between"><h2>Uptime, 90 days</h2><span class="mono muted">{percent(m.uptime['30d'])} 30 d</span></div>
+        <div class="days" aria-hidden="true">
+          {#each ninety as d (d)}<span class="day {band(dayOf(daily, d))}" title={new Date(d).toLocaleDateString(undefined, { timeZone: 'UTC' })}></span>{/each}
+        </div>
+        <div class="row between muted small"><span>{new Date(ninety[0]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' })}</span><span>Today</span></div>
+      </section>
     {/if}
-  </section>
+    <section class="card">
+      <h2>Timeline, last 24 hours</h2>
+      {#each changes as b (b.at + b.status)}
+        <div class="event">
+          <span class="icon {b.status}">{b.status === 'up' ? '✓' : b.status === 'down' ? '!' : '•'}</span>
+          <span class="grow"
+            ><span class="strong">{label(b.status)}{b.message ? `: ${b.message}` : ''}</span><span class="muted block small"
+              >{new Date(b.at).toLocaleString()}</span
+            ></span
+          >
+        </div>
+      {:else}
+        <p class="muted">No changes.</p>
+      {/each}
+    </section>
+  </div>
 {:else if !notice}
   <p class="muted">Loading…</p>
 {/if}
@@ -304,28 +339,222 @@
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 1rem;
-    align-items: flex-start;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.9rem;
+    min-width: 0;
+  }
+  .titles {
+    min-width: 0;
+  }
+  .crumbs {
+    font-size: 0.78rem;
+    color: var(--muted);
+    letter-spacing: 0.02em;
   }
   .head h1 {
-    margin-bottom: 0.25rem;
+    margin: 0.1rem 0 0;
+    font-size: 1.6rem;
   }
-  .status {
+  .desc {
+    margin: 0.15rem 0 0;
+  }
+  .badge {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-    gap: 1rem;
+    place-items: center;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 14px;
+    color: var(--unknown);
+    background: color-mix(in srgb, currentColor 14%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    font-weight: 600;
+    color: var(--unknown);
+    background: color-mix(in srgb, currentColor 13%, transparent);
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  }
+  .pill i {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .badge.up,
+  .pill.up {
+    color: var(--up);
+  }
+  .badge.down,
+  .pill.down {
+    color: var(--down);
+  }
+  .badge.pending,
+  .pill.pending {
+    color: var(--pending);
+  }
+  .badge.maintenance,
+  .pill.maintenance {
+    color: var(--maintenance);
+  }
+  .pill.up {
+    color: var(--ok);
+  }
+  .pill.down {
+    color: var(--error);
   }
   .tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.3rem;
-    margin: 0.25rem 0 0;
+    margin: 0 0 0.75rem;
   }
-  .big {
-    font-size: 1.3rem;
+  .maint {
+    background: color-mix(in srgb, var(--maintenance) 14%, transparent);
+  }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0.9rem 1rem;
+    min-width: 0;
+  }
+  .k {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .v {
+    font-size: 1.5rem;
     font-weight: 600;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
   }
-  .msg {
+  .s {
+    font-size: 0.8rem;
     overflow-wrap: anywhere;
+  }
+  .bad {
+    color: var(--error);
+  }
+  .pair {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: 0 1rem;
+  }
+  .days {
+    display: grid;
+    grid-template-columns: repeat(45, minmax(0, 1fr));
+    gap: 3px;
+    margin: 0.5rem 0;
+  }
+  .day {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    background: var(--surface-2, var(--border));
+  }
+  .day.full {
+    background: var(--up);
+  }
+  .day.high {
+    background: color-mix(in srgb, var(--up) 50%, var(--surface));
+  }
+  .day.low {
+    background: var(--pending);
+  }
+  .day.bad {
+    background: var(--down);
+  }
+  .event {
+    display: flex;
+    gap: 0.6rem;
+    padding-bottom: 0.7rem;
+  }
+  .icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: var(--surface-2, var(--border));
+    color: var(--muted);
+  }
+  .icon.up {
+    background: var(--ok-bg);
+    color: var(--ok);
+  }
+  .icon.down {
+    background: var(--error-bg);
+    color: var(--error);
+  }
+  .strong {
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+  .from,
+  .else {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .src {
+    display: grid;
+    place-items: center;
+    width: 2.3rem;
+    height: 2.3rem;
+    border-radius: 12px;
+    font-weight: 700;
+    background: var(--up);
+    color: var(--bg);
+  }
+  .else {
+    padding: 0.7rem 0.8rem;
+    margin-bottom: 0.5rem;
+    border-radius: 16px;
+    color: var(--fg);
+    text-decoration: none;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--down) 26%, transparent), transparent);
+    border: 1px solid color-mix(in srgb, var(--down) 45%, transparent);
+  }
+  .else i {
+    width: 0.6rem;
+    height: 0.6rem;
+    flex: none;
+    transform: rotate(45deg);
+    background: var(--down);
+    box-shadow: 0 0 12px var(--down);
+  }
+  .grow {
+    flex: 1;
+    min-width: 0;
+  }
+  .block {
+    display: block;
+  }
+  .small {
+    font-size: 0.8rem;
+  }
+  .mono {
+    font-family: var(--mono, ui-monospace, monospace);
   }
   .between {
     justify-content: space-between;
@@ -333,5 +562,28 @@
   .url {
     flex: 1;
     min-width: 0;
+  }
+
+  /* Aurora: figures lit in the scheme's gradient, a larger name. */
+  :global(:root[data-layout='aurora']) .v {
+    font-size: 1.9rem;
+    background: linear-gradient(90deg, var(--logo-a), var(--logo-b));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  :global(:root[data-layout='aurora']) .head h1 {
+    font-size: 2.1rem;
+  }
+  :global(:root[data-layout='aurora']) .badge {
+    display: none;
+  }
+  :global(:root[data-layout='aurora']) .pill i {
+    box-shadow: 0 0 12px currentColor;
+  }
+  /* Console: figures in the monospaced face. */
+  :global(:root[data-layout='console']) .v {
+    font-family: var(--mono);
+    font-weight: 500;
   }
 </style>

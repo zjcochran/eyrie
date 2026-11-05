@@ -425,6 +425,28 @@ func (s *Store) Days(ctx context.Context, since time.Time) (map[int64][]HourBuck
 	return out, rows.Err()
 }
 
+// FleetHours returns every monitor's hourly stats added together, from the
+// hour that contains since, oldest first: how many checks Eyrie made.
+func (s *Store) FleetHours(ctx context.Context, since time.Time) ([]HourBucket, error) {
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT bucket, SUM(up), SUM(down), SUM(latency_us_sum), SUM(latency_count)
+		FROM stats_hourly WHERE bucket >= ? GROUP BY bucket ORDER BY bucket`), since.UnixMilli()-since.UnixMilli()%hour)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []HourBucket
+	for rows.Next() {
+		var b HourBucket
+		var start int64
+		if err := rows.Scan(&start, &b.Up, &b.Down, &b.LatencySum, &b.LatencyCount); err != nil {
+			return nil, err
+		}
+		b.Start = fromMillis(start)
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
 // Prune deletes heartbeats older than beats, hourly stats older than hours
 // and daily stats and audit log entries older than days.
 func (s *Store) Prune(ctx context.Context, beats, hours, days time.Time) error {

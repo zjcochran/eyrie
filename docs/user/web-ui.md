@@ -228,12 +228,25 @@ has it too). Each choice applies at once.
 
 - **Layout**:
   - **Console** (the default): the pages in a sidebar, the monitors in a
-    list with the chosen one beside it.
-  - **Bento**: the pages in a bar along the top, and the overview across
-    the page in tiles, above the list.
+    list (each with its type, a line of its recent response times and the
+    latest) with the chosen one beside it.
+  - **Bento**: the pages in a bar along the top, and a start page of tiles:
+    the fleet's health (a ring of up, down and the rest, the 30-day uptime
+    and the checks of each of the last 24 hours), what is down, the agents
+    (admins; others see the slowest monitors), every monitor's uptime for
+    each of the last 30 or 14 days, certificates, the next maintenance,
+    the status pages and the latest changes, with the list below them.
   - **Aurora**: the pages as a rail of icons, and frosted-glass panels over
     slowly drifting colour (still for those who ask their device for
-    reduced motion).
+    reduced motion). Its start page has the figures in the scheme's
+    colours, every monitor's response time by the hour for the last 24
+    hours, what needs attention and the latest changes.
+
+  A monitor's page, in every layout, has its status, four figures
+  (response time, uptime, last check, certificate), the response-time
+  chart (point at it for the time and value) and its last 24 hours of
+  changes; with its uptime for each of the last 90 days in Console and
+  Bento, and where it is checked from and what else is down in Aurora.
 - **Colours**: three schemes for each layout. Every layout has **Ash**
   (charcoal, silver and amber; the default). Console also has **Dusk**
   (violet, lime and magenta) and **Glacier** (cyan, mint and orange);
@@ -243,6 +256,11 @@ has it too). Each choice applies at once.
   keeps Ash, and picks the layout's first scheme otherwise.
 - **Day and night**: **System** (the default) follows your device's light
   or dark setting; **Day** and **Night** keep one.
+
+**Search or jump to** (or ⌘K, Ctrl+K on Windows and Linux), in every
+layout, finds a monitor, group or page by name, and for admins the
+actions to add a monitor, a status page or a maintenance window, or to
+discover; ↑ and ↓ choose, Enter opens, Escape closes.
 
 The sign-in page uses Console with Ash. Public status pages keep their own
 theme and accent colour.

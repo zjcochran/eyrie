@@ -159,6 +159,13 @@ func TestDays(t *testing.T) {
 		if d := days[m.ID]; err != nil || len(d) != 3 || d[1].Down != 1 || d[2].Up != 1 || !d[0].Start.Equal(t0.Add(-24*time.Hour).Truncate(24*time.Hour)) {
 			t.Errorf("days %+v %v", d, err)
 		}
+		n, _ := s.CreateMonitor(ctx, newMonitor("B", "http"), t0)
+		s.Save(ctx, []Record{{Beat: Beat{MonitorID: n.ID, At: t0, Status: "down", Latency: -1},
+			State: MonitorState{MonitorID: n.ID, Status: "down", Since: t0, LastCheck: t0}}})
+		hours, err := s.FleetHours(ctx, t0.Add(-time.Hour))
+		if err != nil || len(hours) != 2 || hours[0].Down != 2 || hours[1].Up != 1 || !hours[0].Start.Equal(t0.Truncate(time.Hour)) {
+			t.Errorf("fleet hours %+v %v", hours, err)
+		}
 	})
 }
 
@@ -176,6 +183,7 @@ func TestPagesAndIncidentsClosed(t *testing.T) {
 			"set logo":    func() error { return s.SetPageLogo(ctx, 1, "image/png", nil, t0) },
 			"logo":        func() error { _, _, err := s.PageLogo(ctx, 1); return err },
 			"days":        func() error { _, err := s.Days(ctx, t0); return err },
+			"fleet hours": func() error { _, err := s.FleetHours(ctx, t0); return err },
 			"incidents":   func() error { _, err := s.Incidents(ctx, 1, t0); return err },
 			"incident":    func() error { _, err := s.IncidentByID(ctx, 1); return err },
 			"open":        func() error { _, err := s.CreateIncident(ctx, 1, "x", "investigating", "m", "alice", t0); return err },
