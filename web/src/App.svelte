@@ -194,36 +194,40 @@
           <p><a href="/" onclick={link}>Back to the start</a></p>
         {:else}
           <h1>Settings</h1>
-          <div class="tabs" role="tablist">
-            {#each tabs as t (t.page)}
-              <a href={t.path} onclick={link} role="tab" aria-selected={t.page === page}>{t.label}</a>
-            {/each}
+          <div class="settings">
+            <div class="tabs" role="tablist" aria-orientation="vertical">
+              {#each tabs as t (t.page)}
+                <a href={t.path} onclick={link} role="tab" aria-selected={t.page === page}>{t.label}</a>
+              {/each}
+            </div>
+            <div class="tab">
+              {#if page === 'account'}
+                <Account />
+              {:else if page === 'appearance'}
+                <Appearance />
+              {:else if page === 'users'}
+                <Users />
+              {:else if page === 'sso'}
+                <SSO />
+              {:else if page === 'tokens'}
+                <Tokens />
+              {:else if page === 'agents'}
+                <Agents />
+              {:else if page === 'retention'}
+                <Retention />
+              {:else if page === 'backup'}
+                <Backup />
+              {:else if page === 'notifications'}
+                <Notifications />
+              {:else if page === 'tags'}
+                <Tags />
+              {:else if page === 'analysis'}
+                <Analysis />
+              {:else if page === 'audit'}
+                <Audit />
+              {/if}
+            </div>
           </div>
-          {#if page === 'account'}
-            <Account />
-          {:else if page === 'appearance'}
-            <Appearance />
-          {:else if page === 'users'}
-            <Users />
-          {:else if page === 'sso'}
-            <SSO />
-          {:else if page === 'tokens'}
-            <Tokens />
-          {:else if page === 'agents'}
-            <Agents />
-          {:else if page === 'retention'}
-            <Retention />
-          {:else if page === 'backup'}
-            <Backup />
-          {:else if page === 'notifications'}
-            <Notifications />
-          {:else if page === 'tags'}
-            <Tags />
-          {:else if page === 'analysis'}
-            <Analysis />
-          {:else if page === 'audit'}
-            <Audit />
-          {/if}
         {/if}
       </main>
       {@render source()}
@@ -533,9 +537,9 @@
   :global(:root[data-layout='console']) main {
     padding: 0 1.5rem;
   }
-  /* Room for every settings tab on one line. */
+  /* Settings: room for wide forms and tables beside the menu. */
   main.wide {
-    max-width: 78rem;
+    max-width: 96rem;
   }
   main.split {
     max-width: 96rem;
@@ -544,22 +548,56 @@
     max-width: 28rem;
     margin-top: 4rem;
   }
+  /* The settings menu down the left of its page. */
+  .settings {
+    display: grid;
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
   .tabs {
+    position: sticky;
+    top: 1rem;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-    margin-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
+    flex-direction: column;
+    gap: 0.15rem;
   }
   .tabs a {
-    padding: 0.4rem 0.8rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: calc(var(--radius) * 0.7);
     color: var(--muted);
     text-decoration: none;
-    border-bottom: 2px solid transparent;
+  }
+  .tabs a:hover {
+    color: var(--fg);
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
   }
   .tabs a[aria-selected='true'] {
     color: var(--fg);
-    border-bottom-color: var(--chart, var(--accent));
+    font-weight: 600;
+    background: color-mix(in srgb, var(--fg) 8%, transparent);
+    box-shadow: inset 3px 0 0 var(--chart, var(--accent));
+  }
+  :global(:root[data-layout='bento']) .tabs a {
+    border-radius: 999px;
+    padding: 0.45rem 0.95rem;
+  }
+  :global(:root[data-layout='bento']) .tabs a[aria-selected='true'] {
+    background: var(--fg);
+    color: var(--bg);
+    box-shadow: none;
+  }
+  /* On a phone: the menu above the page, wrapping. */
+  @media (max-width: 48rem) {
+    .settings {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 1rem;
+    }
+    .tabs {
+      position: static;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
   }
   footer {
     text-align: center;
