@@ -19,6 +19,7 @@ export type Page =
   | 'notifications'
   | 'analysis'
   | 'tags'
+  | 'updates'
   | 'audit'
   | 'maintenance'
   | 'events'
@@ -48,6 +49,7 @@ export const settingsTabs: { page: Page; path: string; label: string; admin: boo
   { page: 'analysis', path: '/settings/alert-analysis', label: 'Alert analysis', admin: true },
   { page: 'retention', path: '/settings/history', label: 'History', admin: true },
   { page: 'backup', path: '/settings/backup', label: 'Backup and restore', admin: true },
+  { page: 'updates', path: '/settings/updates', label: 'Updates', admin: true },
   { page: 'audit', path: '/settings/audit-log', label: 'Audit log', admin: true },
 ];
 

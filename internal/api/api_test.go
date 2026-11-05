@@ -30,6 +30,7 @@ import (
 	"github.com/zjcochran/eyrie/internal/notify"
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/store"
+	"github.com/zjcochran/eyrie/internal/update"
 )
 
 const pw = "correct horse battery"
@@ -54,6 +55,9 @@ type env struct {
 	model   *httptest.Server
 	answer  atomic.Value
 	prompts chan string
+	// github is a fake GitHub API whose latest release is tag.
+	github *httptest.Server
+	tag    atomic.Value
 }
 
 type syncBuffer struct {
@@ -126,6 +130,11 @@ func newEnv(t *testing.T) *env {
 		Retry: []time.Duration{time.Millisecond}, Analyst: e.analyzer}
 	eng.OnNotify, eng.OnCert, eng.CertDays = e.notifier.Monitor, e.notifier.CertExpiring, e.notifier.CertDays
 	eng.OnGroup = func(a engine.GroupAlert) { e.notifier.Group(a.Group, a.Down, a.Members, a.Since, time.Now()) }
+	e.tag.Store("v1.3.0")
+	e.github = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		fmt.Fprintf(w, `{"tag_name":%q,"name":"Eyrie","body":"- Faster","html_url":"https://github.com/example/eyrie/releases"}`, e.tag.Load())
+	}))
+	t.Cleanup(e.github.Close)
 	e.s = &Server{
 		Engine: eng, Env: checkEnv, MetricsToken: "m3trics", Notifier: e.notifier, Analyzer: e.analyzer,
 		Backups: &backup.Backups{Store: st, Secrets: box, Dir: filepath.Join(t.TempDir(), "backups"), Version: "v1.2.3", Log: log, Now: e.clock},
@@ -134,6 +143,8 @@ func newEnv(t *testing.T) *env {
 		UI: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Write([]byte("the app"))
 		}),
+		Updates: &update.Checker{Store: st, Secrets: box, Log: log, Version: "v1.2.3", Repo: "example/eyrie",
+			API: e.github.URL, Transport: e.github.Client().Transport, Now: e.clock},
 		now:      e.clock,
 		jobsWait: 200 * time.Millisecond,
 	}

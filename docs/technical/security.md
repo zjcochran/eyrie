@@ -334,7 +334,7 @@ to the server URL the admin set. See [what is sent](../user/alert-analysis.md#wh
 
 Two-factor secrets, the single sign-on client secret, the alert analysis
 API keys (Anthropic's and a local server's), the scheduled backups'
-passphrase, notification channels' URLs, tokens and users, and monitors'
+passphrase, the update check's proxy password, notification channels' URLs, tokens and users, and monitors'
 secret settings (passwords, keys, tokens, SNMP communities, database
 connection strings, a real browser's address) are sealed with AES-256-GCM (`internal/secrets`):
 

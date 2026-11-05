@@ -5,6 +5,7 @@
   import Icon from './components/Icon.svelte';
   import Logo from './components/Logo.svelte';
   import Palette from './components/Palette.svelte';
+  import UpdatePopup from './components/UpdatePopup.svelte';
   import { isNight, normalize } from './lib/appearance.ts';
   import { go, link, nav } from './lib/nav.svelte.ts';
   import { connect, disconnect, loadMonitors } from './lib/live.svelte.ts';
@@ -30,6 +31,7 @@
   import Setup from './pages/Setup.svelte';
   import Tags from './pages/Tags.svelte';
   import Tokens from './pages/Tokens.svelte';
+  import Updates from './pages/Updates.svelte';
   import Users from './pages/Users.svelte';
 
   // Whether the system is in dark mode, for the "system" mode.
@@ -143,7 +145,7 @@
       <p class="muted">Loading…</p>
     {/if}
   </main>
-{:else if app.session.setup}
+{:else if app.session.setup || app.welcome}
   <Setup />
 {:else if !user}
   <Login />
@@ -175,6 +177,7 @@
       </details>
     </header>
     <Palette admin={user.role === 'admin'} bind:open={palette} />
+    {#if user.role === 'admin'}<UpdatePopup />{/if}
     <div class="content">
       <main class:wide={inSettings} class:split={inMonitors}>
         {#if inMonitors}
@@ -223,6 +226,8 @@
                 <Tags />
               {:else if page === 'analysis'}
                 <Analysis />
+              {:else if page === 'updates'}
+                <Updates />
               {:else if page === 'audit'}
                 <Audit />
               {/if}

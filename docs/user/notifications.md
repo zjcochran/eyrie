@@ -68,6 +68,7 @@ channels chosen on its page, besides what its monitors send to theirs.
 | `certificate_expiring` | The HTTPS certificate is within one of the warning days | `Shop website: the certificate expires in 14 days` | `The TLS certificate expires on 1 February 2027 at 12:00 UTC. Renew it before then.` | 4 within 7 days, else 3 |
 | `group_down` | A group with alerts: its first counted monitor goes down | `Shop is down` | `Down: Cart, Checkout` (the counted monitors down) | 4 |
 | `group_up` | That group: none of its counted monitors is down any more | `Shop is up` | `Every member is up again after 12 min down.` | 3 |
+| `update_available` | A newer release of Eyrie, once per release, for the channels chosen in [Settings → Updates](updates.md#notifications) | `Eyrie v1.3.0 is available` | `Eyrie v1.3.0 is out; this one runs v1.2.0.` and the release notes | 3 |
 | `test` | **Send test** | `Test notification` | `Notifications from Eyrie reach this channel.` | 3 |
 
 With [alert analysis](alert-analysis.md) on, a `monitor_down` message is

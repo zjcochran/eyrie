@@ -27,6 +27,7 @@ var sealedSettings = map[string][]string{
 	"sso":           {"client_secret"},
 	"analysis":      {"api_key", "local_api_key"},
 	SettingSchedule: {"passphrase"},
+	"updates":       {"proxy_password"},
 }
 
 // Unseal opens every sealed value of snap with this instance's key, for a

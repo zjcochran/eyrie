@@ -5,7 +5,13 @@ import { Client, type Session } from './api.ts';
 
 export const api = new Client();
 
-export const app = $state<{ session: Session | null; error: string }>({ session: null, error: '' });
+// welcome is set while the first admin finishes setting up, after their
+// account is made.
+export const app = $state<{ session: Session | null; error: string; welcome: boolean }>({
+  session: null,
+  error: '',
+  welcome: false,
+});
 
 /** Loads the session from the server. */
 export async function refresh() {

@@ -5,11 +5,21 @@ default.
 
 ## First start: setup
 
-Before any account exists, every page shows **Set up Eyrie**. Enter a
-username and a password of at least 12 characters, twice, and click
-**Create the admin account**. That account is an admin and is signed in at
-once. Do this right after the first start: until then anyone who can reach
-Eyrie could do it.
+Before any account exists, every page shows **Set up Eyrie**, in three
+steps:
+
+1. **Your account**: enter a username and a password of at least 12
+   characters, twice, and click **Create the admin account**. That account
+   is an admin and is signed in at once. Do this right after the first
+   start: until then anyone who can reach Eyrie could do it.
+2. **How Eyrie looks**: the [layout, colours and day or night](#appearance)
+   for this account, shown at once as they are chosen.
+3. **Updates**: whether Eyrie [checks for updates](updates.md) (off unless
+   ticked), and how often. Notifying channels about a new release and a
+   proxy are set later, in **Settings → Updates**.
+
+**Finish** opens the dashboard. Leaving after the first step keeps the
+account, with the default look and update checks off.
 
 Below it, **Or restore a backup** brings back the accounts, monitors and
 settings of a backup file instead; then sign in with an account from it. See
@@ -90,8 +100,10 @@ also have **Users**, **Single sign-on**, **API tokens**, **Agents** (see
 [Notifications](notifications.md)), **Alert
 analysis** (see [Alert analysis](alert-analysis.md)), **History**
 (how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history))
-**Backup and restore** (see [Backup and restore](backup-and-restore.md))
-and **Audit log**.
+**Backup and restore** (see [Backup and restore](backup-and-restore.md)),
+**Updates** (see [Checking for updates](updates.md)) and **Audit log**.
+The tabs are a menu down the left of the page; on a phone, a row above
+it.
 
 ### Your account
 

@@ -219,6 +219,33 @@ On a saved channel, an empty `url`, `token` or `user` keeps the saved one
 unless its `clear_` flag is set. `apply_to_all` adds the channel to every
 monitor.
 
+### Updates
+
+All admin routes. See [Checking for updates](../user/updates.md).
+
+| Method and path | Body | Answer |
+| --- | --- | --- |
+| `GET /api/v1/settings/updates` | | `200` the settings, below |
+| `PUT /api/v1/settings/updates` | `{"enabled","interval_hours","proxy","proxy_user","proxy_password","clear_proxy_password","notify","channels"}` | `200` the settings. An empty `proxy_password` keeps the saved one unless `clear_proxy_password` is set. `422` for an interval outside 1 to 720 hours, a `proxy` that is not an `http`, `https` or `socks5` URL with a host (or has a username or password in it), a username or password without a proxy, or a channel that does not exist. |
+| `POST /api/v1/settings/updates/check` | | `200` the settings, after checking GitHub now (whether checks are on or not) |
+| `GET /api/v1/updates` | | `200` `{"current":"v1.2.0","release":{"version","name","notes","url","published"}}`: the release to remind the signed-in admin of; `release` is `null` when checks are off, nothing newer is out, or they chose later (for a day) or never for it |
+| `PUT /api/v1/updates/reminder` | `{"version","choice":"later"\|"never"}` | `204`: the signed-in admin's answer for that release. `422` for another choice or no version. |
+
+```json
+{
+  "enabled": true, "interval_hours": 24, "proxy": "http://proxy.example.com:3128", "proxy_user": "alice",
+  "has_proxy_password": true, "notify": true, "channels": [1],
+  "current": "v1.2.0", "repo": "example/eyrie",
+  "status": {"checked": "2027-01-15T08:00:00Z", "latest": {"version": "v1.3.0", "name": "Eyrie v1.3.0",
+    "notes": "## Changes\n…", "url": "https://github.com/example/eyrie/releases/tag/v1.3.0",
+    "published": "2027-01-14T10:00:00Z"}, "error": "", "notified": "v1.3.0"},
+  "available": {"version": "v1.3.0", "…": "…"}
+}
+```
+
+`repo` is `""` when the build's source is not on GitHub; `available` is the
+latest release when it is newer than `current`, else `null`.
+
 ### Alert analysis
 
 All admin routes. See [Alert analysis](../user/alert-analysis.md).
