@@ -42,8 +42,8 @@ exits 1 if any is below the minimum.
 | --- | --- | --- | --- | --- |
 | `test` | test | `golang:1.26` + `postgres:17-alpine` | gofmt check, `go vet`, `gotestsum` running `go test -race -coverprofile` against SQLite and PostgreSQL, Cobertura conversion, per-package 80% gate | `junit`, `coverage_report` (Cobertura), coverage regex |
 | `code-quality` | test | `golang:1.26` | golangci-lint v2.14.0 | `codequality` |
-| `web` | test | `node:26.12.1-alpine` | `ci/web.sh`, below; only when `web/package-lock.json` exists | `junit`, `coverage_report` (Cobertura), `codequality` (svelte-check); the built app `internal/ui/dist/` (artifact, 7 days) |
-| `web-lock` | test | `node:26.12.1-alpine` | Only when `web/package-lock.json` is missing: `ci/web-lock.sh`, below | `web-lock/` (artifact) |
+| `web` | test | `node:26.13.0-alpine` | `ci/web.sh`, below; only when `web/package-lock.json` exists | `junit`, `coverage_report` (Cobertura), `codequality` (svelte-check); the built app `internal/ui/dist/` (artifact, 7 days) |
+| `web-lock` | test | `node:26.13.0-alpine` | Only when `web/package-lock.json` is missing: `ci/web-lock.sh`, below | `web-lock/` (artifact) |
 | `shellcheck` | test | `koalaman/shellcheck-alpine:v0.11.0` | ShellCheck on every tracked `*.sh`; fails on any finding | `codequality` |
 | `leak-check` | test | `alpine:3` | `ci/leak-check.sh`: the files, and in a merge request its commits, title and description, must not name the internal GitLab server | |
 | `semgrep-sast` | test | GitLab template | SAST, without the per-rule time limit; not allowed to fail | `sast` |
@@ -175,11 +175,14 @@ A pipeline schedule on the default branch runs only `deps` and `deps-fix`:
   major version) and the npm packages; the base image, `alpine:3`, takes
   each new Alpine release on its own. An npm
   version counts only once it has been published for 14 days; new major
-  versions are listed but never taken. Vulnerabilities fail the job;
-  newer versions exit 3, a warning.
+  versions are listed but never taken. Vulnerabilities fail the job,
+  except npm advisories accepted in `ci/security-allowlist.txt`; newer
+  versions exit 3, a warning.
 - `deps-fix` (`ci/deps-fix.sh`) installs Node.js (`ci/install-node.sh`,
   checked against the release's SHA-256 list), has Claude Code make the
-  updates (`ci/deps-fix-prompt.md`), runs every check, and opens a merge
+  updates (`ci/deps-fix-prompt.md`; for npm it changes only
+  `web/package.json`), refreshes the lock file as `ci/web-lock.sh` does,
+  runs every check, and opens a merge
   request labelled `patch` (a draft if the checks fail) with a table of the
   Go advisories fixed (`ci/deps-advisories.sh`). It needs the CI/CD
   variables `CLAUDE_CODE_OAUTH_TOKEN` and `DEPS_BOT_TOKEN`.
