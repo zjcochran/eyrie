@@ -455,8 +455,16 @@
   }
   .pair {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 0 1rem;
+  }
+  @media (min-width: 72rem) {
+    .pair {
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    }
+    :global(:root[data-layout='aurora']) .pair {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
   }
   .days {
     display: grid;
@@ -465,7 +473,7 @@
     margin: 0.5rem 0;
   }
   .day {
-    aspect-ratio: 1;
+    height: 0.85rem;
     border-radius: 3px;
     background: var(--surface-2, var(--border));
   }

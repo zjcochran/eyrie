@@ -101,7 +101,7 @@
       {/each}
       {#each runs as r, i (i)}
         <polygon class="area" points={r.area} fill="url(#{id}-fill)" />
-        <polyline class="line" points={r.line} stroke={glow ? `url(#${id}-line)` : undefined} />
+        <polyline class="line" points={r.line} style:stroke={glow ? `url(#${id}-line)` : undefined} />
       {/each}
       {#if at && at.v !== null}
         <line class="cursor" x1={x(at.t)} x2={x(at.t)} y1={pad.t} y2={base} />

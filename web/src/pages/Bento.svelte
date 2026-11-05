@@ -74,7 +74,7 @@
     windows.find((w) => w.state === 'on') ??
       windows.filter((w) => w.state === 'scheduled' && w.change).sort((a, b) => Date.parse(a.change ?? '') - Date.parse(b.change ?? ''))[0],
   );
-  const when = (iso: string) => new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const when = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
   const shownPages = $derived(
     pages.slice(0, 4).map((p) => {
@@ -250,8 +250,8 @@
   <a class="tile bright" href="/maintenance" onclick={link}>
     <strong class="small-text">{nextWindow?.state === 'on' ? 'Maintenance now' : 'Next maintenance'}</strong>
     {#if nextWindow?.change}
-      <span class="when">{when(nextWindow.change)}</span>
-      <span class="small-text">{nextWindow.state === 'on' ? 'ends then' : 'starts then'}</span>
+      <span class="when">{new Date(nextWindow.change).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+      <span class="small-text strong">{nextWindow.state === 'on' ? 'ends at' : 'starts at'} {when(nextWindow.change)}</span>
       <span class="small-text faded">{nextWindow.title}</span>
     {:else}
       <span class="when">None</span>
@@ -622,6 +622,7 @@
   }
   .deep a {
     color: inherit;
+    text-decoration: none;
   }
   .agent {
     display: flex;
@@ -748,10 +749,13 @@
     gap: 0.3rem;
   }
   .when {
-    font-size: 1.6rem;
+    font-size: 1.35rem;
     font-weight: 800;
     letter-spacing: -0.03em;
     line-height: 1.1;
+  }
+  .strong {
+    font-weight: 600;
   }
   .faded {
     margin-top: auto;
