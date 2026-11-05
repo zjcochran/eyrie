@@ -240,6 +240,31 @@ func TestHistory(t *testing.T) {
 	}
 }
 
+func TestOverviewRoute(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	m := create(t, admin, portMonitor("DB"))
+	eventually(t, "a saved heartbeat", func() bool {
+		var beats []beatView
+		admin.call("GET", fmt.Sprintf("/api/v1/monitors/%d/heartbeats", m.ID), nil, &beats)
+		return len(beats) == 1
+	})
+	var ov struct {
+		Days []struct {
+			MonitorID int64 `json:"monitor_id"`
+			Days      []struct{ Up, Down int64 }
+		}
+		Hours []struct {
+			Up, Down     int64
+			AvgLatencyMS *float64 `json:"avg_latency_ms"`
+		}
+	}
+	if admin.call("GET", "/api/v1/overview?days=500", nil, &ov); len(ov.Days) != 1 || ov.Days[0].MonitorID != m.ID ||
+		len(ov.Days[0].Days) != 1 || ov.Days[0].Days[0].Up != 1 || len(ov.Hours) != 1 || ov.Hours[0].Up != 1 || ov.Hours[0].AvgLatencyMS == nil {
+		t.Errorf("overview %+v", ov)
+	}
+}
+
 func TestPushRoute(t *testing.T) {
 	e := newEnv(t)
 	admin := e.setup()

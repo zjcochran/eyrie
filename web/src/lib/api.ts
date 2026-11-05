@@ -430,6 +430,21 @@ export interface HourStats {
   avg_usage?: Usage;
 }
 
+/** A day's or an hour's checks. */
+export interface Count {
+  start: string;
+  up: number;
+  down: number;
+  /** For hours: the mean response time of every check. */
+  avg_latency_ms?: number | null;
+}
+
+/** What GET /api/v1/overview answers: each monitor's days, and the checks of all of them by hour. */
+export interface History {
+  days: { monitor_id: number; days: Count[] }[];
+  hours: Count[];
+}
+
 export interface Channel {
   id: number;
   name: string;
@@ -642,6 +657,7 @@ export class Client {
   /** Every monitor's status changes, newest first: 100, older than before when set. */
   statusChanges = (before?: number) =>
     this.request<StatusChange[]>('GET', '/api/v1/status-changes' + (before ? `?before=${before}` : ''));
+  history = (days: number) => this.request<History>('GET', `/api/v1/overview?days=${days}`);
   hours = (id: number, days: number) => this.request<HourStats[]>('GET', `/api/v1/monitors/${id}/hours?days=${days}`);
   createMonitor = (m: MonitorChange) => this.request<Monitor>('POST', '/api/v1/monitors', m);
   updateMonitor = (id: number, m: MonitorChange) => this.request<Monitor>('PUT', `/api/v1/monitors/${id}`, m);

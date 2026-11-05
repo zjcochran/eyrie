@@ -1,7 +1,11 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import MonitorTree from '../components/MonitorTree.svelte';
+  import { normalize } from '../lib/appearance.ts';
   import { link, nav } from '../lib/nav.svelte.ts';
+  import { app } from '../lib/session.svelte.ts';
+  import Bento from './Bento.svelte';
+  import Glance from './Glance.svelte';
   import type { Route } from '../lib/route.ts';
   import GroupPage from './GroupPage.svelte';
   import Home from './Home.svelte';
@@ -16,7 +20,17 @@
     route.page === 'monitor' || route.page === 'edit-monitor' ? `m${route.id}` : route.page === 'group' ? `g${route.id}` : '',
   );
   const chosen = $derived(route.page !== 'home');
+  // Bento's start page is its tiles, with the list below them.
+  const layout = $derived(normalize(app.session?.user?.appearance).layout);
+  const bento = $derived(layout === 'bento' && !chosen);
 </script>
+
+{#if bento}
+  <Bento {admin} />
+  <section class="all">
+    <MonitorTree {selected} overview={false} {admin} />
+  </section>
+{:else}
 
 <div class="split" class:chosen>
   <aside class="side" aria-label="Monitors">
@@ -24,7 +38,9 @@
   </aside>
   <section class="pane">
     {#if chosen}<p class="back"><a href="/" onclick={link}>← Monitors</a></p>{/if}
-    {#if route.page === 'home'}
+    {#if route.page === 'home' && layout === 'aurora'}
+      <Glance />
+    {:else if route.page === 'home'}
       <Home />
     {:else if route.page === 'monitor'}
       <MonitorPage id={route.id} />
@@ -37,8 +53,12 @@
     {/if}
   </section>
 </div>
+{/if}
 
 <style>
+  .all {
+    max-width: 44rem;
+  }
   .split {
     display: grid;
     grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr);
@@ -61,17 +81,6 @@
   }
   .back {
     display: none;
-  }
-  /* Bento: the overview across the page, the list below it. */
-  :global(:root[data-layout='bento']) .split:not(.chosen) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  :global(:root[data-layout='bento']) .split:not(.chosen) .pane {
-    order: -1;
-  }
-  :global(:root[data-layout='bento']) .split:not(.chosen) .side {
-    position: static;
-    max-height: none;
   }
   @media (max-width: 56rem) {
     .split {

@@ -1,13 +1,15 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import BeatBar from './BeatBar.svelte';
+  import Sparkline from './Sparkline.svelte';
   import StatusDot from './StatusDot.svelte';
   import TagChip from './TagChip.svelte';
   import { message, type MonitorTag } from '../lib/api.ts';
-  import { percent } from '../lib/format.ts';
+  import { normalize } from '../lib/appearance.ts';
+  import { duration, millis, percent } from '../lib/format.ts';
   import { live, loadMonitors } from '../lib/live.svelte.ts';
   import { go, link } from '../lib/nav.svelte.ts';
-  import { api } from '../lib/session.svelte.ts';
+  import { api, app } from '../lib/session.svelte.ts';
   import { buildTree, canDrop, type Drop, flatten, groupStatus, type Item, key, layout, move, type Row } from '../lib/tree.ts';
 
   /**
@@ -15,6 +17,10 @@
    * the list; overview: the overview is shown there.
    */
   let { selected = '', overview = false, admin = false }: { selected?: string; overview?: boolean; admin?: boolean } = $props();
+
+  // Console shows each monitor's type, a line of its response times and
+  // the latest; the others its heartbeats as a bar.
+  const lines = $derived(normalize(app.session?.user?.appearance).layout === 'console');
 
   // The tag the list is filtered by; 0 for none.
   let tagFilter = $state(0);
@@ -292,12 +298,25 @@
             </span>
           {:else}
             {@const m = item.monitor}
-            <span class="line">
-              <StatusDot status={m.status.status} active={m.active} />
-              <span class="name">{m.name}</span>
-              <span class="pct" title="Uptime, last 24 hours">{percent(m.uptime['24h'])}</span>
-            </span>
-            <span class="bar"><BeatBar beats={m.beats} slots={30} /></span>
+            {#if lines}
+              <span class="line spark" class:down={m.active && m.status.status === 'down'}>
+                <StatusDot status={m.status.status} active={m.active} />
+                <span class="name two"
+                  >{m.name}<span class="muted small meta">{m.type} · every {duration(m.interval)}</span></span
+                >
+                <span class="trend"><Sparkline beats={m.beats} /></span>
+                <span class="ms"
+                  >{!m.active ? 'paused' : m.status.status === 'down' ? 'down' : millis(m.status.latency_ms)}</span
+                >
+              </span>
+            {:else}
+              <span class="line">
+                <StatusDot status={m.status.status} active={m.active} />
+                <span class="name">{m.name}</span>
+                <span class="pct" title="Uptime, last 24 hours">{percent(m.uptime['24h'])}</span>
+              </span>
+              <span class="bar"><BeatBar beats={m.beats} slots={30} /></span>
+            {/if}
           {/if}
         </a>
       </div>
@@ -402,6 +421,36 @@
   }
   .bar {
     min-width: 0;
+  }
+  .spark {
+    gap: 0.65rem;
+    min-height: 2.4rem;
+  }
+  .two {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.25;
+  }
+  .meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.75rem;
+  }
+  .trend {
+    color: var(--up);
+  }
+  .down .trend,
+  .down .ms {
+    color: var(--down);
+  }
+  .ms {
+    width: 4.2rem;
+    text-align: right;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 0.8rem;
+    color: var(--muted);
   }
   .dragging {
     opacity: 0.45;

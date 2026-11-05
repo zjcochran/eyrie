@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -643,6 +644,58 @@ func (s *Server) hours(w http.ResponseWriter, r *http.Request) {
 	out := []hourView{}
 	for _, b := range buckets {
 		out = append(out, hourView{b.Start, b.Up, b.Down, ms(b.AvgLatency()), viewUsage(b.AvgUsage())})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// overview answers every monitor's daily counts for the last days (default
+// 30, most 90), and the checks of all of them in each of the last 24 hours,
+// for the dashboard.
+func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
+	days := 30
+	if n, err := strconv.Atoi(r.URL.Query().Get("days")); err == nil && n > 0 {
+		days = min(n, 90)
+	}
+	now := s.now()
+	daily, err := s.Store.Days(r.Context(), now.Add(-time.Duration(days-1)*24*time.Hour))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	hourly, err := s.Store.FleetHours(r.Context(), now.Add(-23*time.Hour))
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	type count struct {
+		Start time.Time `json:"start"`
+		Up    int64     `json:"up"`
+		Down  int64     `json:"down"`
+		// AvgLatencyMS, for hours: the mean response time of every check.
+		AvgLatencyMS *float64 `json:"avg_latency_ms,omitempty"`
+	}
+	type monitorDays struct {
+		MonitorID int64   `json:"monitor_id"`
+		Days      []count `json:"days"`
+	}
+	out := struct {
+		Days  []monitorDays `json:"days"`
+		Hours []count       `json:"hours"`
+	}{Days: []monitorDays{}, Hours: []count{}}
+	ids := make([]int64, 0, len(daily))
+	for id := range daily {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	for _, id := range ids {
+		md := monitorDays{MonitorID: id, Days: []count{}}
+		for _, b := range daily[id] {
+			md.Days = append(md.Days, count{Start: b.Start, Up: b.Up, Down: b.Down})
+		}
+		out.Days = append(out.Days, md)
+	}
+	for _, b := range hourly {
+		out.Hours = append(out.Hours, count{Start: b.Start, Up: b.Up, Down: b.Down, AvgLatencyMS: ms(b.AvgLatency())})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

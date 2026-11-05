@@ -4,6 +4,7 @@
   import Avatar from './components/Avatar.svelte';
   import Icon from './components/Icon.svelte';
   import Logo from './components/Logo.svelte';
+  import Palette from './components/Palette.svelte';
   import { isNight, normalize } from './lib/appearance.ts';
   import { go, link, nav } from './lib/nav.svelte.ts';
   import { connect, disconnect, loadMonitors } from './lib/live.svelte.ts';
@@ -77,6 +78,9 @@
     root.mode = isNight(look.mode, systemDark) ? 'night' : 'day';
   });
 
+  // Jump to anything (⌘K).
+  let palette = $state(false);
+
   // The pages in the menu.
   const links = $derived(
     [
@@ -147,6 +151,11 @@
   <div class="shell">
     <header>
       <a class="brand" href="/" onclick={link}><Logo size={34} /><span class="label">Eyrie</span></a>
+      <button class="search" onclick={() => (palette = true)} title="Search or jump to (⌘K)"
+        ><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"
+          ><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg
+        ><span class="label grow">Search or jump to…</span><kbd class="label">⌘K</kbd></button
+      >
       <nav aria-label="Main">
         {#each links as l (l.href)}
           {#if l.show}
@@ -165,6 +174,7 @@
         </div>
       </details>
     </header>
+    <Palette admin={user.role === 'admin'} bind:open={palette} />
     <div class="content">
       <main class:wide={inSettings} class:split={inMonitors}>
         {#if inMonitors}
@@ -339,6 +349,39 @@
   .content {
     min-width: 0;
   }
+  .search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) * 0.7);
+    background: var(--surface-2, var(--bg));
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .search:hover {
+    color: var(--fg);
+  }
+  .search .grow {
+    flex: 1;
+    text-align: left;
+  }
+  .search kbd {
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 0.72rem;
+    padding: 0 0.35rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  :global(:root[data-layout='bento']) .search {
+    order: 1;
+    min-width: 14rem;
+    border-radius: 12px;
+  }
+  :global(:root[data-layout='bento']) .me {
+    order: 2;
+  }
 
   /* Bento: a floating bar, the pages as pills. */
   :global(:root[data-layout='bento']) header {
@@ -448,6 +491,13 @@
     :global(:root[data-layout='aurora']) .me summary::after {
       content: none;
     }
+    :global(:root[data-layout='aurora']) .search {
+      justify-content: center;
+      width: 2.9rem;
+      height: 2.9rem;
+      padding: 0;
+      border-radius: 14px;
+    }
   }
 
   /* On a phone: the account menu at the top right, beside the logo, and
@@ -455,6 +505,13 @@
   @media (max-width: 48rem) {
     .brand {
       flex: 1;
+    }
+    .search .label {
+      display: none;
+    }
+    :global(:root[data-layout='bento']) .search {
+      order: 0;
+      min-width: 0;
     }
     nav {
       order: 1;

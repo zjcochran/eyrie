@@ -37,10 +37,18 @@
    --accent-soft: a tint of the accent; --chart: lines and areas;
    --glow-1 to 4: Aurora's drifting colour and Bento's background;
    --hero-a, --hero-b, --hero-glow, --hero-fg: Bento's first tile;
-   --logo-a, --logo-b: the logo's gradient; --link: links, where the
+   --logo-a, --logo-b: the logo's gradient; for Bento's schemes, --tile
+   and --tile-fg (a bright tile), --deep and --deep-fg (a dark one), and
+   --hero-up and --hero-down (the first tile's ring); --link: links, where the
    accent is too dark for them. */
 
 :root[data-scheme='ash'][data-mode='night'] {
+  --tile: #e8a33d;
+  --tile-fg: #111214;
+  --deep: #24262a;
+  --deep-fg: #eef0f2;
+  --hero-up: #d9dee4;
+  --hero-down: #f2784b;
   --logo-a: #c3c8cf;
   --logo-b: #e8a33d;
   color-scheme: dark;
@@ -74,6 +82,12 @@
   --hero-fg: #f4f5f6;
 }
 :root[data-scheme='ash'][data-mode='day'] {
+  --tile: #e8a33d;
+  --tile-fg: #1c1f23;
+  --deep: #2a2d32;
+  --deep-fg: #f4f5f6;
+  --hero-up: #d9dee4;
+  --hero-down: #f2784b;
   --logo-a: #3a3f46;
   --logo-b: #b5701a;
   --link: #8a5410;
@@ -243,6 +257,12 @@
 }
 
 :root[data-scheme='cobalt'][data-mode='night'] {
+  --tile: #b8ff3d;
+  --tile-fg: #0a0d22;
+  --deep: #1d2450;
+  --deep-fg: #ffffff;
+  --hero-up: #b8ff3d;
+  --hero-down: #ff7a33;
   --logo-a: #8f98ff;
   --logo-b: #b8ff3d;
   color-scheme: dark;
@@ -276,6 +296,12 @@
   --hero-fg: #ffffff;
 }
 :root[data-scheme='cobalt'][data-mode='day'] {
+  --tile: #b8ff3d;
+  --tile-fg: #0e1330;
+  --deep: #0e1330;
+  --deep-fg: #ffffff;
+  --hero-up: #b8ff3d;
+  --hero-down: #ff6a1a;
   --logo-a: #2b3bff;
   --logo-b: #ff6a1a;
   color-scheme: light;
@@ -310,6 +336,12 @@
 }
 
 :root[data-scheme='lagoon'][data-mode='night'] {
+  --tile: #ffc300;
+  --tile-fg: #041a1c;
+  --deep: #103b3e;
+  --deep-fg: #e6faf8;
+  --hero-up: #ffe066;
+  --hero-down: #ff8a6b;
   --logo-a: #5fdcd8;
   --logo-b: #ffc300;
   color-scheme: dark;
@@ -343,6 +375,12 @@
   --hero-fg: #ffffff;
 }
 :root[data-scheme='lagoon'][data-mode='day'] {
+  --tile: #ffc300;
+  --tile-fg: #06292c;
+  --deep: #06292c;
+  --deep-fg: #ffffff;
+  --hero-up: #ffe066;
+  --hero-down: #ff8a6b;
   --logo-a: #0a7f82;
   --logo-b: #ee6c4d;
   color-scheme: light;
@@ -573,14 +611,14 @@
 :root[data-layout='aurora'] body::before {
   content: '';
   position: fixed;
-  inset: -20%;
+  inset: -10%;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(closest-side at 18% 20%, var(--glow-1), transparent),
-    radial-gradient(closest-side at 85% 35%, var(--glow-2), transparent),
-    radial-gradient(closest-side at 45% 95%, var(--glow-3), transparent),
-    radial-gradient(closest-side at 60% 5%, var(--glow-4), transparent);
+    radial-gradient(circle 46rem at 8% 0%, var(--glow-1), transparent 65%),
+    radial-gradient(circle 48rem at 100% 30%, var(--glow-2), transparent 65%),
+    radial-gradient(circle 42rem at 40% 105%, var(--glow-3), transparent 65%),
+    radial-gradient(circle 34rem at 58% -8%, var(--glow-4), transparent 65%);
   animation: eyrie-drift 30s ease-in-out infinite alternate;
 }
 @keyframes eyrie-drift {

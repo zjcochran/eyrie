@@ -185,6 +185,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/v1/monitors/{id}", s.read(s.getMonitor))
 	mux.Handle("GET /api/v1/monitors/{id}/heartbeats", s.read(s.heartbeats))
 	mux.Handle("GET /api/v1/monitors/{id}/hours", s.read(s.hours))
+	mux.Handle("GET /api/v1/overview", s.read(s.overview))
 	mux.Handle("POST /api/v1/monitors", s.admin(s.createMonitor))
 	mux.Handle("PUT /api/v1/monitors/{id}", s.admin(s.updateMonitor))
 	mux.Handle("DELETE /api/v1/monitors/{id}", s.admin(s.deleteMonitor))
