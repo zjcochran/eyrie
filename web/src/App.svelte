@@ -331,10 +331,11 @@
   .menu a,
   .menu button {
     display: block;
+    box-sizing: border-box;
     width: 100%;
     padding: 0.5rem 0.65rem;
     border: 0;
-    border-radius: 6px;
+    border-radius: calc(var(--radius) * 0.55);
     background: none;
     color: var(--fg);
     font: inherit;
