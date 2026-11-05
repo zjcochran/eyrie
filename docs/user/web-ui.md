@@ -62,8 +62,9 @@ a monitor of what you choose in the monitor form. See
 **Events**, in the menu, lists every monitor's status changes, newest
 first: when each went down, came back up, became pending, or went into or
 out of maintenance, with the check's message. A monitor's name opens its
-page. New changes appear as they happen; **Older** loads the next 100.
-They are kept as long as heartbeats (**Settings → History**). Viewers see
+page. It shows 25 changes a page; **Show** picks 25, 50, 100 or all, and
+**Newer** and **Older** move between pages. New changes appear on the
+first page as they happen. They are kept as long as heartbeats (**Settings → History**). Viewers see
 it too.
 
 ## Status pages
@@ -207,8 +208,9 @@ deletes the agent; the monitors that run on it go down.
 
 ![The audit log: who signed in, checked a monitor and made and deleted a tag](../images/audit-dark.png)
 
-Admins only. Who did what, newest first, 100 at a time (**Older** for the
-next): every sign-in (password, two-factor or single sign-on), failed
+Admins only. Who did what, newest first, 25 entries a page (**Show**
+picks 25, 50, 100 or all; **Newer** and **Older** move between pages):
+every sign-in (password, two-factor or single sign-on), failed
 sign-in and sign-out, and every change made in Eyrie (monitors, **Check
 now**, tags, maintenance windows, status pages and incidents, notification
 channels, users, API tokens, agents, settings, backups and restores), and

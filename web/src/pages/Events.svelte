@@ -2,27 +2,28 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import StatusDot from '../components/StatusDot.svelte';
-  import { type StatusChange, message } from '../lib/api.ts';
+  import Pager from '../components/Pager.svelte';
+  import { type PageSize, type StatusChange, message } from '../lib/api.ts';
   import { live, onBeat } from '../lib/live.svelte.ts';
   import { link } from '../lib/nav.svelte.ts';
+  import { offsetOf } from '../lib/paging.ts';
   import { api } from '../lib/session.svelte.ts';
 
-  const pageSize = 100;
   let changes = $state<StatusChange[]>([]);
-  // Whether a page came back full, so there may be older changes.
-  let more = $state(false);
+  let total = $state(0);
+  let page = $state(1);
+  let size = $state<PageSize>(25);
   let loaded = $state(false);
   let error = $state('');
   let busy = $state(false);
 
-  // The first page, or with older the page after the last change shown.
-  async function load(older = false) {
+  async function load() {
     busy = true;
     error = '';
     try {
-      const p = await api.statusChanges(older ? changes[changes.length - 1]?.id : undefined);
-      changes = older ? [...changes, ...p] : p;
-      more = p.length === pageSize;
+      const p = await api.statusChangePage(offsetOf(page, size), size);
+      changes = p.changes;
+      total = p.total;
       loaded = true;
     } catch (e) {
       error = message(e);
@@ -37,10 +38,12 @@
 
   onMount(() => {
     load();
-    // New changes come first as they happen; they have no ID until reloaded,
-    // and only the oldest change's ID is needed for older pages.
+    // New changes come first on the first page as they happen; they have no
+    // ID until reloaded.
     return onBeat((b) => {
-      if (b.important && loaded) changes = [{ ...b, id: 0 }, ...changes];
+      if (!b.important || !loaded) return;
+      total += 1;
+      if (page === 1) changes = [{ ...b, id: 0 }, ...changes].slice(0, size === 'all' ? undefined : size);
     });
   });
 </script>
@@ -54,6 +57,7 @@
     (Settings → History).
   </p>
   {#if changes.length}
+    <Pager {total} shown={changes.length} {busy} bind:page bind:size onchange={load} />
     <div class="table-wrap">
       <table>
         <thead><tr><th>Time</th><th>Monitor</th><th>Status</th><th>Message</th></tr></thead>
@@ -69,7 +73,6 @@
         </tbody>
       </table>
     </div>
-    {#if more}<button disabled={busy} onclick={() => load(true)}>Older</button>{/if}
   {:else if loaded}
     <p class="muted">Nothing yet.</p>
   {:else if !error}

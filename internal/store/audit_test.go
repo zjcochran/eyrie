@@ -45,6 +45,27 @@ func TestAudit(t *testing.T) {
 	})
 }
 
+func TestAuditPages(t *testing.T) {
+	eachDB(t, func(t *testing.T, s *Store) {
+		ctx := context.Background()
+		for i, actor := range []string{"alice", "alice", "bob", "alice"} {
+			if err := s.AddAudit(ctx, AuditEntry{At: t0.Add(time.Duration(i) * time.Minute), Actor: actor, Action: "signed in"}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		all, _ := s.Audit(ctx, AuditFilter{})
+		if got, _ := s.Audit(ctx, AuditFilter{Offset: 1, Limit: 2}); len(got) != 2 || got[0].ID != all[1].ID {
+			t.Errorf("offset %+v", got)
+		}
+		if got, _ := s.Audit(ctx, AuditFilter{Offset: 3, Limit: All}); len(got) != 1 || got[0].ID != all[3].ID {
+			t.Errorf("all %+v", got)
+		}
+		if n, err := s.CountAudit(ctx, AuditFilter{Actor: "alice", BeforeID: all[0].ID, Limit: 1}); err != nil || n != 3 {
+			t.Errorf("count %d %v", n, err)
+		}
+	})
+}
+
 func TestAuditClosed(t *testing.T) {
 	s := openSQLite(t)
 	ctx := context.Background()

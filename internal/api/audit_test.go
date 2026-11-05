@@ -15,6 +15,7 @@ type auditPage struct {
 	Entries []auditView `json:"entries"`
 	Actions []string    `json:"actions"`
 	Users   []string    `json:"users"`
+	Total   int         `json:"total"`
 }
 
 func TestAudit(t *testing.T) {
@@ -72,6 +73,26 @@ func TestAudit(t *testing.T) {
 	e.s.audit(httptest.NewRequest(http.MethodPost, "/", nil), "tag created", "tag", "x", "by", "alice")
 	if !strings.Contains(e.log.String(), "cannot write the audit log") {
 		t.Error("audit failure not logged")
+	}
+}
+
+func TestAuditPages(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	e.addUser(admin, "bob", "viewer")
+	admin.call("POST", "/api/v1/tags", map[string]string{"name": "prod", "color": "#1f5fbf"}, nil)
+	// alice: first admin created, signed in, user created, tag created.
+	var p auditPage
+	admin.call("GET", "/api/v1/audit?limit=2&offset=1&user=alice", nil, &p)
+	if len(p.Entries) != 2 || p.Total != 4 || p.Entries[0].Action != "user created" {
+		t.Errorf("offset %d of %d %+v", len(p.Entries), p.Total, p.Entries)
+	}
+	admin.call("GET", "/api/v1/audit?limit=all&offset=1", nil, &p)
+	if len(p.Entries) != p.Total-1 {
+		t.Errorf("all: %d of %d", len(p.Entries), p.Total)
+	}
+	if code, _ := admin.errorOf("GET", "/api/v1/audit?offset=-1", nil); code != http.StatusBadRequest {
+		t.Errorf("offset -1: %d", code)
 	}
 }
 

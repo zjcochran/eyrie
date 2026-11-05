@@ -112,12 +112,16 @@ export interface AuditEntry {
   details: string;
 }
 
-/** A page of the audit log, with the actions and users to filter by. */
+/** A page of the audit log, with how many entries match and the actions and users to filter by. */
 export interface AuditPage {
   entries: AuditEntry[];
+  total: number;
   actions: string[];
   users: string[];
 }
+
+/** How many rows a page of a list shows. */
+export type PageSize = number | 'all';
 
 /** One of Eyrie's agents on another host. */
 export interface Agent {
@@ -657,6 +661,13 @@ export class Client {
   /** Every monitor's status changes, newest first: 100, older than before when set. */
   statusChanges = (before?: number) =>
     this.request<StatusChange[]>('GET', '/api/v1/status-changes' + (before ? `?before=${before}` : ''));
+  /** A page of the status changes, newest first, with how many there are. */
+  statusChangePage = async (offset: number, size: PageSize) => {
+    const path = `/api/v1/status-changes?offset=${offset}&limit=${size}`;
+    const resp = await this.send('GET', path);
+    const changes = await this.answer<StatusChange[]>(resp, 'GET', path);
+    return { changes, total: Number(resp.headers.get('X-Total-Count') ?? changes.length) };
+  };
   history = (days: number) => this.request<History>('GET', `/api/v1/overview?days=${days}`);
   hours = (id: number, days: number) => this.request<HourStats[]>('GET', `/api/v1/monitors/${id}/hours?days=${days}`);
   createMonitor = (m: MonitorChange) => this.request<Monitor>('POST', '/api/v1/monitors', m);
@@ -732,11 +743,13 @@ export class Client {
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });
 
-  audit = (f: { action?: string; user?: string; before?: number }) => {
+  audit = (f: { action?: string; user?: string; before?: number; offset?: number; size?: PageSize }) => {
     const q = new URLSearchParams();
     if (f.action) q.set('action', f.action);
     if (f.user) q.set('user', f.user);
     if (f.before) q.set('before', String(f.before));
+    if (f.offset) q.set('offset', String(f.offset));
+    if (f.size) q.set('limit', String(f.size));
     const s = q.toString();
     return this.request<AuditPage>('GET', '/api/v1/audit' + (s ? '?' + s : ''));
   };
