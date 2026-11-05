@@ -424,7 +424,7 @@
   }
   .kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
     gap: 0.75rem;
     margin-bottom: 1rem;
   }
