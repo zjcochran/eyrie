@@ -267,6 +267,10 @@ theme and accent colour.
 
 ![Settings, Appearance: the three layouts, the colours and day and night](../images/appearance-dark.png)
 
+![The Bento layout's start page, in Cobalt by day](../images/layout-bento.png)
+
+![The Aurora layout's start page, in Borealis by night](../images/layout-aurora.png)
+
 ## Dark mode and phones
 
 Eyrie follows your device's light or dark setting unless you choose Day or
