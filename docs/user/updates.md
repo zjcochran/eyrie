@@ -26,6 +26,8 @@ the newer release with its notes.
 
 ## The reminder
 
+![The reminder: a newer release's version, date and notes, with Don't remind me again, Remind me later and Close](../images/update-reminder-dark.png)
+
 When a newer release is out and checks are on, admins see a window with
 its version, release date, notes and a link to the release on GitHub when
 they open Eyrie. Viewers never see it. Each admin chooses:
