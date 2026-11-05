@@ -175,11 +175,14 @@ A pipeline schedule on the default branch runs only `deps` and `deps-fix`:
   major version) and the npm packages; the base image, `alpine:3`, takes
   each new Alpine release on its own. An npm
   version counts only once it has been published for 14 days; new major
-  versions are listed but never taken. Vulnerabilities fail the job;
-  newer versions exit 3, a warning.
+  versions are listed but never taken. Vulnerabilities fail the job,
+  except npm advisories accepted in `ci/security-allowlist.txt`; newer
+  versions exit 3, a warning.
 - `deps-fix` (`ci/deps-fix.sh`) installs Node.js (`ci/install-node.sh`,
   checked against the release's SHA-256 list), has Claude Code make the
-  updates (`ci/deps-fix-prompt.md`), runs every check, and opens a merge
+  updates (`ci/deps-fix-prompt.md`; for npm it changes only
+  `web/package.json`), refreshes the lock file as `ci/web-lock.sh` does,
+  runs every check, and opens a merge
   request labelled `patch` (a draft if the checks fail) with a table of the
   Go advisories fixed (`ci/deps-advisories.sh`). It needs the CI/CD
   variables `CLAUDE_CODE_OAUTH_TOKEN` and `DEPS_BOT_TOKEN`.
