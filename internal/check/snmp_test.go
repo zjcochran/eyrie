@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -21,6 +22,18 @@ type fakeAgent struct {
 	staleOnce                                      bool // report notInTimeWindow once
 	badSignature                                   bool // sign answers with the wrong key
 	report                                         string
+	keys                                           sync.Map // hash, password and engine → localized key
+}
+
+// key is localKey, once for each password.
+func (a *fakeAgent) key(proto, password string) []byte {
+	id := proto + " " + password + " " + string(a.engineID)
+	if k, ok := a.keys.Load(id); ok {
+		return k.([]byte)
+	}
+	k := localKey(authHashes[proto], password, a.engineID)
+	a.keys.Store(id, k)
+	return k
 }
 
 func (a *fakeAgent) value(oid string) []byte {
@@ -91,9 +104,9 @@ func (a *fakeAgent) v3(b []byte, m v3msg) []byte {
 	var sec v3security
 	if a.authProto != "none" {
 		sec.hash = authHashes[a.authProto]
-		sec.authKey = localKey(sec.hash, a.authPass, a.engineID)
+		sec.authKey = a.key(a.authProto, a.authPass)
 		if a.privProto != "none" {
-			sec.priv = privacy{a.privProto, localKey(sec.hash, a.privPass, a.engineID)}
+			sec.priv = privacy{a.privProto, a.key(a.authProto, a.privPass)}
 		}
 	}
 	req, err := sec.read(b, m)
@@ -133,7 +146,7 @@ func (a *fakeAgent) v3(b []byte, m v3msg) []byte {
 	if sec.authKey != nil {
 		key := sec.authKey
 		if a.badSignature {
-			key = localKey(sec.hash, "wrongpass", a.engineID)
+			key = a.key(a.authProto, "wrongpass")
 		}
 		sign(sec.hash, key, msg, off)
 	}
