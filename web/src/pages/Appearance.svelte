@@ -79,7 +79,7 @@
   <h2 class="gap">Day and night</h2>
   <div class="row" role="radiogroup" aria-label="Day and night">
     {#each modes as m (m.id)}
-      <label class="swatch" class:on={look.mode === m.id}>
+      <label class="swatch plain" class:on={look.mode === m.id}>
         <input type="radio" name="mode" value={m.id} checked={look.mode === m.id} onchange={() => save({ ...look, mode: m.id as Mode })} />
         {m.label}
       </label>
@@ -179,11 +179,15 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.4rem 0.85rem 0.4rem 0.45rem;
+    padding: 0.4rem 0.6rem 0.4rem 0.4rem;
     border: 2px solid var(--border);
     border-radius: 999px;
     font-weight: 500;
     cursor: pointer;
+  }
+  /* Without a colour dot: more room on both sides of the text. */
+  .swatch.plain {
+    padding: 0.4rem 0.85rem;
   }
   .dot {
     width: 1.5rem;

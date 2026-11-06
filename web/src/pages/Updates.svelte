@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Markdown from '../components/Markdown.svelte';
+  import Notice from '../components/Notice.svelte';
   import { type Channel, type UpdateChange, type UpdateSettings, message } from '../lib/api.ts';
   import { intervals } from '../lib/updates.ts';
   import { api } from '../lib/session.svelte.ts';
@@ -80,7 +81,7 @@
   );
 </script>
 
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 
 {#if saved}
   <section class="card">

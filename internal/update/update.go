@@ -211,13 +211,25 @@ func (c *Checker) Available(ctx context.Context) *Release {
 
 // Started keeps the running version and, when it is newer than the one
 // that ran before, records the upgrade. Call it once at start, before Run.
-// A first start, a downgrade or a development build records none.
+// A first start, a downgrade or a development build records none. Versions
+// before v0.21.0 kept no version: a database with users but none is an
+// upgrade from an unknown earlier version (From is ""), with the running
+// release's notes only.
 func (c *Checker) Started(ctx context.Context) error {
 	var prev string
-	if _, err := c.Store.GetSetting(ctx, versionKey, &prev); err != nil || prev == c.Version {
+	found, err := c.Store.GetSetting(ctx, versionKey, &prev)
+	if err != nil || prev == c.Version {
 		return err
 	}
-	if Newer(c.Version, prev) {
+	earlier := Newer(c.Version, prev)
+	if !found && Newer(c.Version, "v0.0.0") {
+		n, err := c.Store.CountUsers(ctx)
+		if err != nil {
+			return err
+		}
+		earlier = n > 0
+	}
+	if earlier {
 		c.Log.Info("Eyrie was updated", "from", prev, "to", c.Version)
 		u := Upgrade{From: prev, To: c.Version, At: c.now(), Releases: c.between(prev, c.Version)}
 		if err := c.Store.SetSetting(ctx, upgradeKey, u, c.now()); err != nil {
@@ -241,7 +253,7 @@ func (c *Checker) Upgrade(ctx context.Context) (*Upgrade, error) {
 }
 
 // between returns the notes of the releases after from up to to, newest
-// first, at most maxReleases.
+// first, at most maxReleases; only to's when from is "" (unknown).
 func (c *Checker) between(from, to string) []Release {
 	all := c.Releases
 	if all == nil {
@@ -252,7 +264,7 @@ func (c *Checker) between(from, to string) []Release {
 	}
 	out := []Release{}
 	for _, r := range all {
-		if Newer(r.Version, from) && !Newer(r.Version, to) {
+		if Newer(r.Version, from) && !Newer(r.Version, to) || from == "" && r.Version == to {
 			if len(r.Notes) > 20000 {
 				r.Notes = r.Notes[:20000] + "…"
 			}

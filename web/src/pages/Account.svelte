@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Avatar from '../components/Avatar.svelte';
+  import Notice from '../components/Notice.svelte';
   import { type Account, type TwoFactorSetup, message } from '../lib/api.ts';
   import { go, nav } from '../lib/nav.svelte.ts';
   import { queryValue } from '../lib/route.ts';
@@ -115,7 +116,7 @@
   }
 </script>
 
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 
 {#if account}
   {@const u = account.user}

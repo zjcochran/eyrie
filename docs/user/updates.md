@@ -45,7 +45,9 @@ When Eyrie starts on a newer version than the one that ran before, every
 user sees the notes of the releases since then (newest first, up to 20)
 the next time they open Eyrie, once: **Close** (or Escape) hides it for
 good. Accounts made after the update don't see it, nor does a first start,
-a downgrade or a development build. When there is also a newer release
+a downgrade or a development build. Versions before v0.21.0 did not keep
+their version, so the first update from one of them shows only the new
+release's notes, "from an earlier version". When there is also a newer release
 than this one, admins see its reminder after closing this window.
 
 The notes are built into the image, so this needs no update checks and

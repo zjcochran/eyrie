@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Notice from '../components/Notice.svelte';
   import { type Agent, message } from '../lib/api.ts';
   import { type Platform, agentSetup, platforms } from '../lib/agents.ts';
   import { api } from '../lib/session.svelte.ts';
@@ -66,7 +67,7 @@
   const when = (t: string | null) => (t ? new Date(t).toLocaleString() : 'never');
 </script>
 
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 
 {#if enrolling}
   <section class="card">
