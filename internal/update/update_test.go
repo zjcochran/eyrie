@@ -290,6 +290,40 @@ func TestUpgradeWithoutNotes(t *testing.T) {
 	}
 }
 
+// Versions before v0.21.0 kept no version: with users, the first start is
+// an upgrade from an unknown version, with the running release's notes.
+func TestUpgradeFromUnknown(t *testing.T) {
+	c, _ := newChecker(t, &github{})
+	c.Releases, c.Version = releases, "v1.2.0"
+	ctx := context.Background()
+	if _, err := c.Store.CreateUser(ctx, "alice", "correct horse battery", "admin", t0); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Started(ctx); err != nil {
+		t.Fatal(err)
+	}
+	u, err := c.Upgrade(ctx)
+	if err != nil || u == nil || u.From != "" || u.To != "v1.2.0" || len(u.Releases) != 1 || u.Releases[0].Notes != "- Pages" {
+		t.Fatalf("upgrade %v %+v", err, u)
+	}
+}
+
+// A development build with users and no version kept is no upgrade.
+func TestDevelopmentBuild(t *testing.T) {
+	c, _ := newChecker(t, &github{})
+	c.Version = "dev"
+	ctx := context.Background()
+	if _, err := c.Store.CreateUser(ctx, "alice", "correct horse battery", "admin", t0); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Started(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if u, err := c.Upgrade(ctx); err != nil || u != nil {
+		t.Errorf("upgrade %v %+v", err, u)
+	}
+}
+
 // A downgrade records no upgrade, and the last one was not to it.
 func TestDowngrade(t *testing.T) {
 	c, _ := newChecker(t, &github{})

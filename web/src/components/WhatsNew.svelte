@@ -38,7 +38,7 @@
     <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="news-title">
       <h2 id="news-title">Eyrie was updated to {upgrade.to}</h2>
       <p class="muted">
-        From {upgrade.from}.
+        From {upgrade.from || 'an earlier version'}.
         {#if url}<a href={url} target="_blank" rel="noopener noreferrer">The releases on GitHub</a>{/if}
       </p>
       <div class="notes">
