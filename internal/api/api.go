@@ -24,6 +24,7 @@ import (
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/sso"
 	"github.com/zjcochran/eyrie/internal/store"
+	"github.com/zjcochran/eyrie/internal/update"
 	"github.com/zjcochran/eyrie/internal/workload"
 )
 
@@ -62,6 +63,9 @@ type Server struct {
 	Analyzer *analysis.Analyzer
 	// Backups makes and restores backup files.
 	Backups *backup.Backups
+	// Updates checks GitHub for newer releases; the API manages its
+	// settings and reminders.
+	Updates *update.Checker
 	// Agents are Eyrie's agents on other hosts; nil: none yet, kept in
 	// memory only (for tests).
 	Agents *agents.Manager
@@ -237,6 +241,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/settings/analysis", s.admin(s.saveAnalysis))
 	mux.Handle("POST /api/v1/settings/analysis/test", s.admin(s.testAnalysis))
 	mux.Handle("POST /api/v1/settings/analysis/models", s.admin(s.analysisModels))
+	mux.Handle("GET /api/v1/settings/updates", s.admin(s.getUpdates))
+	mux.Handle("PUT /api/v1/settings/updates", s.admin(s.saveUpdates))
+	mux.Handle("POST /api/v1/settings/updates/check", s.admin(s.checkUpdates))
+	mux.Handle("GET /api/v1/updates", s.admin(s.availableUpdate))
+	mux.Handle("PUT /api/v1/updates/reminder", s.admin(s.remindUpdate))
+	mux.Handle("GET /api/v1/updates/news", s.user(s.whatsNew))
+	mux.Handle("PUT /api/v1/updates/news", s.user(s.seenNews))
 	mux.Handle("GET /api/v1/settings/retention", s.admin(s.getRetention))
 	mux.Handle("PUT /api/v1/settings/retention", s.admin(s.saveRetention))
 

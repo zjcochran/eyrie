@@ -21,6 +21,7 @@ const (
 	EventAnalysis  = "monitor_analysis"
 	EventGroupDown = "group_down"
 	EventGroupUp   = "group_up"
+	EventUpdate    = "update_available"
 )
 
 // Message is what a channel receives. The webhook kind gets it as JSON.
@@ -170,6 +171,21 @@ func (n *Notifier) groupMessage(g store.Group, down bool, members []string, sinc
 		msg.Text = fmt.Sprintf("Every member is up again after %s down.", Duration(at.Sub(since)))
 	}
 	return msg
+}
+
+// Update queues word of a newer release of Eyrie, with its notes, for
+// the chosen channels.
+func (n *Notifier) Update(channels []int64, current, version, url, notes string) {
+	n.enqueue(job{channels: channels, msg: updateMessage(current, version, url, notes, time.Now())})
+}
+
+func updateMessage(current, version, url, notes string, at time.Time) Message {
+	text := "Eyrie " + version + " is out; this one runs " + current + "."
+	if notes = strings.TrimSpace(notes); notes != "" {
+		text += "\n\n" + shorten(notes, 1500)
+	}
+	return Message{Event: EventUpdate, Title: "Eyrie " + version + " is available", Text: text, Priority: 3,
+		Time: at.UTC(), URL: url}
 }
 
 func (n *Notifier) base(m store.Monitor, at time.Time) Message {

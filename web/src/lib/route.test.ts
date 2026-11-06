@@ -17,6 +17,7 @@ describe('pageFor', () => {
     assert.equal(pageFor('/settings/backup'), 'backup');
     assert.equal(pageFor('/settings/notifications'), 'notifications');
     assert.equal(pageFor('/settings/alert-analysis'), 'analysis');
+    assert.equal(pageFor('/settings/updates'), 'updates');
     assert.equal(pageFor('/settings/tags'), 'tags');
     assert.equal(pageFor('/settings/audit-log'), 'audit');
     assert.equal(pageFor('/settings/agents'), 'agents');

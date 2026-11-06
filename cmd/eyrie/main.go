@@ -42,6 +42,7 @@ import (
 	"github.com/zjcochran/eyrie/internal/secrets"
 	"github.com/zjcochran/eyrie/internal/store"
 	"github.com/zjcochran/eyrie/internal/ui"
+	"github.com/zjcochran/eyrie/internal/update"
 )
 
 const usage = `usage:
@@ -147,11 +148,20 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 	go notifier.Run(ctx)
 	backups := &backup.Backups{Store: st, Secrets: box, Dir: cfg.BackupDir, Version: version, Log: log}
 	go backups.Run(ctx)
+	source := cmp.Or(cfg.SourceURL, sourceURL)
+	updates := &update.Checker{Store: st, Secrets: box, Log: log, Version: version, Repo: update.RepoFrom(source),
+		Notify: func(ch []int64, current string, r update.Release) {
+			notifier.Update(ch, current, r.Version, r.URL, r.Notes)
+		}}
+	if err := updates.Started(ctx); err != nil {
+		log.Warn("cannot keep the running version", "err", err)
+	}
+	go updates.Run(ctx)
 	apiSrv := &api.Server{
 		Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),
 		BaseURL: cfg.BaseURL, TrustedProxies: cfg.TrustedProxies, ForceLocal: cfg.ForceLocal,
-		SourceURL: cmp.Or(cfg.SourceURL, sourceURL), Engine: eng, Env: env, MetricsToken: cfg.MetricsToken,
-		Notifier: notifier, Analyzer: analyzer, Backups: backups, Agents: agentsMgr,
+		SourceURL: source, Engine: eng, Env: env, MetricsToken: cfg.MetricsToken,
+		Notifier: notifier, Analyzer: analyzer, Backups: backups, Agents: agentsMgr, Updates: updates,
 	}
 	srv := &http.Server{
 		Handler:           apiSrv.Handler(),

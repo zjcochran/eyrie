@@ -306,7 +306,13 @@ func TestRestartKeepsState(t *testing.T) {
 	if s := h.e.Statuses()[paused.ID]; s.Active || s.Status != state.Unknown {
 		t.Errorf("paused %+v", s)
 	}
-	_ = bad
+	// Made due, the broken monitor is still not checked (it once crashed
+	// Eyrie with no checker).
+	if err := h.e.CheckNow(context.Background(), bad.ID); err != nil {
+		t.Fatal(err)
+	}
+	h.clock.Advance(time.Second)
+	h.none()
 }
 
 func TestPush(t *testing.T) {

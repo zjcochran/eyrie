@@ -204,12 +204,13 @@ type Analyst interface {
 	Analyze(m store.Monitor, b store.Beat) string
 }
 
-// job is a message for a monitor's channels, or with groupID for a
-// group's.
+// job is a message for a monitor's channels, with groupID for a group's,
+// or with channels for those.
 type job struct {
 	monitorID int64
 	msg       Message
 	groupID   int64
+	channels  []int64
 }
 
 func (n *Notifier) init() {
@@ -290,9 +291,12 @@ func (n *Notifier) Last(id int64) (Result, bool) {
 func (n *Notifier) deliver(ctx context.Context, j job) {
 	var chans []store.Channel
 	var err error
-	if j.groupID != 0 {
+	switch {
+	case j.channels != nil:
+		chans = n.chosen(ctx, j.channels)
+	case j.groupID != 0:
 		chans, err = n.Store.ChannelsForGroup(ctx, j.groupID)
-	} else {
+	default:
 		chans, err = n.Store.ChannelsForMonitor(ctx, j.monitorID)
 	}
 	if err != nil {
@@ -310,6 +314,17 @@ func (n *Notifier) deliver(ctx context.Context, j job) {
 		})
 	}
 	wg.Wait()
+}
+
+// chosen returns the channels with these IDs that still exist and are on.
+func (n *Notifier) chosen(ctx context.Context, ids []int64) []store.Channel {
+	var out []store.Channel
+	for _, id := range ids {
+		if sc, err := n.Store.ChannelByID(ctx, id); err == nil && sc.Enabled {
+			out = append(out, sc)
+		}
+	}
+	return out
 }
 
 func (n *Notifier) record(id int64, name string, m Message, err error) {

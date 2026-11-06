@@ -18,6 +18,7 @@ are updated in the same change as the behaviour they describe.
 | [Status pages, incidents and badges](user/status-pages.md) | Public status pages built from tags and monitors, incidents with a timeline, SVG badges |
 | [Notifications](user/notifications.md) | Channels (ntfy, Gotify, Pushover, Telegram, Discord, email, signed webhooks), what is sent, certificate warnings, delivery |
 | [Alert analysis](user/alert-analysis.md) | Claude with an API key or your subscription (Claude Code), or a model on your own server (Ollama and other OpenAI-compatible servers), what is sent, timeouts |
+| [Checking for updates](user/updates.md) | Checking GitHub for a newer release, the reminder in the web app, notifying channels, a proxy |
 | [Backup and restore](user/backup-and-restore.md) | Encrypted backup files (made, scheduled, restored, into SQLite or PostgreSQL), restoring at setup, copying the database |
 | [Using the web app](user/web-ui.md) | Setup, signing in, your account, two-factor sign-in, users, API tokens |
 | [Single sign-on](user/single-sign-on.md) | Signing in with an OpenID Connect provider: setup, groups, linking, SSO only |

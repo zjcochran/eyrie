@@ -334,6 +334,12 @@ func (e *Engine) runDue() {
 			e.record(en, now, check.Result{Latency: -1,
 				Message: fmt.Sprintf("No push received in %s", en.m.Interval)})
 		default:
+			if en.checker == nil {
+				// Bad settings: never checked, however it became due
+				// (Check now, or a maintenance window ending).
+				en.next = time.Time{}
+				continue
+			}
 			en.running = true
 			e.setSnap(en)
 			timeout := en.m.Timeout

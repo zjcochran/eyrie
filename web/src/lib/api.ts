@@ -123,6 +123,50 @@ export interface AuditPage {
 /** How many rows a page of a list shows. */
 export type PageSize = number | 'all';
 
+/** A release of Eyrie on GitHub; notes are Markdown. */
+export interface Release {
+  version: string;
+  name: string;
+  notes: string;
+  url: string;
+  published: string;
+}
+
+/** Eyrie was updated: from and to which version, and the notes of the releases between, newest first. */
+export interface Upgrade {
+  from: string;
+  to: string;
+  at: string;
+  releases: Release[];
+}
+
+/** The update check's settings, with the last check and the running version. */
+export interface UpdateSettings {
+  enabled: boolean;
+  interval_hours: number;
+  proxy: string;
+  proxy_user: string;
+  has_proxy_password: boolean;
+  notify: boolean;
+  channels: number[];
+  current: string;
+  repo: string;
+  status: { checked: string; latest: Release | null; error: string };
+  available: Release | null;
+}
+
+/** Saved update settings. An empty proxy_password keeps the saved one. */
+export interface UpdateChange {
+  enabled: boolean;
+  interval_hours: number;
+  proxy: string;
+  proxy_user: string;
+  proxy_password: string;
+  clear_proxy_password: boolean;
+  notify: boolean;
+  channels: number[];
+}
+
 /** One of Eyrie's agents on another host. */
 export interface Agent {
   id: number;
@@ -739,6 +783,15 @@ export class Client {
   saveBackupSchedule = (change: BackupScheduleChange) => this.request<BackupSchedule>('PUT', '/api/v1/settings/backup', change);
   runBackup = () => this.request<BackupSchedule>('POST', '/api/v1/backups/run');
 
+  updateSettings = () => this.request<UpdateSettings>('GET', '/api/v1/settings/updates');
+  saveUpdateSettings = (c: UpdateChange) => this.request<UpdateSettings>('PUT', '/api/v1/settings/updates', c);
+  checkUpdates = () => this.request<UpdateSettings>('POST', '/api/v1/settings/updates/check');
+  /** The release to remind the signed-in admin of, if any. */
+  availableUpdate = () => this.request<{ current: string; release: Release | null }>('GET', '/api/v1/updates');
+  remindUpdate = (version: string, choice: 'later' | 'never') =>
+    this.request<void>('PUT', '/api/v1/updates/reminder', { version, choice });
+  whatsNew = () => this.request<{ upgrade: Upgrade | null; url: string }>('GET', '/api/v1/updates/news');
+  seenNews = (version: string) => this.request<void>('PUT', '/api/v1/updates/news', { version });
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });
