@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
+  import Notice from '../components/Notice.svelte';
   import StatusDot from '../components/StatusDot.svelte';
   import { type Channel, type GroupAlert, type GroupChange, message } from '../lib/api.ts';
   import { live, loadMonitors } from '../lib/live.svelte.ts';
@@ -76,7 +77,7 @@
   }
 </script>
 
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 
 {#if !live.loaded}
   <p class="muted">Loading…</p>

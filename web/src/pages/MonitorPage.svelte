@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import Chart from '../components/Chart.svelte';
+  import Notice from '../components/Notice.svelte';
   import TagChip from '../components/TagChip.svelte';
   import { type Beat, type Count, type Monitor, message } from '../lib/api.ts';
   import { normalize } from '../lib/appearance.ts';
@@ -147,7 +148,7 @@
   }
 </script>
 
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 
 {#if monitor}
   {@const m = monitor}

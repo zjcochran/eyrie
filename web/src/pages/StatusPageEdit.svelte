@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Notice from '../components/Notice.svelte';
   import {
     type Incident,
     type IncidentStatus,
@@ -163,7 +164,7 @@
 
 <p><a href="/status-pages" onclick={link}>← Status pages</a></p>
 <h1>{id ? (saved?.title ?? '') : 'Add a status page'}</h1>
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 {#if saved}<p><a href="/status/{saved.slug}" onclick={link}>Open the page</a>{#if !saved.published} (a preview: not published){/if}</p>{/if}
 
 {#if admin}

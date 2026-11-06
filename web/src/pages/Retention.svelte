@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Notice from '../components/Notice.svelte';
   import { message } from '../lib/api.ts';
   import { api } from '../lib/session.svelte.ts';
 
@@ -29,7 +30,7 @@
   }
 </script>
 
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 <section class="card">
   <p>
     Every check is kept as a heartbeat for this many days. Uptime figures do not need them: hourly totals are kept 35

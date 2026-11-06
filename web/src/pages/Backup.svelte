@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Notice from '../components/Notice.svelte';
   import { type BackupSchedule, message } from '../lib/api.ts';
   import { size } from '../lib/format.ts';
   import { api, refresh } from '../lib/session.svelte.ts';
@@ -117,7 +118,7 @@
   const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString() : 'never');
 </script>
 
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 
 <section class="card">
   <h2>Download a backup</h2>

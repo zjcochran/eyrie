@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Notice from '../components/Notice.svelte';
   import TagChip from '../components/TagChip.svelte';
   import { type Schedule, type Tag, type Window, type WindowChange, message } from '../lib/api.ts';
   import { live } from '../lib/live.svelte.ts';
@@ -148,7 +149,7 @@
   <h1>Maintenance</h1>
   {#if admin}<button class="primary" onclick={() => edit(null)} disabled={busy}>Add a window</button>{/if}
 </div>
-{#if notice}<p class="notice" class:ok={notice.ok} class:error={!notice.ok} role="status">{notice.text}</p>{/if}
+<Notice bind:notice />
 
 <section class="card">
   <p class="muted">
