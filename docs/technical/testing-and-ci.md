@@ -153,16 +153,21 @@ does not have yet are created oldest first. It needs the CI/CD variables
 with the `repo` and `write:packages` scopes), and `RELEASE_TOKEN` to read
 the GitLab releases.
 
-`github-image` builds the image for `linux/amd64` and `linux/arm64` with
-buildx (arm64 through QEMU, `tonistiigi/binfmt`) and pushes it to
+`github-image` first writes the notes of the latest 100 GitLab releases,
+with the same replacements as the GitHub releases
+(`ci/sanitize-rules.sh`), to `internal/update/releases.json`
+(`ci/release-notes.sh`, with `RELEASE_TOKEN`), and checks the file with
+`ci/leak-check.sh`. Eyrie embeds it to show what changed after an update;
+the file in the repository is `[]`. Then it builds the image for
+`linux/amd64` and `linux/arm64` with buildx (arm64 through QEMU, `tonistiigi/binfmt`) and pushes it to
 `ghcr.io/<GHCR_REPO>` as `X.Y.Z`, `X.Y`, `X` (from 1.0.0 on) and `latest`, with
 `VERSION=vX.Y.Z` and `SOURCE_URL=https://github.com/<GHCR_REPO>` built in. The
 index carries the `org.opencontainers.image.licenses` (`AGPL-3.0-or-later`) and
 `org.opencontainers.image.source` annotations, the latter pointing at the GitHub
 repository, which links the package to it; provenance and SBOM
 attestations are left out, because GitHub lists each as an extra
-`unknown/unknown` platform. `ci/leak-check.sh tree` runs first, since the
-image is built from these files.
+`unknown/unknown` platform. `ci/leak-check.sh tree` runs before the build,
+since the image is built from these files.
 
 ## Weekly dependency check
 

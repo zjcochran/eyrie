@@ -10,8 +10,7 @@ When it is on, Eyrie asks the GitHub API for the latest release of the
 repository it was built from (`GET /repos/<owner>/<name>/releases/latest`)
 at the interval chosen: every 6 or 12 hours, every day (the default), every
 3 days or every week. The first check happens within a minute of turning
-it on. Nothing is sent but that request (and, [after an update](#after-an-update),
-one for the list of releases), with `User-Agent: Eyrie/<version>`.
+it on. Nothing is sent but that request, with `User-Agent: Eyrie/<version>`.
 
 The repository is taken from the build's source address
 (`EYRIE_SOURCE_URL`, or the one built into the image,
@@ -49,10 +48,9 @@ good. Accounts made after the update don't see it, nor does a first start,
 a downgrade or a development build. When there is also a newer release
 than this one, admins see its reminder after closing this window.
 
-The notes come from GitHub, so Eyrie fetches them only while checks are
-on, within a minute of starting or of turning checks on (through the same
-proxy), and again an hour later if that fails. With checks off the window
-still says Eyrie was updated, with a link to the releases on GitHub.
+The notes are built into the image, so this needs no update checks and
+nothing is fetched. A build made some other way has none: the window then
+only says Eyrie was updated, with a link to the releases on GitHub.
 
 ## Notifications
 

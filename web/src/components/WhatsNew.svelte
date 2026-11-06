@@ -8,7 +8,7 @@
   // Once per user after Eyrie is updated: the notes of the releases since
   // the version that ran before. ondone runs when there is nothing to show
   // or it is closed.
-  let { admin, ondone }: { admin: boolean; ondone: () => void } = $props();
+  let { ondone }: { ondone: () => void } = $props();
 
   let upgrade = $state<Upgrade | null>(null);
   let url = $state('');
@@ -51,15 +51,7 @@
             <Markdown text={r.notes || 'No release notes.'} />
           </section>
         {:else}
-          <p>
-            {#if upgrade.fetched}
-              GitHub has no notes for these releases.
-            {:else if admin}
-              Its release notes show here when update checks are on, in Settings → Updates.
-            {:else}
-              Its release notes show here when an admin turns on update checks.
-            {/if}
-          </p>
+          <p>This build has no release notes.</p>
         {/each}
       </div>
       <div class="actions"><button class="primary" onclick={dismiss}>Close</button></div>

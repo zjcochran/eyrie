@@ -6,12 +6,13 @@
 // is set, and keeps what it found for the web app's reminder. A newer
 // release can also be sent once to chosen notification channels. It also
 // notices when Eyrie starts on a newer version than before, for the web
-// app's one-time "updated" window, and fetches the notes of the releases
-// since then while checks are on.
+// app's one-time "updated" window, with the notes of the releases since
+// then from those built into the image (releases.json).
 package update
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,9 +43,18 @@ const (
 // maxReleases is how many releases' notes an upgrade keeps, newest first.
 const maxReleases = 20
 
-// retryNotes is how long to wait before fetching an upgrade's notes again
-// after a failure.
-const retryNotes = time.Hour
+// releasesJSON is the notes of the releases up to this one, as
+// ci/release-notes.sh writes them for the image; "[]" in other builds.
+//
+//go:embed releases.json
+var releasesJSON []byte
+
+// Built returns the release notes built into this binary.
+func Built() ([]Release, error) {
+	var out []Release
+	err := json.Unmarshal(releasesJSON, &out)
+	return out, err
+}
 
 // Settings is how and whether Eyrie checks for updates.
 type Settings struct {
@@ -123,9 +133,9 @@ type Upgrade struct {
 	From string    `json:"from"`
 	To   string    `json:"to"`
 	At   time.Time `json:"at"`
-	// Releases are those after From up to To, newest first, once Fetched.
+	// Releases are those after From up to To, newest first, from the
+	// notes built in; empty when this build has none.
 	Releases []Release `json:"releases"`
-	Fetched  bool      `json:"fetched"`
 }
 
 // Sealer opens the sealed proxy password.
@@ -147,11 +157,12 @@ type Checker struct {
 	// Transport is for tests; nil makes one with the proxy settings.
 	Transport http.RoundTripper
 	Now       func() time.Time
+	// Releases is the release notes; nil reads those built in (Built).
+	Releases []Release
 
 	mu     sync.Mutex
 	status Status
 	loaded bool
-	tried  time.Time // when the upgrade's notes were last fetched
 }
 
 // RepoFrom returns owner/name for a source URL on GitHub, such as the
@@ -208,7 +219,8 @@ func (c *Checker) Started(ctx context.Context) error {
 	}
 	if Newer(c.Version, prev) {
 		c.Log.Info("Eyrie was updated", "from", prev, "to", c.Version)
-		if err := c.Store.SetSetting(ctx, upgradeKey, Upgrade{From: prev, To: c.Version, At: c.now(), Releases: []Release{}}, c.now()); err != nil {
+		u := Upgrade{From: prev, To: c.Version, At: c.now(), Releases: c.between(prev, c.Version)}
+		if err := c.Store.SetSetting(ctx, upgradeKey, u, c.now()); err != nil {
 			return err
 		}
 	}
@@ -228,19 +240,46 @@ func (c *Checker) Upgrade(ctx context.Context) (*Upgrade, error) {
 	return &u, nil
 }
 
-// Run checks when a check is due, and fetches the notes of an upgrade's
-// releases, while checks are on, until ctx ends.
+// between returns the notes of the releases after from up to to, newest
+// first, at most maxReleases.
+func (c *Checker) between(from, to string) []Release {
+	all := c.Releases
+	if all == nil {
+		var err error
+		if all, err = Built(); err != nil {
+			c.Log.Warn("cannot read the release notes built in", "err", err)
+		}
+	}
+	out := []Release{}
+	for _, r := range all {
+		if Newer(r.Version, from) && !Newer(r.Version, to) {
+			if len(r.Notes) > 20000 {
+				r.Notes = r.Notes[:20000] + "…"
+			}
+			out = append(out, r)
+		}
+	}
+	slices.SortFunc(out, func(a, b Release) int {
+		switch {
+		case Newer(a.Version, b.Version):
+			return -1
+		case Newer(b.Version, a.Version):
+			return 1
+		}
+		return 0
+	})
+	return out[:min(len(out), maxReleases)]
+}
+
+// Run checks when a check is due, until ctx ends.
 func (c *Checker) Run(ctx context.Context) {
 	t := time.NewTicker(time.Minute)
 	defer t.Stop()
 	for {
 		if s, err := LoadSettings(ctx, c.Store); err != nil {
 			c.Log.Error("cannot read the update settings", "err", err)
-		} else if s.Enabled {
-			if !c.now().Before(c.Status(ctx).Checked.Add(time.Duration(s.IntervalHours) * time.Hour)) {
-				c.Check(ctx, s)
-			}
-			c.fetchNotes(ctx, s)
+		} else if s.Enabled && !c.now().Before(c.Status(ctx).Checked.Add(time.Duration(s.IntervalHours)*time.Hour)) {
+			c.Check(ctx, s)
 		}
 		select {
 		case <-ctx.Done():
@@ -278,41 +317,6 @@ func (c *Checker) Check(ctx context.Context, s Settings) Status {
 	return st
 }
 
-// fetchNotes fetches the notes of the releases in the upgrade to the
-// running version, once, while checks are on, trying again an hour after
-// a failure.
-func (c *Checker) fetchNotes(ctx context.Context, s Settings) {
-	u, err := c.Upgrade(ctx)
-	if err != nil || u == nil || u.Fetched || !s.Enabled || c.Repo == "" || c.now().Before(c.tried.Add(retryNotes)) {
-		return
-	}
-	c.tried = c.now()
-	var list []ghRelease
-	if err := c.get(ctx, s, "/releases?per_page=100", &list, 8<<20); err != nil {
-		c.Log.Warn("cannot fetch the release notes", "err", err)
-		return
-	}
-	for _, r := range list {
-		if !r.Draft && Newer(r.Tag, u.From) && !Newer(r.Tag, u.To) {
-			u.Releases = append(u.Releases, r.release())
-		}
-	}
-	slices.SortFunc(u.Releases, func(a, b Release) int {
-		if Newer(a.Version, b.Version) {
-			return -1
-		}
-		if Newer(b.Version, a.Version) {
-			return 1
-		}
-		return 0
-	})
-	u.Releases = u.Releases[:min(len(u.Releases), maxReleases)]
-	u.Fetched = true
-	if err := c.Store.SetSetting(ctx, upgradeKey, u, c.now()); err != nil {
-		c.Log.Warn("cannot save the release notes", "err", err)
-	}
-}
-
 // ghRelease is a release in GitHub's answers.
 type ghRelease struct {
 	Tag       string    `json:"tag_name"`
@@ -320,7 +324,6 @@ type ghRelease struct {
 	Body      string    `json:"body"`
 	URL       string    `json:"html_url"`
 	Published time.Time `json:"published_at"`
-	Draft     bool      `json:"draft"`
 }
 
 func (r ghRelease) release() Release {
@@ -334,7 +337,7 @@ func (r ghRelease) release() Release {
 // latest fetches the repository's latest release.
 func (c *Checker) latest(ctx context.Context, s Settings) (Release, error) {
 	var b ghRelease
-	if err := c.get(ctx, s, "/releases/latest", &b, 1<<20); err != nil {
+	if err := c.get(ctx, s, "/releases/latest", &b); err != nil {
 		return Release{}, err
 	}
 	if b.Tag == "" {
@@ -343,9 +346,8 @@ func (c *Checker) latest(ctx context.Context, s Settings) (Release, error) {
 	return b.release(), nil
 }
 
-// get reads the JSON answer to GET /repos/<repo><path>, of at most limit
-// bytes, into v.
-func (c *Checker) get(ctx context.Context, s Settings, path string, v any, limit int64) error {
+// get reads the JSON answer to GET /repos/<repo><path> into v.
+func (c *Checker) get(ctx context.Context, s Settings, path string, v any) error {
 	if c.Repo == "" {
 		return errors.New("this build's source (EYRIE_SOURCE_URL) is not a GitHub repository, so there are no releases to check")
 	}
@@ -371,7 +373,7 @@ func (c *Checker) get(ctx context.Context, s Settings, path string, v any, limit
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("GitHub answered %s", resp.Status)
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, limit)).Decode(v); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(v); err != nil {
 		return fmt.Errorf("cannot read GitHub's answer: %w", err)
 	}
 	return nil

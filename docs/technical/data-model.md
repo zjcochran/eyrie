@@ -93,7 +93,7 @@ Settings saved from the web UI, one JSON document per key.
 | `update_status` | The last update check: `checked`, `latest` (`{"version","name","notes","url","published"}` or `null`), `error`, `notified` (the release last sent to channels). |
 | `update_reminder.<user id>` | An admin's answer to the update reminder: `version`, `never`, `until` (remind me later). |
 | `running_version` | The version that last started, such as `"v1.2.0"`. |
-| `upgrade` | The last start on a newer version than `running_version`: `from`, `to`, `at`, `releases` (as in `update_status`, newest first) and `fetched`. |
+| `upgrade` | The last start on a newer version than `running_version`: `from`, `to`, `at`, and `releases` (as in `update_status`, newest first, from the notes built into the image). |
 | `update_seen.<user id>` | The version whose "Eyrie was updated" window the user closed. |
 | `sso` | Single sign-on settings: `enabled`, `issuer`, `client_id`, `client_secret` (sealed with the instance key; `""` for none), `display_name`, `auto_provision`, `allowed_group`, `admin_group`, `sso_only`. Missing: off, with `auto_provision` on. |
 

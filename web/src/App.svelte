@@ -182,7 +182,7 @@
     </header>
     <Palette admin={user.role === 'admin'} bind:open={palette} />
     <!-- After an update, its notes first; then, for admins, any newer release. -->
-    <WhatsNew admin={user.role === 'admin'} ondone={() => (newsDone = true)} />
+    <WhatsNew ondone={() => (newsDone = true)} />
     {#if newsDone && user.role === 'admin'}<UpdatePopup />{/if}
     <div class="content">
       <main class:wide={inSettings} class:split={inMonitors}>

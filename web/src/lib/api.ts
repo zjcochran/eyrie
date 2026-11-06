@@ -138,8 +138,6 @@ export interface Upgrade {
   to: string;
   at: string;
   releases: Release[];
-  /** Whether the notes were fetched: only while update checks are on. */
-  fetched: boolean;
 }
 
 /** The update check's settings, with the last check and the running version. */
