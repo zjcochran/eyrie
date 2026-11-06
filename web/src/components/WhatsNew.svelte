@@ -65,6 +65,8 @@
     inset: 0;
     z-index: 50;
     display: grid;
+    /* No wider than the screen, whatever the notes hold. */
+    grid-template-columns: minmax(0, 1fr);
     place-items: center;
     padding: 1rem;
     background: rgb(0 0 0 / 0.5);
@@ -75,6 +77,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
     box-shadow: 0 24px 64px rgb(0 0 0 / 0.4);
   }
   h2,

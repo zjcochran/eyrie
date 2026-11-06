@@ -128,7 +128,8 @@ Every merge request has exactly one label, `major`, `minor` or `patch`
 (semantic versioning). After a merge, `release` (`ci/release.sh`) finds the
 merge request, bumps the latest `vX.Y.Z` tag accordingly (the first release
 is v0.1.0), and creates the tag and a GitLab release with the merge
-request's description and commits. It needs the CI/CD variable
+request's description (without its "Generated with Claude Code" footer
+and session link) and commits. It needs the CI/CD variable
 `RELEASE_TOKEN`, a project access token with the `api` scope. It passes the
 new tag to the publish jobs as `RELEASE_TAG` (a dotenv report); when nothing
 was released, `RELEASE_TAG` is empty and `github-image` does nothing.
@@ -154,7 +155,8 @@ with the `repo` and `write:packages` scopes), and `RELEASE_TOKEN` to read
 the GitLab releases.
 
 `github-image` first writes the notes of the latest 100 GitLab releases,
-with the same replacements as the GitHub releases
+without that footer (older releases still have it) and with the same
+replacements as the GitHub releases
 (`ci/sanitize-rules.sh`), to `internal/update/releases.json`
 (`ci/release-notes.sh`, with `RELEASE_TOKEN`), and checks the file with
 `ci/leak-check.sh`. Eyrie embeds it to show what changed after an update;
