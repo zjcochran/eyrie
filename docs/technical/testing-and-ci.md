@@ -128,8 +128,11 @@ Every merge request has exactly one label, `major`, `minor` or `patch`
 (semantic versioning). After a merge, `release` (`ci/release.sh`) finds the
 merge request, bumps the latest `vX.Y.Z` tag accordingly (the first release
 is v0.1.0), and creates the tag and a GitLab release with the merge
-request's description (without its "Generated with Claude Code" footer
-and session link) and commits. It needs the CI/CD variable
+request's title, description and commits. Release notes are public (on
+GitHub and in the app), so they leave out the merge request's number and
+its "Generated with Claude Code" footer and session link
+(`ci/public-notes.jq`, which also cleans older releases' notes as they are
+copied). It needs the CI/CD variable
 `RELEASE_TOKEN`, a project access token with the `api` scope. It passes the
 new tag to the publish jobs as `RELEASE_TAG` (a dotenv report); when nothing
 was released, `RELEASE_TAG` is empty and `github-image` does nothing.
@@ -149,13 +152,14 @@ The rewrite is deterministic, so every sync is a fast-forward; it never
 force-pushes, and a GitHub repository that has diverged fails the job.
 Before the push, `ci/leak-check.sh history` checks every commit of the copy,
 and each release note is checked before it is created. Releases GitHub
-does not have yet are created oldest first. It needs the CI/CD variables
+does not have yet are created oldest first, and ones whose name or notes
+differ from the GitLab release's are updated. It needs the CI/CD variables
 `GHCR_REPO` (`owner/name`), `GHCR_USER` and `GHCR_TOKEN` (a classic token
 with the `repo` and `write:packages` scopes), and `RELEASE_TOKEN` to read
 the GitLab releases.
 
 `github-image` first writes the notes of the latest 100 GitLab releases,
-without that footer (older releases still have it) and with the same
+made public the same way and with the same
 replacements as the GitHub releases
 (`ci/sanitize-rules.sh`), to `internal/update/releases.json`
 (`ci/release-notes.sh`, with `RELEASE_TOKEN`), and checks the file with
