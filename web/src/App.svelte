@@ -439,6 +439,8 @@
     :global(:root[data-layout='aurora']) header {
       position: sticky;
       top: 0;
+      /* Above the page, which the account menu opens over. */
+      z-index: 10;
       height: 100vh;
       box-sizing: border-box;
       flex-direction: column;
