@@ -155,8 +155,9 @@ func newEnv(t *testing.T) *env {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- eng.Run(ctx) }()
-	go e.notifier.Run(ctx)
-	t.Cleanup(func() { cancel(); <-done }) // before the store closes
+	sent := make(chan struct{})
+	go func() { e.notifier.Run(ctx); close(sent) }()
+	t.Cleanup(func() { cancel(); <-done; <-sent }) // before the store closes
 	return e
 }
 
