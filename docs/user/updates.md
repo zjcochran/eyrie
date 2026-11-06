@@ -27,7 +27,7 @@ the newer release with its notes.
 
 ## The reminder
 
-![The reminder: a newer release's version, date and notes, with Don't remind me again, Remind me later and Close](../images/update-reminder-dark.png)
+![The reminder: a newer release's version, date and a link to it, with Don't remind me again, Remind me later and Close](../images/update-reminder-dark.png)
 
 When a newer release is out and checks are on, admins see a window with
 its version, release date and a link to its notes on GitHub when they
