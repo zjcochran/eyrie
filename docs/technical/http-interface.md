@@ -221,7 +221,7 @@ monitor.
 
 ### Updates
 
-All admin routes. See [Checking for updates](../user/updates.md).
+Admin routes, except the two `news` routes, which any signed-in user may call. See [Checking for updates](../user/updates.md).
 
 | Method and path | Body | Answer |
 | --- | --- | --- |
@@ -230,6 +230,8 @@ All admin routes. See [Checking for updates](../user/updates.md).
 | `POST /api/v1/settings/updates/check` | | `200` the settings, after checking GitHub now (whether checks are on or not) |
 | `GET /api/v1/updates` | | `200` `{"current":"v1.2.0","release":{"version","name","notes","url","published"}}`: the release to remind the signed-in admin of; `release` is `null` when checks are off, nothing newer is out, or they chose later (for a day) or never for it |
 | `PUT /api/v1/updates/reminder` | `{"version","choice":"later"\|"never"}` | `204`: the signed-in admin's answer for that release. `422` for another choice or no version. |
+| `GET /api/v1/updates/news` | | `200` `{"upgrade":{"from","to","at","releases":[…],"fetched"},"url":"https://github.com/<owner>/<name>/releases"}`: the update to the running version, with the releases after `from` up to `to`, newest first (at most 20; empty until `fetched`, which needs update checks on). `upgrade` is `null` when Eyrie was not updated, the signed-in user closed it already, or their account was made after the update. `url` is `""` for a build whose source is not on GitHub. |
+| `PUT /api/v1/updates/news` | `{"version"}` | `204`: the signed-in user closed the window for that version. `422` with no version. |
 
 ```json
 {

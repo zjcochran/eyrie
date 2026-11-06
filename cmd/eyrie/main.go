@@ -153,6 +153,9 @@ func serve(ctx context.Context, getenv func(string) string, stderr io.Writer, re
 		Notify: func(ch []int64, current string, r update.Release) {
 			notifier.Update(ch, current, r.Version, r.URL, r.Notes)
 		}}
+	if err := updates.Started(ctx); err != nil {
+		log.Warn("cannot keep the running version", "err", err)
+	}
 	go updates.Run(ctx)
 	apiSrv := &api.Server{
 		Store: st, Secrets: box, Version: version, Log: log, UI: ui.Handler(ui.Files()),

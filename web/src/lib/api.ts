@@ -132,6 +132,16 @@ export interface Release {
   published: string;
 }
 
+/** Eyrie was updated: from and to which version, and the notes of the releases between, newest first. */
+export interface Upgrade {
+  from: string;
+  to: string;
+  at: string;
+  releases: Release[];
+  /** Whether the notes were fetched: only while update checks are on. */
+  fetched: boolean;
+}
+
 /** The update check's settings, with the last check and the running version. */
 export interface UpdateSettings {
   enabled: boolean;
@@ -782,6 +792,8 @@ export class Client {
   availableUpdate = () => this.request<{ current: string; release: Release | null }>('GET', '/api/v1/updates');
   remindUpdate = (version: string, choice: 'later' | 'never') =>
     this.request<void>('PUT', '/api/v1/updates/reminder', { version, choice });
+  whatsNew = () => this.request<{ upgrade: Upgrade | null; url: string }>('GET', '/api/v1/updates/news');
+  seenNews = (version: string) => this.request<void>('PUT', '/api/v1/updates/news', { version });
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });

@@ -1,7 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import Markdown from './Markdown.svelte';
   import { type Release, message } from '../lib/api.ts';
   import { api } from '../lib/session.svelte.ts';
   import { close, closed } from '../lib/updates.ts';
@@ -50,7 +49,6 @@
         <a href={release.url} target="_blank" rel="noopener noreferrer">The release on GitHub</a>
       </p>
       {#if error}<p class="notice error" role="alert">{error}</p>{/if}
-      <div class="notes"><Markdown text={release.notes || 'No release notes.'} /></div>
       <div class="actions">
         <button onclick={() => remind('never')}>Don't remind me again</button>
         <button onclick={() => remind('later')}>Remind me later</button>
@@ -71,8 +69,7 @@
     background: rgb(0 0 0 / 0.5);
   }
   .dialog {
-    width: min(40rem, 100%);
-    max-height: min(85vh, 48rem);
+    width: min(32rem, 100%);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -80,10 +77,6 @@
   }
   h2 {
     margin: 0;
-  }
-  .notes {
-    overflow-y: auto;
-    padding-right: 0.25rem;
   }
   .actions {
     display: flex;

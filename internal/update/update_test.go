@@ -32,10 +32,12 @@ func (prefix) Open(s string) (string, error) {
 	return strings.TrimPrefix(s, "sealed:"), nil
 }
 
-// github is a fake GitHub API with one latest release.
+// github is a fake GitHub API with one latest release, and list as its
+// list of releases.
 type github struct {
 	mu    sync.Mutex
 	tag   string
+	list  string
 	code  int
 	calls int
 	agent string
@@ -46,6 +48,10 @@ func (g *github) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer g.mu.Unlock()
 	g.calls++
 	g.agent = r.Header.Get("User-Agent")
+	if r.URL.Path == "/repos/example/eyrie/releases" && g.code == 0 {
+		fmt.Fprint(w, g.list)
+		return
+	}
 	if r.URL.Path != "/repos/example/eyrie/releases/latest" {
 		http.NotFound(w, r)
 		return
@@ -229,6 +235,90 @@ func TestRun(t *testing.T) {
 	<-done
 	if st := c.Status(context.Background()); st.Latest == nil || st.Latest.Version != "v1.1.0" {
 		t.Errorf("not checked when on: %+v", st)
+	}
+}
+
+const releases = `[
+	{"tag_name":"v1.3.0","body":"- Later"},
+	{"tag_name":"v1.2.0","name":"Eyrie v1.2.0","body":"- Pages","html_url":"https://github.com/example/eyrie/releases/tag/v1.2.0"},
+	{"tag_name":"v1.2.1-rc.1","draft":true},
+	{"tag_name":"v1.1.0","body":"- Faster"},
+	{"tag_name":"v1.0.0","body":"- First"}]`
+
+// upgraded starts c on v1.0.0, then on v1.2.0.
+func upgraded(t *testing.T, c *Checker) *Upgrade {
+	t.Helper()
+	ctx := context.Background()
+	for _, v := range []string{"v1.0.0", "v1.0.0", "v1.2.0"} {
+		u, err := c.Upgrade(ctx)
+		if err != nil || u != nil {
+			t.Fatalf("before %s: %v %+v", v, err, u)
+		}
+		c.Version = v
+		if err := c.Started(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	u, err := c.Upgrade(ctx)
+	if err != nil || u == nil {
+		t.Fatalf("no upgrade: %v", err)
+	}
+	return u
+}
+
+// A first start is no upgrade, nor is starting the same version again.
+func TestUpgrade(t *testing.T) {
+	c, _ := newChecker(t, &github{})
+	if u := upgraded(t, c); u.From != "v1.0.0" || u.To != "v1.2.0" || !u.At.Equal(t0) || u.Fetched || len(u.Releases) != 0 {
+		t.Fatalf("upgrade %+v", u)
+	}
+}
+
+func TestUpgradeNotes(t *testing.T) {
+	gh := &github{list: releases}
+	c, _ := newChecker(t, gh)
+	ctx := context.Background()
+	upgraded(t, c)
+	// Off: no notes fetched.
+	s := Settings{IntervalHours: 24}
+	c.fetchNotes(ctx, s)
+	if gh.calls != 0 {
+		t.Fatalf("fetched while off: %d", gh.calls)
+	}
+	// A failure is tried again an hour later.
+	s.Enabled = true
+	gh.code = http.StatusForbidden
+	c.fetchNotes(ctx, s)
+	gh.code = 0
+	c.fetchNotes(ctx, s)
+	if u, _ := c.Upgrade(ctx); gh.calls != 1 || u.Fetched {
+		t.Fatalf("retried at once: %d", gh.calls)
+	}
+	c.Now = func() time.Time { return t0.Add(time.Hour) }
+	c.fetchNotes(ctx, s)
+	u, _ := c.Upgrade(ctx)
+	if !u.Fetched || len(u.Releases) != 2 || u.Releases[0].Version != "v1.2.0" || u.Releases[0].Notes != "- Pages" ||
+		u.Releases[1].Version != "v1.1.0" {
+		t.Fatalf("notes %+v", u)
+	}
+	c.fetchNotes(ctx, s)
+	if gh.calls != 2 {
+		t.Errorf("fetched again: %d", gh.calls)
+	}
+}
+
+// A downgrade records no upgrade, and the last one was not to it.
+func TestDowngrade(t *testing.T) {
+	c, _ := newChecker(t, &github{})
+	ctx := context.Background()
+	for _, v := range []string{"v1.0.0", "v1.2.0", "v1.1.0"} {
+		c.Version = v
+		if err := c.Started(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if u, err := c.Upgrade(ctx); err != nil || u != nil {
+		t.Errorf("downgrade %v %+v", err, u)
 	}
 }
 

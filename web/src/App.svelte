@@ -6,6 +6,7 @@
   import Logo from './components/Logo.svelte';
   import Palette from './components/Palette.svelte';
   import UpdatePopup from './components/UpdatePopup.svelte';
+  import WhatsNew from './components/WhatsNew.svelte';
   import { isNight, normalize } from './lib/appearance.ts';
   import { go, link, nav } from './lib/nav.svelte.ts';
   import { connect, disconnect, loadMonitors } from './lib/live.svelte.ts';
@@ -45,6 +46,8 @@
   });
 
   const user = $derived(app.session?.user ?? null);
+  // Whether the "Eyrie was updated" window is closed or had nothing to show.
+  let newsDone = $state(false);
   const route = $derived(routeFor(nav.path));
   const page = $derived(route.page);
   const signedIn = $derived(user !== null);
@@ -60,6 +63,7 @@
       connect();
     } else {
       disconnect();
+      newsDone = false;
     }
   });
   const tabs = $derived(settingsTabs.filter((t) => !t.admin || user?.role === 'admin'));
@@ -177,7 +181,9 @@
       </details>
     </header>
     <Palette admin={user.role === 'admin'} bind:open={palette} />
-    {#if user.role === 'admin'}<UpdatePopup />{/if}
+    <!-- After an update, its notes first; then, for admins, any newer release. -->
+    <WhatsNew admin={user.role === 'admin'} ondone={() => (newsDone = true)} />
+    {#if newsDone && user.role === 'admin'}<UpdatePopup />{/if}
     <div class="content">
       <main class:wide={inSettings} class:split={inMonitors}>
         {#if inMonitors}

@@ -121,3 +121,54 @@ func TestUpdateReminder(t *testing.T) {
 		t.Errorf("viewer: %d", code)
 	}
 }
+
+func TestWhatsNew(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	viewer, _ := e.addUser(admin, "bob", "viewer")
+	type news struct {
+		Upgrade *update.Upgrade `json:"upgrade"`
+		URL     string          `json:"url"`
+	}
+	var n news
+	// Not updated: nothing to show.
+	if code := viewer.call("GET", "/api/v1/updates/news", nil, &n); code != http.StatusOK || n.Upgrade != nil ||
+		n.URL != "https://github.com/example/eyrie/releases" {
+		t.Fatalf("not updated %d %+v", code, n)
+	}
+	e.advance(time.Hour)
+	if err := e.st.SetSetting(t.Context(), "running_version", "v1.2.2", e.clock()); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.s.Updates.Started(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	e.advance(time.Hour)
+	late, _ := e.addUser(admin, "carol", "viewer")
+	for _, c := range []*client{admin, viewer} {
+		if c.call("GET", "/api/v1/updates/news", nil, &n); n.Upgrade == nil || n.Upgrade.From != "v1.2.2" || n.Upgrade.To != "v1.2.3" ||
+			n.Upgrade.Releases == nil {
+			t.Fatalf("updated %+v", n)
+		}
+	}
+	// A newer account never ran the old version.
+	if late.call("GET", "/api/v1/updates/news", nil, &n); n.Upgrade != nil {
+		t.Errorf("shown to a newer account %+v", n)
+	}
+	// Once per user.
+	if code := viewer.call("PUT", "/api/v1/updates/news", map[string]string{"version": "v1.2.3"}, nil); code != http.StatusNoContent {
+		t.Fatalf("seen: %d", code)
+	}
+	if viewer.call("GET", "/api/v1/updates/news", nil, &n); n.Upgrade != nil {
+		t.Error("shown again")
+	}
+	if admin.call("GET", "/api/v1/updates/news", nil, &n); n.Upgrade == nil {
+		t.Error("seen for everyone")
+	}
+	if code, _ := viewer.errorOf("PUT", "/api/v1/updates/news", map[string]string{}); code != http.StatusUnprocessableEntity {
+		t.Errorf("no version: %d", code)
+	}
+	if code, _ := e.client().errorOf("GET", "/api/v1/updates/news", nil); code != http.StatusUnauthorized {
+		t.Errorf("signed out: %d", code)
+	}
+}

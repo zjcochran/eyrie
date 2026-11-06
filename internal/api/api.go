@@ -246,6 +246,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/settings/updates/check", s.admin(s.checkUpdates))
 	mux.Handle("GET /api/v1/updates", s.admin(s.availableUpdate))
 	mux.Handle("PUT /api/v1/updates/reminder", s.admin(s.remindUpdate))
+	mux.Handle("GET /api/v1/updates/news", s.user(s.whatsNew))
+	mux.Handle("PUT /api/v1/updates/news", s.user(s.seenNews))
 	mux.Handle("GET /api/v1/settings/retention", s.admin(s.getRetention))
 	mux.Handle("PUT /api/v1/settings/retention", s.admin(s.saveRetention))
 

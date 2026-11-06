@@ -175,3 +175,54 @@ func (s *Server) remindUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// newsKey is where a user's last seen "Eyrie was updated" window is kept.
+func newsKey(userID int64) string { return "update_seen." + strconv.FormatInt(userID, 10) }
+
+// whatsNew answers the upgrade to the running version, with the notes of
+// its releases, once per user: null when Eyrie was not updated, the user
+// saw it already, or their account is newer than the upgrade.
+func (s *Server) whatsNew(w http.ResponseWriter, r *http.Request) {
+	out := struct {
+		Upgrade *update.Upgrade `json:"upgrade"`
+		// URL is the repository's releases on GitHub; "" when not on GitHub.
+		URL string `json:"url"`
+	}{}
+	if s.Updates.Repo != "" {
+		out.URL = "https://github.com/" + s.Updates.Repo + "/releases"
+	}
+	u, err := s.Updates.Upgrade(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	user := sessionFrom(r).User
+	var seen string
+	if _, err := s.Store.GetSetting(r.Context(), newsKey(user.ID), &seen); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	if u != nil && seen != u.To && user.CreatedAt.Before(u.At) {
+		out.Upgrade = u
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// seenNews keeps that the signed-in user closed the window for a version.
+func (s *Server) seenNews(w http.ResponseWriter, r *http.Request) {
+	var b struct {
+		Version string `json:"version"`
+	}
+	if !readJSON(w, r, &b) {
+		return
+	}
+	if b.Version == "" {
+		invalid(w, http.StatusUnprocessableEntity, "The version is missing.")
+		return
+	}
+	if err := s.Store.SetSetting(r.Context(), newsKey(sessionFrom(r).User.ID), b.Version, s.now()); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

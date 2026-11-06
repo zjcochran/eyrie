@@ -10,7 +10,8 @@ When it is on, Eyrie asks the GitHub API for the latest release of the
 repository it was built from (`GET /repos/<owner>/<name>/releases/latest`)
 at the interval chosen: every 6 or 12 hours, every day (the default), every
 3 days or every week. The first check happens within a minute of turning
-it on. Nothing is sent but that request, with `User-Agent: Eyrie/<version>`.
+it on. Nothing is sent but that request (and, [after an update](#after-an-update),
+one for the list of releases), with `User-Agent: Eyrie/<version>`.
 
 The repository is taken from the build's source address
 (`EYRIE_SOURCE_URL`, or the one built into the image,
@@ -29,13 +30,29 @@ the newer release with its notes.
 ![The reminder: a newer release's version, date and notes, with Don't remind me again, Remind me later and Close](../images/update-reminder-dark.png)
 
 When a newer release is out and checks are on, admins see a window with
-its version, release date, notes and a link to the release on GitHub when
-they open Eyrie. Viewers never see it. Each admin chooses:
+its version, release date and a link to its notes on GitHub when they
+open Eyrie. Viewers never see it. Each admin chooses:
 
 - **Close** hides it until they open Eyrie in a new tab.
 - **Remind me later** hides it for a day, on every device.
 - **Don't remind me again** hides it for good for this release. A later
   release shows a new reminder.
+
+## After an update
+
+![Eyrie was updated: the notes of each release since the version that ran before](../images/whats-new-dark.png)
+
+When Eyrie starts on a newer version than the one that ran before, every
+user sees the notes of the releases since then (newest first, up to 20)
+the next time they open Eyrie, once: **Close** (or Escape) hides it for
+good. Accounts made after the update don't see it, nor does a first start,
+a downgrade or a development build. When there is also a newer release
+than this one, admins see its reminder after closing this window.
+
+The notes come from GitHub, so Eyrie fetches them only while checks are
+on, within a minute of starting or of turning checks on (through the same
+proxy), and again an hour later if that fails. With checks off the window
+still says Eyrie was updated, with a link to the releases on GitHub.
 
 ## Notifications
 
