@@ -98,7 +98,7 @@
       { href: '/discover', label: 'Discover', icon: 'discover', current: page === 'discover', show: user?.role === 'admin' },
       { href: '/events', label: 'Events', icon: 'events', current: page === 'events', show: true },
       { href: '/maintenance', label: 'Maintenance', icon: 'maintenance', current: page === 'maintenance', show: true },
-      { href: '/status-pages', label: 'Status pages', icon: 'status-pages', current: inStatusPages, show: true },
+      { href: '/status-pages', label: 'Status pages', short: 'Status', icon: 'status-pages', current: inStatusPages, show: true },
       { href: '/settings/account', label: 'Settings', icon: 'settings', current: inSettings, show: true },
     ] as const,
   );
@@ -169,8 +169,10 @@
       <nav aria-label="Main">
         {#each links as l (l.href)}
           {#if l.show}
-            <a href={l.href} onclick={link} aria-current={l.current ? 'page' : undefined} title={l.label}
-              ><Icon name={l.icon} /><span class="label">{l.label}</span></a
+            <a href={l.href} onclick={link} aria-current={l.current ? 'page' : undefined} title={l.label} aria-label={l.label}
+              ><Icon name={l.icon} /><span class="label">{l.label}</span><span class="label short" aria-hidden="true"
+                >{'short' in l ? l.short : l.label}</span
+              ></a
             >
           {/if}
         {/each}
@@ -290,6 +292,10 @@
     flex: 1;
     display: flex;
     gap: 0.25rem;
+  }
+  /* A shorter name for the phone's tab bar. */
+  nav .short {
+    display: none;
   }
   nav a {
     display: flex;
@@ -555,7 +561,7 @@
       right: 0;
       bottom: 0;
       gap: 0;
-      padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
+      padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom));
       background: var(--surface);
       border-top: 1px solid var(--border);
     }
@@ -567,8 +573,14 @@
       justify-content: center;
       gap: 0.2rem;
       padding: 0.3rem 0;
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       font-weight: 500;
+    }
+    nav a .label:not(.short) {
+      display: none;
+    }
+    nav a .label.short {
+      display: block;
     }
     nav a .label {
       max-width: 100%;
@@ -628,7 +640,7 @@
       gap: 0.2rem;
       border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
       border-radius: 28px;
-      background: color-mix(in srgb, var(--surface) 60%, transparent);
+      background: color-mix(in srgb, var(--surface) 85%, transparent);
       backdrop-filter: blur(24px) saturate(140%);
       -webkit-backdrop-filter: blur(24px) saturate(140%);
       box-shadow:
