@@ -179,15 +179,15 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.4rem 0.85rem 0.4rem 0.45rem;
+    padding: 0.4rem 0.6rem 0.4rem 0.4rem;
     border: 2px solid var(--border);
     border-radius: 999px;
     font-weight: 500;
     cursor: pointer;
   }
-  /* Without a colour dot, the same space on both sides. */
+  /* Without a colour dot: more room on both sides of the text. */
   .swatch.plain {
-    padding-left: 0.85rem;
+    padding: 0.4rem 0.85rem;
   }
   .dot {
     width: 1.5rem;
