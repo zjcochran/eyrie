@@ -46,6 +46,11 @@ describe('events', () => {
         [days[2].day, [1]],
       ],
     );
+    // Out of time order, a day comes again rather than being reordered.
+    assert.deepEqual(
+      byDay([change(at(2026, 11, 6), 3), change(at(2026, 11, 5), 2), change(at(2026, 11, 6, 8), 1)], now).map((d) => d.day),
+      ['Today', 'Yesterday', 'Today'],
+    );
     assert.deepEqual(byDay([], now), []);
   });
 });

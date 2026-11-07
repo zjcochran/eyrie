@@ -34,7 +34,8 @@ export function dayOf(iso: string, now = new Date()): string {
   });
 }
 
-/** Changes (newest first) in runs of the same day, in order. */
+/** Changes in runs of the same day, in their order. A day can come twice
+ * when the list is not in time order (it is in the order they were saved). */
 export function byDay(changes: StatusChange[], now = new Date()): { day: string; changes: StatusChange[] }[] {
   const days: { day: string; changes: StatusChange[] }[] = [];
   for (const c of changes) {

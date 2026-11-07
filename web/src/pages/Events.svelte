@@ -66,7 +66,7 @@
   </p>
   {#if changes.length}
     <Pager {total} shown={changes.length} {busy} bind:page bind:size onchange={load} />
-    {#each byDay(changes) as d (d.day)}
+    {#each byDay(changes) as d, i (i)}
       <h2 class="day">{d.day}</h2>
       <ul class="events">
         {#each d.changes as c (`${c.id}-${c.monitor_id}-${c.at}`)}
