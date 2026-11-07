@@ -70,9 +70,13 @@ a monitor of what you choose in the monitor form. See
 ## Events
 
 **Events**, in the menu, lists every monitor's status changes, newest
-first: when each went down, came back up, became pending, or went into or
-out of maintenance, with the check's message. A monitor's name opens its
-page. It shows 25 changes a page; **Show** picks 25, 50, 100 or all, and
+first, under the day they happened (Today, Yesterday, then the date). Each
+says what happened and when: "**Image CDN** went down · 10:42". A monitor
+went down, came up, started failing (pending: a check failed and Eyrie is
+retrying it) or went into maintenance. Choose one to see its details: the
+full date and time, the check's message, the response time and a link to
+the monitor (on a phone, they slide up from the bottom). It shows 25
+changes a page; **Show** picks 25, 50, 100 or all, and
 **Newer** and **Older** move between pages. New changes appear on the
 first page as they happen. They are kept as long as heartbeats (**Settings → History**). Viewers see
 it too.
