@@ -177,7 +177,7 @@
     background: rgb(0 0 0 / 0.5);
   }
   /* Solid, even in Aurora, so the list does not show through. */
-  .card.dialog {
+  .backdrop .card.dialog {
     background: var(--surface);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
