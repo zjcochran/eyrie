@@ -296,7 +296,7 @@ glass in Aurora (icons only in those two). The logo, search and your
 account menu stay at the top. The browser's bar takes the colour scheme's
 background.
 
-![The dashboard on a phone, in dark mode](../images/narrow-dashboard-dark.png)
+![The dashboard on a phone, in dark mode, with the pages in a tab bar along the bottom](../images/narrow-dashboard-dark.png)
 
 ### On the home screen
 
