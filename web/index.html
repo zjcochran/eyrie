@@ -2,7 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Added to a phone's home screen, Eyrie opens as an app of its own:
+         full screen, with its icon. App.svelte keeps theme-color matching
+         the colour scheme. -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#111214" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Eyrie" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/favicon.svg" />
     <title>Eyrie</title>
   </head>

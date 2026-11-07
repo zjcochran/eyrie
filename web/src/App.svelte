@@ -82,6 +82,10 @@
     root.layout = look.layout;
     root.scheme = look.scheme;
     root.mode = isNight(look.mode, systemDark) ? 'night' : 'day';
+    // The browser's bar (or the phone's status bar, added to the home
+    // screen) in the scheme's background.
+    const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    if (bg) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
   });
 
   // Jump to anything (⌘K).
@@ -94,7 +98,7 @@
       { href: '/discover', label: 'Discover', icon: 'discover', current: page === 'discover', show: user?.role === 'admin' },
       { href: '/events', label: 'Events', icon: 'events', current: page === 'events', show: true },
       { href: '/maintenance', label: 'Maintenance', icon: 'maintenance', current: page === 'maintenance', show: true },
-      { href: '/status-pages', label: 'Status pages', icon: 'status-pages', current: inStatusPages, show: true },
+      { href: '/status-pages', label: 'Status pages', short: 'Status', icon: 'status-pages', current: inStatusPages, show: true },
       { href: '/settings/account', label: 'Settings', icon: 'settings', current: inSettings, show: true },
     ] as const,
   );
@@ -165,8 +169,10 @@
       <nav aria-label="Main">
         {#each links as l (l.href)}
           {#if l.show}
-            <a href={l.href} onclick={link} aria-current={l.current ? 'page' : undefined} title={l.label}
-              ><Icon name={l.icon} /><span class="label">{l.label}</span></a
+            <a href={l.href} onclick={link} aria-current={l.current ? 'page' : undefined} title={l.label} aria-label={l.label}
+              ><Icon name={l.icon} /><span class="label">{l.label}</span><span class="label short" aria-hidden="true"
+                >{'short' in l ? l.short : l.label}</span
+              ></a
             >
           {/if}
         {/each}
@@ -286,6 +292,10 @@
     flex: 1;
     display: flex;
     gap: 0.25rem;
+  }
+  /* A shorter name for the phone's tab bar. */
+  nav .short {
+    display: none;
   }
   nav a {
     display: flex;
@@ -518,27 +528,142 @@
     }
   }
 
-  /* On a phone: the account menu at the top right, beside the logo, and
-     the page menu on its own line below them. */
+  /* On a phone: the logo, search and the account menu at the top, and the
+     pages in a tab bar along the bottom, in reach of a thumb. The tab bar
+     and the header keep clear of the notch and the home bar (the
+     safe-area insets, with viewport-fit=cover in index.html). */
   @media (max-width: 48rem) {
+    .shell {
+      padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    }
+    header {
+      padding-top: max(0.6rem, env(safe-area-inset-top));
+    }
     .brand {
       flex: 1;
     }
     .search .label {
       display: none;
     }
+    .search {
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+      justify-content: center;
+    }
     :global(:root[data-layout='bento']) .search {
       order: 0;
-      min-width: 0;
+      min-width: 2.75rem;
     }
     nav {
-      order: 1;
-      flex-basis: 100%;
-      flex-wrap: wrap;
+      position: fixed;
+      z-index: 30;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      gap: 0;
+      padding: 0.35rem 0.25rem calc(0.35rem + env(safe-area-inset-bottom));
+      background: var(--surface);
+      border-top: 1px solid var(--border);
     }
+    nav a {
+      flex: 1;
+      min-width: 0;
+      min-height: 3rem;
+      flex-direction: column;
+      justify-content: center;
+      gap: 0.2rem;
+      padding: 0.3rem 0;
+      font-size: 0.64rem;
+      font-weight: 500;
+    }
+    nav a .label:not(.short) {
+      display: none;
+    }
+    nav a .label.short {
+      display: block;
+    }
+    nav a .label {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    /* Console: a flat bar with names, the page in the accent. */
+    nav a:hover,
+    nav a[aria-current='page'] {
+      background: none;
+    }
+    nav a[aria-current='page'] {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Bento: a dark pill floating over the page, the page on a bright
+       tile. Its header loses the blur, which would hold the fixed bar
+       inside it. */
     :global(:root[data-layout='bento']) header {
-      margin: 0.75rem 0.75rem 0;
+      margin: max(0.75rem, env(safe-area-inset-top)) 0.75rem 0;
+      padding-top: 0.5rem;
       border-radius: 24px;
+      backdrop-filter: none;
+      background: var(--surface);
+    }
+    :global(:root[data-layout='bento']) nav {
+      left: 0.75rem;
+      right: 0.75rem;
+      bottom: calc(0.75rem + env(safe-area-inset-bottom));
+      padding: 0.35rem;
+      border: 0;
+      border-radius: 999px;
+      background: var(--deep);
+      box-shadow: 0 18px 40px -16px rgb(0 0 0 / 0.5);
+    }
+    :global(:root[data-layout='bento']) nav a {
+      padding: 0;
+      color: color-mix(in srgb, var(--deep-fg) 70%, transparent);
+    }
+    :global(:root[data-layout='bento']) nav a :global(svg) {
+      display: block;
+    }
+    :global(:root[data-layout='bento']) nav a[aria-current='page'] {
+      background: var(--tile);
+      color: var(--tile-fg);
+    }
+
+    /* Aurora: frosted glass floating over the page, the page in a light
+       pill. */
+    :global(:root[data-layout='aurora']) nav {
+      left: 0.75rem;
+      right: 0.75rem;
+      bottom: calc(0.75rem + env(safe-area-inset-bottom));
+      padding: 0.4rem;
+      gap: 0.2rem;
+      border: 1px solid color-mix(in srgb, var(--fg) 16%, transparent);
+      border-radius: 28px;
+      background: color-mix(in srgb, var(--surface) 85%, transparent);
+      backdrop-filter: blur(24px) saturate(140%);
+      -webkit-backdrop-filter: blur(24px) saturate(140%);
+      box-shadow:
+        inset 0 1px 0 color-mix(in srgb, #ffffff 14%, transparent),
+        0 24px 48px -20px rgb(0 0 0 / 0.7);
+    }
+    :global(:root[data-layout='aurora']) nav a {
+      border-radius: 20px;
+    }
+    :global(:root[data-layout='aurora']) nav a[aria-current='page'] {
+      background: var(--fg);
+      color: var(--bg);
+    }
+
+    /* Bento and Aurora: icons only (the names stay for screen readers). */
+    :global(:root[data-layout='bento']) nav .label,
+    :global(:root[data-layout='aurora']) nav .label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
   }
   main {

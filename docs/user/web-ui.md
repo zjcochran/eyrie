@@ -46,7 +46,7 @@ only way in, the password fields are not shown.
   in the menu under your name, ends it: at the top right in the Bento
   layout, and at the bottom of the sidebar or rail in Console and Aurora.
   The menu also has **Your account** and **Appearance**; on a phone it
-  stays at the top right, with the page menu on its own line below.
+  stays at the top right, with the pages in a bar along the bottom.
 
 If you opened a page while signed out, you land on it after signing in.
 
@@ -70,9 +70,13 @@ a monitor of what you choose in the monitor form. See
 ## Events
 
 **Events**, in the menu, lists every monitor's status changes, newest
-first: when each went down, came back up, became pending, or went into or
-out of maintenance, with the check's message. A monitor's name opens its
-page. It shows 25 changes a page; **Show** picks 25, 50, 100 or all, and
+first, under the day they happened (Today, Yesterday, then the date). Each
+says what happened and when: "**Image CDN** went down · 10:42". A monitor
+went down, came up, started failing (pending: a check failed and Eyrie is
+retrying it) or went into maintenance. Choose one to see its details: the
+full date and time, the check's message, the response time and a link to
+the monitor (on a phone, they slide up from the bottom). It shows 25
+changes a page; **Show** picks 25, 50, 100 or all, and
 **Newer** and **Older** move between pages. New changes appear on the
 first page as they happen. They are kept as long as heartbeats (**Settings → History**). Viewers see
 it too.
@@ -288,7 +292,26 @@ theme and accent colour.
 ## Dark mode and phones
 
 Eyrie follows your device's light or dark setting unless you choose Day or
-Night in [Appearance](#appearance), and its pages fit a phone's screen: on
-a narrow screen every layout puts the pages along the top.
+Night in [Appearance](#appearance), and its pages fit a phone's screen.
+On a screen narrower than 48rem (768 px at the usual text size), the pages
+move to a tab bar along the bottom, in reach of your thumb: a flat bar
+with names in Console, a dark floating pill in Bento, and floating frosted
+glass in Aurora (icons only in those two). The logo, search and your
+account menu stay at the top. The browser's bar takes the colour scheme's
+background.
 
-![The dashboard on a phone, in dark mode](../images/narrow-dashboard-dark.png)
+![The dashboard on a phone, in dark mode, with the pages in a tab bar along the bottom](../images/narrow-dashboard-dark.png)
+
+### On the home screen
+
+Eyrie can be added to a phone's home screen, where it opens full screen
+like an app, with its own icon and no browser bar:
+
+- **iPhone and iPad:** in Safari, **Share → Add to Home Screen**.
+- **Android:** in Chrome, **⋮ → Add to Home screen** (or **Install app**).
+
+It is the same Eyrie as in the browser. On an iPhone it keeps a sign-in
+of its own, so you sign in once more the first time. The pages stay in the
+bottom bar; on Android the back gesture goes back a page, and on an iPhone
+you use the app's own links and back buttons. Android installs it as an
+app only when Eyrie is served over HTTPS (or on `localhost`).
