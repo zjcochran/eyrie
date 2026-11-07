@@ -30,8 +30,8 @@ describe('events', () => {
     assert.equal(dayOf(at(2026, 11, 6, 23), now), 'Today');
     assert.equal(dayOf(at(2026, 11, 5, 23), now), 'Yesterday');
     const older = dayOf(at(2026, 11, 3), now);
-    assert.ok(!['Today', 'Yesterday'].includes(older) && !older.includes('2026'), older);
-    assert.ok(dayOf(at(2025, 12, 31), now).includes('2025'));
+    assert.equal(['Today', 'Yesterday'].includes(older) || older.includes('2026'), false, older);
+    assert.equal(dayOf(at(2025, 12, 31), now).includes('2025'), true);
   });
   it('groups runs of a day in order', () => {
     const days = byDay(
