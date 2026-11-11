@@ -195,5 +195,7 @@ A pipeline schedule on the default branch runs only `deps` and `deps-fix`:
   `web/package.json`), refreshes the lock file as `ci/web-lock.sh` does,
   runs every check, and opens a merge
   request labelled `patch` (a draft if the checks fail) with a table of the
-  Go advisories fixed (`ci/deps-advisories.sh`). It needs the CI/CD
-  variables `CLAUDE_CODE_OAUTH_TOKEN` and `DEPS_BOT_TOKEN`.
+  Go advisories fixed (`ci/deps-advisories.sh`). When GitLab refuses the
+  merge request, it asks again up to five times and logs GitLab's answer.
+  It needs the CI/CD variables `CLAUDE_CODE_OAUTH_TOKEN` and
+  `DEPS_BOT_TOKEN`.
