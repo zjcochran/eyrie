@@ -10,7 +10,7 @@
   import { isNight, normalize } from './lib/appearance.ts';
   import { go, link, nav } from './lib/nav.svelte.ts';
   import { connect, disconnect, loadMonitors } from './lib/live.svelte.ts';
-  import { routeFor, settingsTabs } from './lib/route.ts';
+  import { routeFor, settingsTabs, tabGroups } from './lib/route.ts';
   import { api, app, refresh } from './lib/session.svelte.ts';
   import Account from './pages/Account.svelte';
   import Agents from './pages/Agents.svelte';
@@ -210,11 +210,16 @@
         {:else}
           <h1>Settings</h1>
           <div class="settings">
-            <div class="tabs" role="tablist" aria-orientation="vertical">
-              {#each tabs as t (t.page)}
-                <a href={t.path} onclick={link} role="tab" aria-selected={t.page === page}>{t.label}</a>
+            <nav class="tabs" aria-label="Settings">
+              {#each tabGroups(tabs) as g (g.group)}
+                <div class="tab-group" role="group" aria-labelledby="settings-{g.group}">
+                  <h2 id="settings-{g.group}">{g.group}</h2>
+                  {#each g.tabs as t (t.page)}
+                    <a href={t.path} onclick={link} aria-current={t.page === page ? 'page' : undefined}>{t.label}</a>
+                  {/each}
+                </div>
               {/each}
-            </div>
+            </nav>
             <div class="tab">
               {#if page === 'account'}
                 <Account />
@@ -698,7 +703,21 @@
     top: 1rem;
     display: flex;
     flex-direction: column;
+    gap: 1.1rem;
+  }
+  .tab-group {
+    display: flex;
+    flex-direction: column;
     gap: 0.15rem;
+  }
+  .tab-group h2 {
+    margin: 0 0 0.2rem;
+    padding: 0 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
   }
   .tabs a {
     padding: 0.45rem 0.7rem;
@@ -710,7 +729,7 @@
     color: var(--fg);
     background: color-mix(in srgb, var(--fg) 6%, transparent);
   }
-  .tabs a[aria-selected='true'] {
+  .tabs a[aria-current='page'] {
     color: var(--fg);
     font-weight: 600;
     background: color-mix(in srgb, var(--fg) 8%, transparent);
@@ -720,7 +739,7 @@
     border-radius: 999px;
     padding: 0.45rem 0.95rem;
   }
-  :global(:root[data-layout='bento']) .tabs a[aria-selected='true'] {
+  :global(:root[data-layout='bento']) .tabs a[aria-current='page'] {
     background: var(--fg);
     color: var(--bg);
     box-shadow: none;
@@ -733,8 +752,16 @@
     }
     .tabs {
       position: static;
+      gap: 0.6rem;
+    }
+    .tab-group {
       flex-direction: row;
       flex-wrap: wrap;
+      align-items: center;
+    }
+    .tab-group h2 {
+      flex-basis: 100%;
+      margin: 0;
     }
   }
   footer {

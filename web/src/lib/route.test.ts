@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { pageFor, queryValue, routeFor, safeNext } from './route.ts';
+import { pageFor, queryValue, routeFor, safeNext, settingsTabs, tabGroups } from './route.ts';
 
 describe('pageFor', () => {
   it('maps paths to pages', () => {
@@ -58,5 +58,20 @@ describe('queryValue', () => {
   it('reads a query value', () => {
     assert.equal(queryValue('?error=No+account&x=1', 'error'), 'No account');
     assert.equal(queryValue('', 'error'), '');
+  });
+});
+
+describe('tabGroups', () => {
+  it('puts the settings tabs in their groups, each once', () => {
+    const groups = tabGroups(settingsTabs);
+    assert.deepEqual(
+      groups.map((g) => g.group),
+      ['You', 'Access', 'Monitoring', 'Alerts', 'System'],
+    );
+    assert.equal(groups.flatMap((g) => g.tabs).length, settingsTabs.length);
+    assert.deepEqual(
+      tabGroups(settingsTabs.filter((t) => !t.admin)).map((g) => [g.group, g.tabs.map((t) => t.page)]),
+      [['You', ['account', 'appearance']]],
+    );
   });
 });
