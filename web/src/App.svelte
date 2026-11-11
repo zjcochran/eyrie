@@ -719,6 +719,9 @@
     text-transform: uppercase;
     color: var(--muted);
   }
+  .tab-group a {
+    margin-left: 0.75rem;
+  }
   .tabs a {
     padding: 0.45rem 0.7rem;
     border-radius: calc(var(--radius) * 0.7);
@@ -762,6 +765,10 @@
     .tab-group h2 {
       flex-basis: 100%;
       margin: 0;
+      padding: 0;
+    }
+    .tab-group a {
+      margin-left: 0;
     }
   }
   footer {
