@@ -36,22 +36,33 @@ export interface Route {
   slug?: string;
 }
 
-/** The settings tabs, in order; admin tabs are hidden from viewers. */
-export const settingsTabs: { page: Page; path: string; label: string; admin: boolean }[] = [
-  { page: 'account', path: '/settings/account', label: 'Your account', admin: false },
-  { page: 'appearance', path: '/settings/appearance', label: 'Appearance', admin: false },
-  { page: 'users', path: '/settings/users', label: 'Users', admin: true },
-  { page: 'sso', path: '/settings/sso', label: 'Single sign-on', admin: true },
-  { page: 'tokens', path: '/settings/api-tokens', label: 'API tokens', admin: true },
-  { page: 'agents', path: '/settings/agents', label: 'Agents', admin: true },
-  { page: 'tags', path: '/settings/tags', label: 'Tags', admin: true },
-  { page: 'notifications', path: '/settings/notifications', label: 'Notifications', admin: true },
-  { page: 'analysis', path: '/settings/alert-analysis', label: 'Alert analysis', admin: true },
-  { page: 'retention', path: '/settings/history', label: 'History', admin: true },
-  { page: 'backup', path: '/settings/backup', label: 'Backup and restore', admin: true },
-  { page: 'updates', path: '/settings/updates', label: 'Updates', admin: true },
-  { page: 'audit', path: '/settings/audit-log', label: 'Audit log', admin: true },
+/** The settings tabs, in order and in their groups; admin tabs are hidden from viewers. */
+export const settingsTabs: { page: Page; path: string; label: string; group: string; admin: boolean }[] = [
+  { page: 'account', path: '/settings/account', label: 'Your account', group: 'You', admin: false },
+  { page: 'appearance', path: '/settings/appearance', label: 'Appearance', group: 'You', admin: false },
+  { page: 'users', path: '/settings/users', label: 'Users', group: 'Access', admin: true },
+  { page: 'sso', path: '/settings/sso', label: 'Single sign-on', group: 'Access', admin: true },
+  { page: 'tokens', path: '/settings/api-tokens', label: 'API tokens', group: 'Access', admin: true },
+  { page: 'agents', path: '/settings/agents', label: 'Agents', group: 'Monitoring', admin: true },
+  { page: 'tags', path: '/settings/tags', label: 'Tags', group: 'Monitoring', admin: true },
+  { page: 'retention', path: '/settings/history', label: 'History', group: 'Monitoring', admin: true },
+  { page: 'notifications', path: '/settings/notifications', label: 'Notifications', group: 'Alerts', admin: true },
+  { page: 'analysis', path: '/settings/alert-analysis', label: 'Alert analysis', group: 'Alerts', admin: true },
+  { page: 'backup', path: '/settings/backup', label: 'Backup and restore', group: 'System', admin: true },
+  { page: 'updates', path: '/settings/updates', label: 'Updates', group: 'System', admin: true },
+  { page: 'audit', path: '/settings/audit-log', label: 'Audit log', group: 'System', admin: true },
 ];
+
+/** Tabs in their groups, in order. */
+export function tabGroups<T extends { group: string }>(tabs: T[]): { group: string; tabs: T[] }[] {
+  const groups: { group: string; tabs: T[] }[] = [];
+  for (const t of tabs) {
+    const last = groups[groups.length - 1];
+    if (last?.group === t.group) last.tabs.push(t);
+    else groups.push({ group: t.group, tabs: [t] });
+  }
+  return groups;
+}
 
 /** The page for a path; /settings is the account tab. */
 export function routeFor(path: string): Route {

@@ -96,18 +96,21 @@ and what it covers; admins add, change, turn off and delete them there. See
 
 ## Settings
 
-**Settings**, in the menu, has tabs. Everyone has **Your account** and
-**Appearance**; admins
-also have **Users**, **Single sign-on**, **API tokens**, **Agents** (see
-[Agents](agents.md)), **Tags** (see
-[Tags](monitors.md#tags)), **Notifications** (see
-[Notifications](notifications.md)), **Alert
-analysis** (see [Alert analysis](alert-analysis.md)), **History**
-(how long heartbeats are kept; see [Monitors](monitors.md#uptime-and-history))
-**Backup and restore** (see [Backup and restore](backup-and-restore.md)),
-**Updates** (see [Checking for updates](updates.md)) and **Audit log**.
-The tabs are a menu down the left of the page; on a phone, a row above
-it.
+**Settings**, in the menu, has tabs in groups. Everyone has **You**:
+**Your account** and **Appearance**. Admins also have:
+
+- **Access**: **Users**, **Single sign-on** and **API tokens**.
+- **Monitoring**: **Agents** (see [Agents](agents.md)), **Tags** (see
+  [Tags](monitors.md#tags)) and **History** (how long heartbeats are kept;
+  see [Monitors](monitors.md#uptime-and-history)).
+- **Alerts**: **Notifications** (see [Notifications](notifications.md))
+  and **Alert analysis** (see [Alert analysis](alert-analysis.md)).
+- **System**: **Backup and restore** (see
+  [Backup and restore](backup-and-restore.md)), **Updates** (see
+  [Checking for updates](updates.md)) and **Audit log**.
+
+The tabs are a menu down the left of the page; on a phone, rows above
+it, one per group.
 
 ### Your account
 
