@@ -210,7 +210,7 @@
         {:else}
           <h1>Settings</h1>
           <div class="settings">
-            <nav class="tabs" aria-label="Settings">
+            <div class="tabs" role="navigation" aria-label="Settings">
               {#each tabGroups(tabs) as g (g.group)}
                 <div class="tab-group" role="group" aria-labelledby="settings-{g.group}">
                   <h2 id="settings-{g.group}">{g.group}</h2>
@@ -219,7 +219,7 @@
                   {/each}
                 </div>
               {/each}
-            </nav>
+            </div>
             <div class="tab">
               {#if page === 'account'}
                 <Account />
