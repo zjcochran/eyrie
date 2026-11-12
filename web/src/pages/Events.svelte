@@ -176,12 +176,6 @@
     padding: 1rem;
     background: rgb(0 0 0 / 0.5);
   }
-  /* Solid, even in Aurora, so the list does not show through. */
-  .backdrop .card.dialog {
-    background: var(--surface);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
   .dialog {
     width: min(32rem, 100%);
     box-sizing: border-box;
