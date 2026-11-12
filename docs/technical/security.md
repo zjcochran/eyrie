@@ -12,7 +12,7 @@ change it. The threat model for sign-in and accounts:
 | A stolen password | Optional two-factor sign-in with an authenticator app |
 | A stolen session cookie | `HttpOnly`, `SameSite=Lax`, `Secure` over HTTPS; only a hash stored; sessions end on a password change, a reset or disabling |
 | Cross-site request forgery | A per-session CSRF token on every change, plus Go's cross-origin protection |
-| Script injection | Svelte escapes text; a Content-Security-Policy without inline scripts; SVG pictures refused |
+| Script injection | Svelte escapes text; a Content-Security-Policy without inline scripts, `<base>` tags or forms sent to other sites; SVG pictures refused |
 | Clickjacking | `X-Frame-Options: DENY`, `frame-ancestors 'none'` |
 | Forged proxy headers | Believed only from configured trusted proxies |
 | A forged or replayed agent report | Ed25519 signatures over the request with a time and a nonce; keys rotated every 30 days, refused after 90 |

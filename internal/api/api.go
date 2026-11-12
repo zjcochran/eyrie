@@ -326,7 +326,7 @@ func securityHeaders(h http.Handler) http.Handler {
 		hd.Set("X-Frame-Options", "DENY")
 		hd.Set("Referrer-Policy", "same-origin")
 		hd.Set("Content-Security-Policy",
-			"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'")
+			"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		h.ServeHTTP(w, r)
 	})
 }
