@@ -109,25 +109,23 @@
 </main>
 
 <style>
-  /* In the middle of the screen, over a soft glow in the logo's colours;
-     the footer stays below. */
+  /* In the middle of the screen, over a soft glow in the accent colour
+     that fills the window; the footer stays below. */
   main {
-    position: relative;
     display: grid;
     place-items: center;
     min-height: calc(100dvh - 5.5rem);
     padding: 2rem 1rem 0;
     box-sizing: border-box;
-    overflow: hidden;
   }
   main::before {
     content: '';
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: -1;
     background:
-      radial-gradient(32rem 22rem at 30% 20%, color-mix(in srgb, var(--logo-a, var(--accent)) 16%, transparent), transparent 70%),
-      radial-gradient(30rem 24rem at 72% 75%, color-mix(in srgb, var(--logo-b, var(--accent)) 14%, transparent), transparent 70%);
+      radial-gradient(40rem 26rem at 50% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 70%),
+      radial-gradient(36rem 28rem at 85% 100%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%);
     pointer-events: none;
   }
   .panel {
@@ -162,7 +160,7 @@
     background: color-mix(in srgb, var(--surface) 88%, transparent);
     box-shadow:
       0 1px 0 color-mix(in srgb, var(--fg) 6%, transparent) inset,
-      0 24px 48px -24px rgb(0 0 0 / 0.45);
+      0 24px 48px -28px rgb(0 0 0 / 0.35);
     backdrop-filter: blur(12px);
   }
   form {
