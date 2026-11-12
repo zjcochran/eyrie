@@ -144,6 +144,21 @@ select {
   color: var(--fg);
 }
 
+/* The browser's own arrow sits against the right edge: draw one in the
+   theme's colour, inset like the text. */
+select {
+  appearance: none;
+  padding-right: 2.1rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.05rem) 50%,
+    calc(100% - 0.75rem) 50%;
+  background-size: 0.3rem 0.3rem;
+  background-repeat: no-repeat;
+}
+
 /* That padding would squash a colour picker's swatch to a line. */
 input[type='color'] {
   width: 3rem;
