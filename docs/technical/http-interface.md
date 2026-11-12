@@ -694,12 +694,15 @@ On every response:
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: same-origin
-Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'
+Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'
 ```
 
 The built app has no inline scripts, so scripts can only come from Eyrie
 itself. `'unsafe-inline'` for styles is needed by Svelte, which sets styles
 at run time. `img-src data:` allows the two-factor QR code.
+`base-uri 'none'` stops an injected `<base>` tag from redirecting the
+app's relative links, and `form-action 'self'` stops an injected form from
+sending what is typed into it to another site.
 
 ## Timeouts
 

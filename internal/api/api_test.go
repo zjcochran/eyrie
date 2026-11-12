@@ -323,7 +323,7 @@ func TestRouting(t *testing.T) {
 		"X-Content-Type-Options":  "nosniff",
 		"X-Frame-Options":         "DENY",
 		"Referrer-Policy":         "same-origin",
-		"Content-Security-Policy": "default-src 'self'",
+		"Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
 	} {
 		if !strings.Contains(resp.Header.Get(k), want) {
 			t.Errorf("%s = %q", k, resp.Header.Get(k))
