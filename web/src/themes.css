@@ -648,7 +648,7 @@
 }
 :root[data-layout='aurora'] input,
 :root[data-layout='aurora'] select {
-  background: color-mix(in srgb, var(--surface-2) 70%, transparent);
+  background-color: color-mix(in srgb, var(--surface-2) 70%, transparent);
 }
 
 /* Every layout: rounder controls and a clear primary. */
