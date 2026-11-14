@@ -64,6 +64,22 @@ const connection = (placeholder: string, help: string): Field => ({
 });
 const query = (placeholder: string): Field => ({ key: 'query', label: 'Query', kind: 'textarea', placeholder, help: 'Must run without an error' });
 const operators = ['==', '!=', '<', '<=', '>', '>=', 'contains'];
+/** An SNMP agent: where it is and how to sign in to it. */
+const snmpDevice = (placeholder: string): Field[] => [
+  { key: 'host', label: 'Host', kind: 'text', placeholder },
+  port('161'),
+  { key: 'version', label: 'SNMP version', kind: 'select', options: ['2c', '1', '3'] },
+  { key: 'community', label: 'Community', kind: 'secret', placeholder: 'public', when: { key: 'version', values: ['1', '2c'] } },
+];
+const snmpV3: Field[] = [
+  v3({ key: 'username', label: 'User name', kind: 'text' }),
+  v3({ key: 'auth_protocol', label: 'Authentication', kind: 'select', options: ['none', 'MD5', 'SHA', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'] }),
+  v3({ key: 'auth_password', label: 'Authentication password', kind: 'secret' }),
+  v3({ key: 'priv_protocol', label: 'Privacy', kind: 'select', options: ['none', 'DES', 'AES'] }),
+  v3({ key: 'priv_password', label: 'Privacy password', kind: 'secret' }),
+  v3({ key: 'context_name', label: 'Context name', kind: 'text', help: 'Optional' }),
+];
+const watch = (...values: string[]): When => ({ key: 'watch', values });
 
 /** The fields of each type that has settings. */
 export const fields: Record<string, Field[]> = {
@@ -129,19 +145,60 @@ export const fields: Record<string, Field[]> = {
     { key: 'calling_station_id', label: 'Calling-Station-Id', kind: 'text', help: 'Optional' },
   ],
   snmp: [
-    { key: 'host', label: 'Host', kind: 'text', placeholder: 'switch.example.com' },
-    port('161'),
-    { key: 'version', label: 'SNMP version', kind: 'select', options: ['2c', '1', '3'] },
-    { key: 'community', label: 'Community', kind: 'secret', placeholder: 'public', when: { key: 'version', values: ['1', '2c'] } },
+    ...snmpDevice('switch.example.com'),
     { key: 'oid', label: 'OID', kind: 'text', placeholder: '1.3.6.1.2.1.1.3.0' },
     { key: 'operator', label: 'Comparison', kind: 'select', options: ['==', '!=', '<', '<=', '>', '>=', 'contains'] },
     { key: 'expected', label: 'Expected value', kind: 'text', help: 'Empty: any value' },
-    v3({ key: 'username', label: 'User name', kind: 'text' }),
-    v3({ key: 'auth_protocol', label: 'Authentication', kind: 'select', options: ['none', 'MD5', 'SHA', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'] }),
-    v3({ key: 'auth_password', label: 'Authentication password', kind: 'secret' }),
-    v3({ key: 'priv_protocol', label: 'Privacy', kind: 'select', options: ['none', 'DES', 'AES'] }),
-    v3({ key: 'priv_password', label: 'Privacy password', kind: 'secret' }),
-    v3({ key: 'context_name', label: 'Context name', kind: 'text', help: 'Optional' }),
+    ...snmpV3,
+  ],
+  'snmp-storage': [
+    ...snmpDevice('nas.example.com'),
+    {
+      key: 'watch',
+      label: 'Watch',
+      kind: 'select',
+      options: ['capacity', 'volume-health', 'disk-health', 'disk-temperature', 'system-health', 'command'],
+      help: "capacity: a volume's free space; command: a command the device's snmpd runs, up when it exits with 0",
+    },
+    {
+      key: 'volume',
+      label: 'Volume',
+      kind: 'text',
+      placeholder: '/volume1',
+      help: 'As the device names it: a mount point such as /volume1 for capacity; a volume or pool such as Volume 1 for health, or empty for all',
+      when: watch('capacity', 'volume-health'),
+    },
+    { key: 'max_percent', label: 'Highest use (%)', kind: 'number', min: 1, max: 100, placeholder: '90', when: watch('capacity') },
+    { key: 'min_free_gb', label: 'Least free space (GB)', kind: 'number', min: 0, max: 1000000000, placeholder: 'no limit', when: watch('capacity') },
+    {
+      key: 'max_inode_percent',
+      label: 'Highest inode use (%)',
+      kind: 'number',
+      min: 0,
+      max: 100,
+      placeholder: 'no limit',
+      help: 'Only from net-snmp disk lines',
+      when: watch('capacity'),
+    },
+    { key: 'repairing_down', label: 'Down while a volume is being repaired or rebuilt', kind: 'check', when: watch('volume-health') },
+    {
+      key: 'disk',
+      label: 'Disk',
+      kind: 'text',
+      placeholder: 'Disk 1',
+      help: 'As the device names it; empty: all disks',
+      when: watch('disk-health', 'disk-temperature'),
+    },
+    { key: 'max_celsius', label: 'Highest temperature (°C)', kind: 'number', min: 1, max: 150, placeholder: '50', when: watch('disk-temperature') },
+    {
+      key: 'command',
+      label: 'Command',
+      kind: 'text',
+      placeholder: 'snapraid',
+      help: 'The name of an extend line in snmpd.conf',
+      when: watch('command'),
+    },
+    ...snmpV3,
   ],
   docker: [
     { key: 'container', label: 'Container', kind: 'text', placeholder: 'shop', help: 'Its name or ID', suggest: 'container' },

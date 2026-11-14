@@ -355,6 +355,39 @@ queries (`==`, `!=`, `<`, `<=`, `>`, `>=` as numbers when both are, and
   other bytes as hex (`02:00:00:00:00:01`); OIDs and IP addresses dotted.
   The message is `1.3.6.1.2.1.1.5.0 is switch-1`, or `…, not == switch-2`.
 
+### SNMP storage (NAS)
+
+Reads a NAS's storage over SNMP, from the same **host**, port, version and
+credentials as an [SNMP](#snmp) monitor. **Watch** is what is checked;
+[NAS monitoring](nas.md) says what each system reports and how to set it
+up.
+
+| Watch | Settings | Down when | Message |
+| --- | --- | --- | --- |
+| `capacity` (the default) | **Volume**: its mount point, such as `/volume1`; **highest use** (90%), **least free space** in GB, **highest inode use** (both off by default) | More is used, or less is free, than set | `/volume1: 72% used, 2.1 TB free of 7.6 TB`, then why it is down |
+| `volume-health` | **Volume**: a volume or pool as the device names it, empty for all; **down while a volume is being repaired or rebuilt** (off) | A volume is degraded, crashed, failed, faulted or in a state Eyrie does not know | `Volume 1 normal, Volume 2 scrubbing` |
+| `disk-health` | **Disk**, empty for all | A disk has failed or its SMART status is not good; on Synology DSM 7.1 and later, also its health is a warning or worse | `Disk 2 normal, health warning` |
+| `disk-temperature` | **Disk**, empty for all; **highest temperature** (50 °C) | A disk is hotter | `Hottest of 4 disks: Disk 2 41 °C`, `Above 50 °C: Disk 2 52 °C` |
+| `system-health` | | Synology: the system, power or a fan has failed; QNAP: a fan or power supply has | `System normal, power normal, system fan normal, CPU fan normal, 41 °C` |
+| `command` | **Command**: the name of an `extend` line in the device's `snmpd.conf` | The command did not exit with 0 | Its first line, with `(exit status 1)` when it failed |
+
+- Space is read from net-snmp's `dskTable` (64-bit sizes and inodes)
+  where the device has the volume there, otherwise from `hrStorageTable`.
+  Used space is counted as `df` counts it; sizes are in decimal units
+  (1 TB = 10¹² bytes).
+- Health is read from Synology's, QNAP's, Asustor's or TrueNAS's MIB,
+  whichever the device answers; a device with none says `The device
+  reports no volume health over SNMP: …`.
+- Volumes and disks are found by name, not by their place in a table, which
+  can change when disks are added. A name the device does not have is
+  down: `The device has no volume "/volume9"; it has /volume1, /volume2`.
+- Repairs, rebuilds, scrubs, expansions and parity checks are up, with
+  their state in the message, unless **down while a volume is being
+  repaired or rebuilt** is ticked: the failure that started a repair was
+  down already.
+- A missing extend line is down: `Snmpd has no extend line named snapraid:
+  add one to snmpd.conf`.
+
 ### Docker container
 
 Asks the Docker daemon about a **container** (its name or ID): up while it

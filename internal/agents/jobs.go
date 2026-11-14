@@ -106,14 +106,15 @@ func (m *Manager) Run(ctx context.Context, agent int64, job agentauth.Job) check
 }
 
 // Discover has an agent discover what settings of type typ point at (an
-// SNMP device) within timeout, waiting until ctx ends, and returns what
+// SNMP device, or its storage) within timeout, waiting until ctx ends, and returns what
 // it found.
 func (m *Manager) Discover(ctx context.Context, agent int64, typ string, settings json.RawMessage, timeout time.Duration) (json.RawMessage, error) {
 	r := m.run(ctx, agent, agentauth.Job{Type: typ, Settings: settings, TimeoutMS: timeout.Milliseconds(), Discover: true})
 	a, _ := m.Get(agent)
 	switch {
-	// Agents from before discovery check the settings, which have no OID.
-	case strings.HasPrefix(r.Message, "The agent cannot check"):
+	// Agents from before discovery check the settings, which have no OID;
+	// those from before a type's discovery say they cannot discover it.
+	case strings.HasPrefix(r.Message, "The agent cannot check"), strings.HasPrefix(r.Message, "The agent cannot discover"):
 		return nil, fmt.Errorf("the agent %s cannot discover: update it to this version of Eyrie", a.Name)
 	case !r.OK:
 		return nil, errors.New(r.Message)

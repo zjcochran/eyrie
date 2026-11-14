@@ -287,9 +287,9 @@ func TestSNMPInvalid(t *testing.T) {
 			t.Errorf("%s accepted", s)
 		}
 	}
-	s := &SNMP{Host: "r.example.com", Port: 161, Version: "3", OID: "1.3.6", Operator: "==", Expected: "x", Username: "alice",
-		AuthProtocol: "SHA", PrivProtocol: "AES"}
-	if f := s.describe(); len(f) != 7 {
+	s := &SNMP{SNMPAgent: SNMPAgent{Host: "r.example.com", Port: 161, Version: "3", Username: "alice", AuthProtocol: "SHA",
+		PrivProtocol: "AES"}, OID: "1.3.6", Operator: "==", Expected: "x"}
+	if f := s.describe(); len(f) != 7 || f[2].Name != "OID" || f[3].Name != "Expected" {
 		t.Errorf("describe %v", f)
 	}
 }

@@ -70,19 +70,25 @@ func (a *Agent) runJob(ctx context.Context, job agentauth.Job) {
 // discover runs a discovery job, with its timeout.
 func (a *Agent) discover(ctx context.Context, job agentauth.Job) agentauth.Result {
 	r := agentauth.Result{ID: job.ID, LatencyUS: -1}
-	if job.Type != "snmp" {
+	cctx, cancel := context.WithTimeout(ctx, timeout(job))
+	defer cancel()
+	var d any
+	var err error
+	switch job.Type {
+	case "snmp":
+		d, err = check.DiscoverSNMP(cctx, a.Env, job.Settings)
+	case "snmp-storage":
+		d, err = check.DiscoverStorage(cctx, a.Env, job.Settings)
+	default:
 		r.Message = "The agent cannot discover " + job.Type
 		return r
 	}
-	cctx, cancel := context.WithTimeout(ctx, timeout(job))
-	defer cancel()
-	d, err := check.DiscoverSNMP(cctx, a.Env, job.Settings)
 	if err != nil {
 		r.Message = err.Error()
 		return r
 	}
 	r.OK = true
-	r.Found, _ = json.Marshal(d) //nolint:errchkjson // a struct of strings and numbers
+	r.Found, _ = json.Marshal(d) //nolint:errchkjson // structs of strings and numbers
 	return r
 }
 

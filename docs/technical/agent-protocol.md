@@ -161,13 +161,17 @@ typed (the community and passwords included) and a 60-second timeout. The
 agent asks the device (`check.DiscoverSNMP`, the same code as Eyrie) and
 posts a result whose `found` is
 `{"name", "description", "interfaces": [{"index", "name", "alias", "admin", "oper"}]}`;
-on a failure, `ok` is false and `message` says why. Eyrie waits 80
+on a failure, `ok` is false and `message` says why. Discovery of a NAS's
+storage is the same with type `snmp-storage` (`check.DiscoverStorage`),
+whose `found` is
+`{"name", "description", "volumes": [{"name", "total", "free", "percent", "inode_percent"}], "pools": [{"name", "state", "ok", "repairing"}], "disks": [same], "temps": [{"name", "celsius"}], "system": {same as a pool}, "commands": [{"name", "status", "output"}]}`. Eyrie waits 80
 seconds for it, and cuts each text to its first line and 200 bytes.
 
 An agent from before discovery ignores `discover` and checks the
 settings, which have no OID: its answer starts `The agent cannot check`,
 and Eyrie answers `The agent edge cannot discover: update it to this
-version of Eyrie.`
+version of Eyrie.` An agent from before NAS discovery answers `The agent
+cannot discover snmp-storage`, with the same answer from Eyrie.
 
 ## Offline
 

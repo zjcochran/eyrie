@@ -188,6 +188,7 @@ func TestDiscover(t *testing.T) {
 		{agentauth.Result{OK: true, Found: json.RawMessage(`{"name":"switch"}`)}, ""},
 		{agentauth.Result{Message: "no answer: is the community right?"}, "no answer: is the community right?"},
 		{agentauth.Result{Message: "The agent cannot check this monitor: the OID is not valid"}, "the agent edge cannot discover: update it to this version of Eyrie"},
+		{agentauth.Result{Message: "The agent cannot discover snmp-storage"}, "the agent edge cannot discover: update it to this version of Eyrie"},
 		{agentauth.Result{OK: true}, "the agent edge found nothing"},
 	} {
 		type answer struct {

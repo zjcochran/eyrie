@@ -159,6 +159,7 @@ func init() {
 	register(Type{"ntp", "NTP", true, func() settings { return &NTP{} }})
 	register(Type{"radius", "RADIUS", true, func() settings { return &Radius{} }})
 	register(Type{"snmp", "SNMP", true, func() settings { return &SNMP{} }})
+	register(Type{"snmp-storage", "SNMP storage (NAS)", true, func() settings { return &SNMPStorage{} }})
 	register(Type{"docker", "Docker container", true, func() settings { return &Docker{} }})
 	register(Type{"docker-swarm", "Docker Swarm service", true, func() settings { return &Swarm{} }})
 	register(Type{"kubernetes", "Kubernetes workload", true, func() settings { return &Kubernetes{} }})

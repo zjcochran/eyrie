@@ -22,7 +22,8 @@ import (
 )
 
 // Discovery: an admin asks what one source has (the containers of a
-// Docker engine, the workloads an agent reports, an SNMP device), to add
+// Docker engine, the workloads an agent reports, an SNMP device or its
+// storage), to add
 // monitors of them. Nothing is added here: each one found carries the
 // settings that start the monitor form.
 
@@ -37,6 +38,7 @@ var discoverable = map[string]string{
 	"kubernetes":   "Kubernetes workloads",
 	"proxmox":      "Proxmox VE guests",
 	"snmp":         "SNMP devices",
+	"snmp-storage": "NAS storage",
 }
 
 // workloadKinds are the kinds of an agent's workloads each type monitors,
@@ -73,14 +75,14 @@ func (s *Server) discover(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		Type     string          `json:"type"`
 		AgentID  int64           `json:"agent_id"` // 0: Eyrie
-		Settings json.RawMessage `json:"settings"` // snmp: the device and its credentials
+		Settings json.RawMessage `json:"settings"` // snmp, snmp-storage: the device and its credentials
 	}
 	if !readJSON(w, r, &b) {
 		return
 	}
 	what, ok := discoverable[b.Type]
 	if !ok {
-		invalid(w, http.StatusBadRequest, "Discovery finds Docker containers, Docker Swarm services, Kubernetes workloads, Proxmox VE guests and SNMP devices.")
+		invalid(w, http.StatusBadRequest, "Discovery finds Docker containers, Docker Swarm services, Kubernetes workloads, Proxmox VE guests, SNMP devices and NAS storage.")
 		return
 	}
 	where := "Eyrie"
@@ -94,9 +96,12 @@ func (s *Server) discover(w http.ResponseWriter, r *http.Request) {
 	}
 	var out discovered
 	var err error
-	if b.Type == "snmp" {
+	switch b.Type {
+	case "snmp":
 		out, err = s.discoverSNMP(r.Context(), b.AgentID, b.Settings)
-	} else {
+	case "snmp-storage":
+		out, err = s.discoverStorage(r.Context(), b.AgentID, b.Settings)
+	default:
 		out.Found, err = s.discoverWorkloads(r.Context(), b.Type, b.AgentID, what)
 	}
 	if err != nil {
@@ -230,6 +235,48 @@ func (s *Server) discoverSNMP(ctx context.Context, agent int64, settings json.Ra
 	return out, nil
 }
 
+// discoverStorage asks an SNMP device, from Eyrie or an agent, about its
+// storage: a monitor of each volume's space and health, of its disks'
+// health and temperature, of its system's health and of each command its
+// snmpd runs.
+func (s *Server) discoverStorage(ctx context.Context, agent int64, settings json.RawMessage) (discovered, error) {
+	var d check.StorageDevice
+	ctx, cancel := context.WithTimeout(ctx, discoverTimeout+20*time.Second)
+	defer cancel()
+	if agent == 0 {
+		var err error
+		dctx, cancel := context.WithTimeout(ctx, discoverTimeout)
+		defer cancel()
+		if d, err = check.DiscoverStorage(dctx, s.Env, settings); err != nil {
+			return discovered{}, err
+		}
+	} else {
+		raw, err := s.Agents.Discover(ctx, agent, "snmp-storage", settings, discoverTimeout)
+		if err != nil {
+			return discovered{}, err
+		}
+		if err := json.Unmarshal(raw, &d); err != nil {
+			return discovered{}, errors.New("the agent's answer cannot be read")
+		}
+	}
+	var dev struct {
+		Host string `json:"host"`
+	}
+	_ = json.Unmarshal(settings, &dev) // DiscoverStorage read them
+	name := cmp.Or(clipText(d.Name), strings.TrimSpace(dev.Host))
+	out := discovered{Device: name, Found: []found{}}
+	if descr := clipText(d.Description); descr != "" {
+		out.Device += ": " + descr
+	}
+	for i, f := range d.Suggestions() {
+		if i == check.MaxInterfaces {
+			break
+		}
+		out.Found = append(out.Found, found{Name: name + " " + clipText(f.Name), Detail: clipText(f.Detail), Up: f.Up, Settings: f.Settings})
+	}
+	return out, nil
+}
+
 // clipText trims what a device or agent says to its first line, at most
 // 200 bytes.
 func clipText(s string) string {
@@ -246,8 +293,8 @@ func clipText(s string) string {
 }
 
 // dropMonitored leaves out what a monitor already checks: one on the same
-// agent (or Eyrie), of the same workload, or of the same SNMP device and
-// OID.
+// agent (or Eyrie), of the same workload, of the same SNMP device and
+// OID, or of the same thing on the same NAS.
 func (s *Server) dropMonitored(ctx context.Context, typ string, agent int64, settings json.RawMessage, out *discovered) error {
 	mons, err := s.Store.Monitors(ctx)
 	if err != nil {
@@ -274,10 +321,17 @@ func (s *Server) dropMonitored(ctx context.Context, typ string, agent int64, set
 // monitors reports whether a monitor's saved settings check what settings
 // would.
 func monitors(typ string, saved json.RawMessage, settings map[string]any, host string) bool {
-	if typ == "snmp" {
+	switch typ {
+	case "snmp":
 		var m struct{ Host, OID string }
 		_ = json.Unmarshal(saved, &m)
 		return strings.EqualFold(m.Host, strings.TrimSpace(host)) && m.OID == settings["oid"]
+	case "snmp-storage":
+		var m struct{ Host, Watch, Volume, Disk, Command string }
+		_ = json.Unmarshal(saved, &m)
+		same := func(saved, key string) bool { v, _ := settings[key].(string); return saved == v }
+		return strings.EqualFold(m.Host, strings.TrimSpace(host)) && same(m.Watch, "watch") && same(m.Volume, "volume") &&
+			same(m.Disk, "disk") && same(m.Command, "command")
 	}
 	b, _ := json.Marshal(settings) //nolint:errchkjson // strings and numbers
 	keys := check.WorkloadKeys(typ, b)
