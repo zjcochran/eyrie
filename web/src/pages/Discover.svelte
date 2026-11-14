@@ -14,6 +14,7 @@
   let agentID = $state(0);
   // The SNMP device and its credentials: the snmp monitor's fields, without what a check compares.
   const snmpFields = fields.snmp.filter((f) => !['oid', 'operator', 'expected'].includes(f.key));
+  const snmpKeys = snmpFields.map((f) => f.key);
   let values = $state<Record<string, any>>(toValues('snmp', {}));
   let result = $state<Discovered | null>(null);
   let error = $state('');
@@ -35,8 +36,10 @@
   });
   const grouped = $derived(result?.found.some((f) => f.group) ?? false);
 
+  // Network devices and NAS storage are both asked over SNMP.
+  const snmp = $derived(type === 'snmp' || type === 'snmp-storage');
   // The SNMP settings typed here, which every monitor found starts with.
-  const base = () => (type === 'snmp' ? toSettings('snmp', values) : {});
+  const base = () => (snmp ? Object.fromEntries(Object.entries(toSettings('snmp', values)).filter(([k]) => snmpKeys.includes(k))) : {});
 
   async function discover(event: SubmitEvent) {
     event.preventDefault();
@@ -44,7 +47,7 @@
     error = '';
     result = null;
     try {
-      result = await api.discover(type, agentID, type === 'snmp' ? base() : undefined);
+      result = await api.discover(type, agentID, snmp ? base() : undefined);
     } catch (e) {
       error = message(e);
     } finally {
@@ -60,7 +63,7 @@
 
 <h1>Discover</h1>
 <p class="muted">
-  Find what a Docker engine, an agent's platform or a network device has, then add a monitor of what you choose. Each one
+  Find what a Docker engine, an agent's platform, a network device or a NAS has, then add a monitor of what you choose. Each one
   opens in the monitor form to check and save; nothing is added until then.
 </p>
 {#if error}<p class="notice error" role="alert">{error}</p>{/if}
@@ -84,7 +87,7 @@
   <span class="muted help">
     {#if !source.local && !choices.length}
       No agent lists {source.label} yet: add one in Settings → Agents.
-    {:else if type === 'snmp'}
+    {:else if snmp}
       The device is asked from here: Eyrie's network, or the agent's.
     {:else if agentID}
       What the agent last reported, every 30 seconds.
@@ -93,7 +96,7 @@
     {/if}
   </span>
 
-  {#if type === 'snmp'}
+  {#if snmp}
     {#each snmpFields as f (f.key)}
       {#if shown(f, values)}
         {#if f.kind === 'select'}

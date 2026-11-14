@@ -28,15 +28,16 @@ func TestJobs(t *testing.T) {
 		{ID: "4", Monitor: 4, Type: "docker", Settings: json.RawMessage(`{"container":"web"}`)},
 		{ID: "5", Type: "snmp", Settings: json.RawMessage(`{"host":"switch.example.com"}`), Discover: true},
 		{ID: "6", Type: "docker", Settings: json.RawMessage(`{}`), Discover: true},
+		{ID: "7", Type: "snmp-storage", Settings: json.RawMessage(`{"host":"nas.example.com"}`), Discover: true},
 	}
-	if err := runUntil(t, a, func() bool { return len(e.got()) == 6 }); err != nil {
+	if err := runUntil(t, a, func() bool { return len(e.got()) == 7 }); err != nil {
 		t.Fatal(err)
 	}
 	got := e.got()
 	sort.Slice(got, func(i, j int) bool { return got[i].ID < got[j].ID })
 	want := []string{"No service api", "The agent cannot check this type of monitor",
 		`The agent cannot check this monitor: unknown monitor type "telepathy"`, "Cannot reach Docker: ", "use of closed network connection",
-		"The agent cannot discover docker"}
+		"The agent cannot discover docker", "use of closed network connection"}
 	for i, r := range got {
 		if r.OK || !strings.HasPrefix(r.Message, want[i]) || r.LatencyUS != -1 || r.CertExpires != nil || r.Found != nil {
 			t.Errorf("result %d: %+v", i+1, r)

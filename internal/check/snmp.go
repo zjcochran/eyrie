@@ -32,14 +32,19 @@ import (
 // SNMP is the settings of the snmp type: an SNMP agent's value for an OID
 // must compare as wanted with an expected value.
 type SNMP struct {
+	SNMPAgent
+	OID      string `json:"oid"`
+	Operator string `json:"operator"` // as JSON queries; "==" by default
+	Expected string `json:"expected"` // "": any value
+}
+
+// SNMPAgent is how to reach an SNMP agent and sign in to it.
+type SNMPAgent struct {
 	Host    string `json:"host"`
 	Port    int    `json:"port"`
 	Version string `json:"version"` // "1", "2c" (the default) or "3"
 	// Community is for versions 1 and 2c; "public" by default.
 	Community string `json:"community"`
-	OID       string `json:"oid"`
-	Operator  string `json:"operator"` // as JSON queries; "==" by default
-	Expected  string `json:"expected"` // "": any value
 	// Version 3.
 	Username     string `json:"username"`
 	AuthProtocol string `json:"auth_protocol"` // none, MD5, SHA, SHA-224, SHA-256, SHA-384, SHA-512
@@ -56,11 +61,28 @@ var (
 	snmpOperators = []string{"==", "!=", "<", "<=", ">", ">=", "contains"}
 )
 
-func (s *SNMP) secrets() map[string]*string {
+func (s *SNMPAgent) secrets() map[string]*string {
 	return map[string]*string{"community": &s.Community, "auth_password": &s.AuthPassword, "priv_password": &s.PrivPassword}
 }
 
 func (s *SNMP) normalize() error {
+	if err := s.normalizeAgent(); err != nil {
+		return err
+	}
+	s.OID = strings.TrimPrefix(strings.TrimSpace(s.OID), ".")
+	if _, err := parseOID(s.OID); err != nil {
+		return err
+	}
+	if s.Operator == "" {
+		s.Operator = "=="
+	}
+	if !slices.Contains(snmpOperators, s.Operator) {
+		return fmt.Errorf("the comparison must be one of %s", strings.Join(snmpOperators, " "))
+	}
+	return nil
+}
+
+func (s *SNMPAgent) normalizeAgent() error {
 	h, err := host(s.Host)
 	if err != nil {
 		return err
@@ -75,16 +97,6 @@ func (s *SNMP) normalize() error {
 	if !slices.Contains(snmpVersions, s.Version) {
 		return errors.New("the SNMP version must be 1, 2c or 3")
 	}
-	s.OID = strings.TrimPrefix(strings.TrimSpace(s.OID), ".")
-	if _, err := parseOID(s.OID); err != nil {
-		return err
-	}
-	if s.Operator == "" {
-		s.Operator = "=="
-	}
-	if !slices.Contains(snmpOperators, s.Operator) {
-		return fmt.Errorf("the comparison must be one of %s", strings.Join(snmpOperators, " "))
-	}
 	if s.Version != "3" {
 		if s.Community == "" {
 			s.Community = "public"
@@ -94,7 +106,7 @@ func (s *SNMP) normalize() error {
 	return s.normalizeV3()
 }
 
-func (s *SNMP) normalizeV3() error {
+func (s *SNMPAgent) normalizeV3() error {
 	s.Username = strings.TrimSpace(s.Username)
 	if s.Username == "" {
 		return errors.New("SNMP version 3 needs a user name")
@@ -125,13 +137,22 @@ func (s *SNMP) normalizeV3() error {
 	return checkPort(s.Port)
 }
 
-func (s *SNMP) checker(env *Env) Checker { return &snmpChecker{s: s, env: env} }
+func (s *SNMP) checker(env *Env) Checker {
+	return &snmpChecker{sess: &snmpSession{s: &s.SNMPAgent, env: env}, s: s}
+}
 
 func (s *SNMP) describe() []Fact {
-	f := []Fact{{"Agent", net.JoinHostPort(s.Host, strconv.Itoa(s.Port))}, {"SNMP version", s.Version}, {"OID", s.OID}}
+	f := s.facts()
+	f = slices.Insert(f, 2, Fact{"OID", s.OID})
 	if s.Expected != "" {
-		f = append(f, Fact{"Expected", s.Operator + " " + strconv.Quote(s.Expected)})
+		f = slices.Insert(f, 3, Fact{"Expected", s.Operator + " " + strconv.Quote(s.Expected)})
 	}
+	return f
+}
+
+// facts describe the agent, without its credentials.
+func (s *SNMPAgent) facts() []Fact {
+	f := []Fact{{"Agent", net.JoinHostPort(s.Host, strconv.Itoa(s.Port))}, {"SNMP version", s.Version}}
 	if s.Version == "3" {
 		f = append(f, Fact{"User", s.Username}, Fact{"Authentication", s.AuthProtocol}, Fact{"Privacy", s.PrivProtocol})
 	}
@@ -139,7 +160,13 @@ func (s *SNMP) describe() []Fact {
 }
 
 type snmpChecker struct {
-	s   *SNMP
+	sess *snmpSession
+	s    *SNMP
+}
+
+// snmpSession asks one SNMP agent.
+type snmpSession struct {
+	s   *SNMPAgent
 	env *Env
 	// engine is the SNMPv3 agent's engine, once discovered.
 	engine *usm
@@ -150,7 +177,7 @@ type snmpChecker struct {
 }
 
 // localKeys returns the authentication and privacy keys for an engine.
-func (c *snmpChecker) localKeys(h authHash, engineID []byte) (auth, priv []byte) {
+func (c *snmpSession) localKeys(h authHash, engineID []byte) (auth, priv []byte) {
 	if c.authKey == nil || c.keysFor != string(engineID) {
 		c.authKey, c.privKey, c.keysFor = localKey(h, c.s.AuthPassword, engineID), nil, string(engineID)
 		if c.s.PrivProtocol != "none" {
@@ -231,7 +258,7 @@ func parsePDU(b []byte) (pduAnswer, error) {
 }
 
 func (c *snmpChecker) Check(ctx context.Context) Result {
-	conn, err := c.env.Dial(ctx, "udp", net.JoinHostPort(c.s.Host, strconv.Itoa(c.s.Port)))
+	conn, err := c.sess.env.Dial(ctx, "udp", net.JoinHostPort(c.s.Host, strconv.Itoa(c.s.Port)))
 	if err != nil {
 		return fail("%s", dialError(err))
 	}
@@ -239,7 +266,7 @@ func (c *snmpChecker) Check(ctx context.Context) Result {
 	conn.SetDeadline(deadline(ctx)) //nolint:errcheck,gosec // a failure shows as a timeout
 	oid, _ := parseOID(c.s.OID)
 	start := time.Now()
-	a, err := c.ask(ctx, conn, pduGet, oid)
+	a, err := c.sess.ask(ctx, conn, pduGet, oid)
 	if err != nil {
 		return failErr(err)
 	}
@@ -262,7 +289,7 @@ func (c *snmpChecker) Check(ctx context.Context) Result {
 }
 
 // ask sends one request of type tag (pduGet or pduGetNext) for oid.
-func (c *snmpChecker) ask(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
+func (c *snmpSession) ask(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
 	if c.s.Version == "3" {
 		return c.v3(ctx, conn, tag, oid)
 	}
@@ -287,7 +314,7 @@ func udpExchange(ctx context.Context, conn net.Conn, req []byte, accept func([]b
 }
 
 // community asks with SNMP version 1 or 2c.
-func (c *snmpChecker) community(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
+func (c *snmpSession) community(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
 	ver := int64(1)
 	if c.s.Version == "1" {
 		ver = 0
@@ -562,7 +589,7 @@ var usmReports = map[string]string{
 
 // v3 asks with SNMPv3: first, once, to discover the agent's engine, then
 // for the OID.
-func (c *snmpChecker) v3(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
+func (c *snmpSession) v3(ctx context.Context, conn net.Conn, tag byte, oid []uint64) (pduAnswer, error) {
 	s := c.s
 	if (s.AuthProtocol != "none" && len(s.AuthPassword) < 8) || (s.PrivProtocol != "none" && len(s.PrivPassword) < 8) {
 		return pduAnswer{}, errors.New("SNMPv3 passwords are at least 8 characters")
@@ -602,7 +629,7 @@ type v3answer struct {
 
 // send sends one SNMPv3 request of type tag. Without oid it is the
 // discovery request: no security, no variables.
-func (c *snmpChecker) send(ctx context.Context, conn net.Conn, u usm, tag byte, oid []uint64, keyFor *usm) (v3answer, error) {
+func (c *snmpSession) send(ctx context.Context, conn net.Conn, u usm, tag byte, oid []uint64, keyFor *usm) (v3answer, error) {
 	s := c.s
 	msgID, reqID := randInt31(), randInt31()
 	flags := byte(0x04) // reportable

@@ -190,6 +190,55 @@ func TestDiscoverSNMP(t *testing.T) {
 	}
 }
 
+func TestDiscoverStorage(t *testing.T) {
+	e, admin, a := agentEnv(t)
+	device := check.StorageDevice{Name: "nas1", Description: "Synology DSX1, DSM 7.0-00000",
+		Volumes: []check.StorageVolume{
+			{Name: "/volume1", Total: 8e12, Free: 2e12, Percent: 75, InodePercent: -1},
+			{Name: "/volume2", Total: 4e12, Free: 2e11, Percent: 95, InodePercent: -1},
+		},
+		Pools:    []check.StorageState{{Name: "Volume 1", State: "normal", OK: true}},
+		Commands: []check.StorageCommand{{Name: "snapraid", Status: 1, Output: "SnapRAID: 2 errors"}},
+	}
+	a.serve(func(j agentauth.Job) agentauth.Result {
+		if !j.Discover {
+			return agentauth.Result{Message: "not a discovery"}
+		}
+		if j.Type != "snmp-storage" {
+			return agentauth.Result{Message: "The agent cannot discover " + j.Type}
+		}
+		raw, _ := json.Marshal(device)
+		return agentauth.Result{OK: true, Found: raw}
+	})
+	settings := map[string]any{"host": "nas.example.com", "version": "2c", "community": "private"}
+	if code := admin.call("POST", "/api/v1/monitors", map[string]any{"name": "Volume 1", "type": "snmp-storage", "agent_id": a.id,
+		"settings": map[string]any{"host": "NAS.example.com", "volume": "/volume1"}}, nil); code != http.StatusCreated {
+		t.Fatalf("monitor: %d", code)
+	}
+	var got discovered
+	if code := admin.call("POST", "/api/v1/discover", map[string]any{"type": "snmp-storage", "agent_id": a.id, "settings": settings}, &got); code != http.StatusOK {
+		t.Fatalf("discover: %d", code)
+	}
+	want := []found{
+		{Name: "nas1 /volume2 space", Detail: "/volume2: 95% used, 200.0 GB free of 4.0 TB", Settings: map[string]any{"watch": "capacity", "volume": "/volume2"}},
+		{Name: "nas1 Volume 1 health", Detail: "Normal", Up: true, Settings: map[string]any{"watch": "volume-health", "volume": "Volume 1"}},
+		{Name: "nas1 snapraid", Detail: "SnapRAID: 2 errors (exit status 1)", Settings: map[string]any{"watch": "command", "command": "snapraid"}},
+	}
+	if got.Device != "nas1: Synology DSX1, DSM 7.0-00000" || !reflect.DeepEqual(got.Found, want) || got.Monitored != 1 {
+		t.Errorf("found %+v", got)
+	}
+
+	// From Eyrie, whose test network answers nothing.
+	if code, msg := admin.errorOf("POST", "/api/v1/discover", map[string]any{"type": "snmp-storage", "settings": map[string]any{"host": ""}}); code != http.StatusUnprocessableEntity ||
+		msg != "The host is required." {
+		t.Errorf("no host: %d %s", code, msg)
+	}
+	e.up.Store(false)
+	if code, _ := admin.errorOf("POST", "/api/v1/discover", map[string]any{"type": "snmp-storage", "settings": settings}); code != http.StatusUnprocessableEntity {
+		t.Errorf("unreachable: %d", code)
+	}
+}
+
 func TestClipText(t *testing.T) {
 	if s := clipText(strings.Repeat("é", 150)); len(s) != 200 {
 		t.Errorf("clipped to %d bytes", len(s))

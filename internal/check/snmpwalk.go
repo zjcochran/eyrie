@@ -71,7 +71,7 @@ func DiscoverSNMP(ctx context.Context, env *Env, settings json.RawMessage) (SNMP
 	}
 	defer conn.Close()
 	conn.SetDeadline(deadline(ctx)) //nolint:errcheck,gosec // a failure shows as a timeout
-	w := &walker{c: &snmpChecker{s: &s, env: env}, ctx: ctx, conn: conn}
+	w := &walker{c: &snmpSession{s: &s.SNMPAgent, env: env}, ctx: ctx, conn: conn}
 	var d SNMPDevice
 	if d.Name, err = w.get(oidSysName); err == nil {
 		d.Description, err = w.get(oidSysDescr)
@@ -85,7 +85,7 @@ func DiscoverSNMP(ctx context.Context, env *Env, settings json.RawMessage) (SNMP
 
 // walker asks one agent, over one connection.
 type walker struct {
-	c    *snmpChecker
+	c    *snmpSession
 	ctx  context.Context
 	conn net.Conn
 }

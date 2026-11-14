@@ -37,6 +37,26 @@ describe('toSettings', () => {
     assert.equal(s.auth_password, ' pass word ', 'secrets are sent as typed');
     assert.equal(s.community, undefined);
   });
+  it('sends only what an SNMP storage monitor watches', () => {
+    const v = toValues('snmp-storage', {});
+    assert.equal(v.watch, 'capacity');
+    v.host = 'nas.example.com';
+    v.volume = '/volume1';
+    v.max_percent = '85';
+    v.disk = 'Disk 1';
+    assert.deepEqual(toSettings('snmp-storage', v), { host: 'nas.example.com', version: '2c', watch: 'capacity', volume: '/volume1', max_percent: 85 });
+    v.watch = 'disk-temperature';
+    assert.deepEqual(toSettings('snmp-storage', v), { host: 'nas.example.com', version: '2c', watch: 'disk-temperature', disk: 'Disk 1' });
+    v.watch = 'volume-health';
+    v.repairing_down = true;
+    assert.deepEqual(toSettings('snmp-storage', v), {
+      host: 'nas.example.com',
+      version: '2c',
+      watch: 'volume-health',
+      volume: '/volume1',
+      repairing_down: true,
+    });
+  });
   it('reads maps and status codes', () => {
     const v = toValues('globalping', {});
     v.kind = 'http';
@@ -72,10 +92,15 @@ describe('workload settings', () => {
 
 describe('fields', () => {
   it('has fields for every type that has settings', () => {
-    for (const t of ['websocket-upgrade', 'smtp', 'ntp', 'radius', 'snmp', 'docker', 'sip-options', 'tailscale-ping',
+    for (const t of ['websocket-upgrade', 'smtp', 'ntp', 'radius', 'snmp', 'snmp-storage', 'docker', 'sip-options', 'tailscale-ping',
       'system-service', 'system-resources', 'pm2', 'docker-swarm', 'kubernetes', 'proxmox', 'globalping', 'sftp', 'steam', 'gamedig', 'grpc-keyword', 'real-browser', 'postgres', 'mysql',
       'sqlserver', 'oracledb', 'mongodb', 'redis', 'mqtt', 'rabbitmq', 'kafka-producer']) {
       assert.equal((fields[t] ?? []).length > 0, true, t);
+    }
+  });
+  it('gives each field of a type its own key', () => {
+    for (const [t, fs] of Object.entries(fields)) {
+      assert.equal(new Set(fs.map((f) => f.key)).size, fs.length, t);
     }
   });
   it('shows a field only while its condition holds', () => {

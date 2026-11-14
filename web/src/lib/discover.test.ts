@@ -22,6 +22,7 @@ describe('agentsFor', () => {
   });
   it('takes any enrolled agent for SNMP, and none for other types', () => {
     assert.deepEqual(agentsFor('snmp', agents).map((a) => a.id), [1, 2, 3, 4]);
+    assert.deepEqual(agentsFor('snmp-storage', agents).map((a) => a.id), [1, 2, 3, 4]);
     assert.deepEqual(agentsFor('http', agents), []);
   });
 });

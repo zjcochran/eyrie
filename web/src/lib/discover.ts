@@ -15,6 +15,7 @@ export const sources: { type: string; label: string; platforms: string[] | null;
   { type: 'kubernetes', label: 'Kubernetes workloads', platforms: ['kubernetes'], local: false },
   { type: 'proxmox', label: 'Proxmox VE guests', platforms: ['proxmox'], local: false },
   { type: 'snmp', label: 'Network devices (SNMP)', platforms: null, local: true },
+  { type: 'snmp-storage', label: 'NAS storage (SNMP)', platforms: null, local: true },
 ];
 
 /** The agents that can discover a type. */

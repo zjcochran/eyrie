@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+[Unit]
+Description=Check SnapRAID and SMART health for Eyrie's SNMP storage monitors
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/eyrie-nas-health collect
+Nice=10
+IOSchedulingClass=idle
