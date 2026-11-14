@@ -31,8 +31,8 @@ Column conventions, the same in both:
 A [backup file](../user/backup-and-restore.md) carries tables row by row,
 with values both databases read (numbers, booleans, text, null, bytes in
 base64), so it restores into either. Every table but `sessions` is
-copied; `monitor_state`, `heartbeats`, `stats_hourly` and `stats_daily` only
-with history. A restore deletes the rows of every one of these tables and
+copied; `monitor_state`, `heartbeats`, `stats_hourly`, `stats_daily` and
+`storage_samples` only with history. A restore deletes the rows of every one of these tables and
 `sessions`, children first, and inserts the backup's with their ids, in one
 transaction; `monitors.parent_id` and `monitor_groups.parent_id` are set
 once every row of their table is in, group monitors from a backup of an
@@ -266,6 +266,20 @@ setting are deleted daily.
 
 Heartbeats are written in batches about once a second (at most 500 per
 transaction), with the state and the stats below in the same transaction.
+
+### storage_samples
+
+What `snmp-storage` checks read of their NAS (migration `00015_storage`):
+one row per monitor in each five minutes, the last check's. Primary key
+`(monitor_id, bucket)`; index `storage_samples_bucket` on `bucket` (for
+pruning). Rows are kept 35 days.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `monitor_id` | `BIGINT` | `monitors.id`, `ON DELETE CASCADE` |
+| `bucket` | `BIGINT` | The five minutes' start |
+| `at` | `BIGINT` | When the check ended |
+| `data` | `TEXT` | JSON: the volumes, pools, disks, temperatures, system and commands, as in the [agent protocol](agent-protocol.md#discovery) |
 
 ### stats_hourly, stats_daily
 

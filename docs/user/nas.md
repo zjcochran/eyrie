@@ -1,11 +1,12 @@
 # NAS monitoring
 
-Eyrie watches a NAS over SNMP with [SNMP storage](monitors.md#snmp-storage-nas)
-monitors: how full each volume is, the health of its volumes or pools,
-its disks' health and temperature, the system's own health, and anything
-else a command on the NAS can tell (SnapRAID, SMART). Nothing is installed
-on a NAS that has SNMP built in. [Discovery](discovery.md#nas-storage-snmp)
-lists what a NAS reports, ready to add.
+Eyrie watches a whole NAS over SNMP with one [SNMP
+storage](monitors.md#snmp-storage-nas) monitor: how full each volume is,
+the health of its volumes or pools, its disks' health and temperature,
+the system's own health, and anything else a command on the NAS can tell
+(SnapRAID, SMART). Its page shows the volumes, the disks and their
+history. Nothing is installed on a NAS that has SNMP built in.
+[Discovery](discovery.md#nas-storage-snmp) finds a NAS, ready to add.
 
 ## What each system reports
 
@@ -68,11 +69,11 @@ agentaddress udp:161
 rouser eyrie priv
 
 # Each volume to watch, by mount point: they show in dskTable, with inodes.
-# A mergerfs pool needs its own line; the disks under it can have theirs.
-disk /mnt/storage
-disk /mnt/disk1
-disk /mnt/disk2
-disk /mnt/parity1
+# A pooled filesystem (such as a FUSE pool) needs its own line, as do the
+# disks under it that you want to watch.
+disk /srv/pool
+disk /srv/data1
+disk /srv/data2
 
 # SnapRAID and SMART (below).
 extend snapraid /usr/local/bin/eyrie-nas-health report snapraid
@@ -87,15 +88,15 @@ when it starts (SHA-256 needs net-snmp 5.8, in Debian 11 and later):
 createUser eyrie SHA-256 "a long passphrase" AES "another long passphrase"
 ```
 
-Then start it again (`systemctl restart snmpd`). Use the `disk` lines'
-mount points as the volume of space monitors.
+Then start it again (`systemctl restart snmpd`). The `disk` lines' mount
+points are the volumes the monitor shows.
 
 ### SnapRAID and SMART
 
-SnapRAID and SMART have no MIB, so snmpd runs a command, and Eyrie's
-**command** watch reads what it said: up when it exits with 0, with its
-first line as the message (NET-SNMP-EXTEND-MIB). The commands are the
-name of an `extend` line, `snapraid` and `smart` above.
+SnapRAID and SMART have no MIB, so snmpd runs a command and Eyrie reads
+what it said (NET-SNMP-EXTEND-MIB): the monitor is down when one does not
+exit with 0, with its first line in the message, and its page lists each
+one.
 
 Both checks need root and take a while, longer than an SNMP request can
 wait, so `eyrie-nas-health` (in Eyrie's source, `deploy/snmpd/`) runs

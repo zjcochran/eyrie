@@ -45,6 +45,7 @@ var historyTables = []struct{ name, column string }{
 	{"heartbeats", "at"},
 	{"stats_hourly", "bucket"},
 	{"stats_daily", "bucket"},
+	{"storage_samples", "bucket"},
 	{"audit_log", "at"},
 }
 

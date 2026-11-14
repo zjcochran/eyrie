@@ -79,7 +79,6 @@ const snmpV3: Field[] = [
   v3({ key: 'priv_password', label: 'Privacy password', kind: 'secret' }),
   v3({ key: 'context_name', label: 'Context name', kind: 'text', help: 'Optional' }),
 ];
-const watch = (...values: string[]): When => ({ key: 'watch', values });
 
 /** The fields of each type that has settings. */
 export const fields: Record<string, Field[]> = {
@@ -154,50 +153,17 @@ export const fields: Record<string, Field[]> = {
   'snmp-storage': [
     ...snmpDevice('nas.example.com'),
     {
-      key: 'watch',
-      label: 'Watch',
-      kind: 'select',
-      options: ['capacity', 'volume-health', 'disk-health', 'disk-temperature', 'system-health', 'command'],
-      help: "capacity: a volume's free space; command: a command the device's snmpd runs, up when it exits with 0",
-    },
-    {
-      key: 'volume',
-      label: 'Volume',
+      key: 'volumes',
+      label: 'Volumes',
       kind: 'text',
-      placeholder: '/volume1',
-      help: 'As the device names it: a mount point such as /volume1 for capacity; a volume or pool such as Volume 1 for health, or empty for all',
-      when: watch('capacity', 'volume-health'),
+      placeholder: 'all',
+      help: 'Mount points whose space is watched, separated by commas, such as /volume1; empty: every one',
     },
-    { key: 'max_percent', label: 'Highest use (%)', kind: 'number', min: 1, max: 100, placeholder: '90', when: watch('capacity') },
-    { key: 'min_free_gb', label: 'Least free space (GB)', kind: 'number', min: 0, max: 1000000000, placeholder: 'no limit', when: watch('capacity') },
-    {
-      key: 'max_inode_percent',
-      label: 'Highest inode use (%)',
-      kind: 'number',
-      min: 0,
-      max: 100,
-      placeholder: 'no limit',
-      help: 'Only from net-snmp disk lines',
-      when: watch('capacity'),
-    },
-    { key: 'repairing_down', label: 'Down while a volume is being repaired or rebuilt', kind: 'check', when: watch('volume-health') },
-    {
-      key: 'disk',
-      label: 'Disk',
-      kind: 'text',
-      placeholder: 'Disk 1',
-      help: 'As the device names it; empty: all disks',
-      when: watch('disk-health', 'disk-temperature'),
-    },
-    { key: 'max_celsius', label: 'Highest temperature (°C)', kind: 'number', min: 1, max: 150, placeholder: '50', when: watch('disk-temperature') },
-    {
-      key: 'command',
-      label: 'Command',
-      kind: 'text',
-      placeholder: 'snapraid',
-      help: 'The name of an extend line in snmpd.conf',
-      when: watch('command'),
-    },
+    { key: 'max_percent', label: 'Highest volume use (%)', kind: 'number', min: 1, max: 100, placeholder: '90' },
+    { key: 'min_free_gb', label: 'Least free space per volume (GB)', kind: 'number', min: 0, max: 1000000000, placeholder: 'no limit' },
+    { key: 'max_inode_percent', label: 'Highest inode use (%)', kind: 'number', min: 0, max: 100, placeholder: 'no limit', help: 'Only from net-snmp disk lines' },
+    { key: 'max_celsius', label: 'Highest disk temperature (°C)', kind: 'number', min: 1, max: 150, placeholder: '50' },
+    { key: 'repairing_down', label: 'Down while a volume is being repaired or rebuilt', kind: 'check' },
     ...snmpV3,
   ],
   docker: [
@@ -351,7 +317,7 @@ export function shown(f: Field, values: Values): boolean {
 /** Map fields: one "name: value" per line. */
 const maps = ['headers', 'metadata'];
 /** List fields: values separated by commas. */
-const lists = ['accepted_status_codes', 'nodes', 'brokers'];
+const lists = ['accepted_status_codes', 'nodes', 'brokers', 'volumes'];
 
 /** Form values: every field as text or a boolean. */
 export type Values = Record<string, string | boolean>;

@@ -66,10 +66,11 @@ export function textOn(color: string): string {
   return (light + 0.05) / 0.05 > 1.05 / (light + 0.05) ? '#000000' : '#ffffff';
 }
 
-/** A file size: 512 B, 3.4 KB, 12.1 MB. */
+/** A size: 512 B, 3.4 KB, 12.1 MB, 7.6 TB. */
 export function size(bytes: number): string {
   if (bytes < 1000) return `${bytes} B`;
   if (bytes < 1e6) return `${(bytes / 1e3).toFixed(1)} KB`;
   if (bytes < 1e9) return `${(bytes / 1e6).toFixed(1)} MB`;
-  return `${(bytes / 1e9).toFixed(1)} GB`;
+  if (bytes < 1e12) return `${(bytes / 1e9).toFixed(1)} GB`;
+  return `${(bytes / 1e12).toFixed(1)} TB`;
 }

@@ -245,6 +245,40 @@ export interface Beat {
 }
 
 /** How busy a host is, in percent. */
+/** A NAS volume's space, as an SNMP storage check read it. */
+export interface StorageVolume {
+  name: string;
+  total: number;
+  free: number;
+  percent: number;
+  /** -1: not known. */
+  inode_percent: number;
+}
+
+/** How a volume, pool, disk or the system is. */
+export interface StorageState {
+  name: string;
+  state: string;
+  ok: boolean;
+  repairing?: boolean;
+}
+
+/** What an SNMP storage check last read of a NAS, and how it went over time. */
+export interface Storage {
+  at: string | null;
+  device: {
+    name: string;
+    description: string;
+    volumes: StorageVolume[] | null;
+    pools: StorageState[] | null;
+    disks: StorageState[] | null;
+    temps: { name: string; celsius: number }[] | null;
+    system?: StorageState;
+    commands: { name: string; status: number; output: string }[] | null;
+  } | null;
+  history: { at: string; volumes: Record<string, number>; temps: Record<string, number> }[];
+}
+
 export interface Usage {
   cpu: number;
   memory: number;
@@ -714,6 +748,7 @@ export class Client {
   };
   history = (days: number) => this.request<History>('GET', `/api/v1/overview?days=${days}`);
   hours = (id: number, days: number) => this.request<HourStats[]>('GET', `/api/v1/monitors/${id}/hours?days=${days}`);
+  storage = (id: number, days: number) => this.request<Storage>('GET', `/api/v1/monitors/${id}/storage?days=${days}`);
   createMonitor = (m: MonitorChange) => this.request<Monitor>('POST', '/api/v1/monitors', m);
   updateMonitor = (id: number, m: MonitorChange) => this.request<Monitor>('PUT', `/api/v1/monitors/${id}`, m);
   deleteMonitor = (id: number) => this.request<void>('DELETE', `/api/v1/monitors/${id}`);

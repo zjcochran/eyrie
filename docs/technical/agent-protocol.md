@@ -71,7 +71,7 @@ cleared.
 | `POST /api/agent/v1/report` | `{"version", "platform", "hostname", "error", "workloads": [...]}` | `204`; `400` for more than 10,000 workloads, or a workload with an empty, repeated or over-300-byte key |
 | `POST /api/agent/v1/rotate` | `{"new_key", "ts", "proof"}` | `204`; `400` for a malformed key or a proof that does not verify; `401` if signed with the previous key for a key other than the current one |
 | `POST /api/agent/v1/jobs` | `{}` | `200 {"jobs": [{"id", "monitor", "type", "settings", "timeout_ms", "discover"}]}`: the checks to run, and [discoveries](#discovery) (`"discover": true`), at once when there are some, else after up to 15 seconds with none |
-| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires", "usage", "found"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped. `usage` (`{"cpu", "memory"}`, in percent, kept from 0 to 100) only from system-resources checks; `found` only from discoveries |
+| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires", "usage", "storage", "found"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped. `usage` (`{"cpu", "memory"}`, in percent, kept from 0 to 100) only from system-resources checks; `storage` (what the check read of its NAS, as in [Discovery](#discovery)) only from snmp-storage checks; `found` only from discoveries |
 
 A workload is `{"key", "name", "kind", "group", "up", "status"}`: `kind`
 is `container`, `service`, `deployment`, `statefulset`, `daemonset`,
@@ -163,7 +163,7 @@ posts a result whose `found` is
 `{"name", "description", "interfaces": [{"index", "name", "alias", "admin", "oper"}]}`;
 on a failure, `ok` is false and `message` says why. Discovery of a NAS's
 storage is the same with type `snmp-storage` (`check.DiscoverStorage`),
-whose `found` is
+whose `found` is, as an `snmp-storage` check's result's `storage`,
 `{"name", "description", "volumes": [{"name", "total", "free", "percent", "inode_percent"}], "pools": [{"name", "state", "ok", "repairing"}], "disks": [same], "temps": [{"name", "celsius"}], "system": {same as a pool}, "commands": [{"name", "status", "output"}]}`. Eyrie waits 80
 seconds for it, and cuts each text to its first line and 200 bytes.
 

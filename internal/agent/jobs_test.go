@@ -60,4 +60,8 @@ func TestRunJobResult(t *testing.T) {
 		got[0].Usage == nil || *got[0].Usage != (agentauth.Usage{CPU: 5, Memory: 60}) {
 		t.Errorf("sent %+v", got)
 	}
+	a.send1(ctx, "10", check.Result{OK: true, Latency: -1, Storage: &check.StorageDevice{Name: "nas"}})
+	if got := e.got(); len(got) != 2 || !strings.Contains(string(got[1].Storage), `"name":"nas"`) {
+		t.Errorf("storage %+v", got)
+	}
 }

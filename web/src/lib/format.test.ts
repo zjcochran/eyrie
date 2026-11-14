@@ -87,5 +87,6 @@ describe('size', () => {
     assert.equal(size(3400), '3.4 KB');
     assert.equal(size(12_100_000), '12.1 MB');
     assert.equal(size(2_500_000_000), '2.5 GB');
+    assert.equal(size(7_600_000_000_000), '7.6 TB');
   });
 });

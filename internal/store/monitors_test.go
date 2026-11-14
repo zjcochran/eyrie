@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -337,10 +338,25 @@ func TestPrune(t *testing.T) {
 	eachDB(t, func(t *testing.T, s *Store) {
 		ctx := context.Background()
 		a, _ := seed(t, s)
+		storage := []Record{beat(a.ID, t0, "up", 1), beat(a.ID, t0.Add(time.Minute), "up", 1), beat(a.ID, t0.Add(49*time.Hour), "maintenance", -1)}
+		for i := range storage {
+			storage[i].Storage = json.RawMessage(fmt.Sprintf(`{"name":"nas%d"}`, i))
+		}
+		if err := s.Save(ctx, storage); err != nil {
+			t.Fatal(err)
+		}
+		// One sample in each five minutes, the last check's.
+		if got, err := s.StorageSamples(ctx, a.ID, t0); err != nil || len(got) != 2 || string(got[0].Data) != `{"name":"nas1"}` ||
+			!got[0].At.Equal(t0.Add(time.Minute)) {
+			t.Errorf("samples %+v %v", got, err)
+		}
 		if err := s.Prune(ctx, t0.Add(50*time.Minute), t0.Add(48*time.Hour), t0.Add(-48*time.Hour)); err != nil {
 			t.Fatal(err)
 		}
-		if beats, _ := s.Heartbeats(ctx, a.ID, time.Time{}, 100); len(beats) != 3 {
+		if got, _ := s.StorageSamples(ctx, a.ID, time.Time{}); len(got) != 1 {
+			t.Errorf("samples after pruning: %+v", got)
+		}
+		if beats, _ := s.Heartbeats(ctx, a.ID, time.Time{}, 100); len(beats) != 4 {
 			t.Errorf("after pruning: %d beats", len(beats))
 		}
 		if hours, _ := s.HourlyTotals(ctx, time.Time{}); len(hours) != 0 {
