@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import type { Storage } from './api.ts';
 import { level, limit, series } from './storage.ts';
 
 describe('series', () => {
   it('makes one line per volume, with gaps where it was missing', () => {
-    const history = [
+    const history: Storage['history'] = [
       { at: '2026-01-01T00:00:00Z', volumes: { '/volume1': 40 }, temps: { 'Disk 1': 35 } },
       { at: '2026-01-01T00:05:00Z', volumes: { '/volume1': 41, '/volume2': 10 }, temps: {} },
     ];
