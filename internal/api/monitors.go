@@ -3,6 +3,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -612,7 +613,8 @@ func (s *Server) heartbeats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// hours answers a monitor's hourly stats for ?days= (default 7, most 35).
+// hours answers a monitor's hourly stats for ?days= (default 7, most 35),
+// as the background last worked them out.
 func (s *Server) hours(w http.ResponseWriter, r *http.Request) {
 	m, ok := s.monitorFor(w, r)
 	if !ok {
@@ -620,12 +622,17 @@ func (s *Server) hours(w http.ResponseWriter, r *http.Request) {
 	}
 	days := 7
 	if n, err := strconv.Atoi(r.URL.Query().Get("days")); err == nil && n > 0 {
-		days = min(n, 35)
+		days = min(n, hoursDays)
 	}
-	buckets, err := s.Store.Hours(r.Context(), m.ID, s.now().Add(-time.Duration(days)*24*time.Hour))
-	if err != nil {
-		s.fail(w, r, err)
-		return
+	// From the figures the background last worked out.
+	var buckets []store.HourBucket
+	if f := s.uptime.latest.Load(); f != nil {
+		since := f.at.Add(-time.Duration(days) * 24 * time.Hour).Truncate(time.Hour)
+		for _, b := range f.hourly[m.ID] {
+			if !b.Start.Before(since) {
+				buckets = append(buckets, b)
+			}
+		}
 	}
 	type hourView struct {
 		Start        time.Time  `json:"start"`
@@ -644,53 +651,96 @@ func (s *Server) hours(w http.ResponseWriter, r *http.Request) {
 // overview answers every monitor's daily counts for the last days (default
 // 30, most 90), and the checks of all of them in each of the last 24 hours,
 // for the dashboard.
+// overviewDays is the most days the overview has, hoursDays the most days
+// of a monitor's hourly stats.
+const (
+	overviewDays = 90
+	hoursDays    = 35
+)
+
+type overviewCount struct {
+	Start time.Time `json:"start"`
+	Up    int64     `json:"up"`
+	Down  int64     `json:"down"`
+	// AvgLatencyMS, for hours: the mean response time of every check.
+	AvgLatencyMS *float64 `json:"avg_latency_ms,omitempty"`
+}
+
+type overviewMonitor struct {
+	MonitorID int64           `json:"monitor_id"`
+	Days      []overviewCount `json:"days"`
+}
+
+type overviewView struct {
+	Days  []overviewMonitor `json:"days"`
+	Hours []overviewCount   `json:"hours"`
+}
+
+// overview answers ?days= of every monitor's daily counts (or of
+// ?monitor=, one), and the hourly counts of the last 24 hours, from the
+// figures the background last worked out.
 func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
 	days := 30
 	if n, err := strconv.Atoi(r.URL.Query().Get("days")); err == nil && n > 0 {
-		days = min(n, 90)
+		days = min(n, overviewDays)
 	}
-	now := s.now()
-	daily, err := s.Store.Days(r.Context(), now.Add(-time.Duration(days-1)*24*time.Hour))
-	if err != nil {
-		s.fail(w, r, err)
+	var one int64
+	if v := r.URL.Query().Get("monitor"); v != "" {
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || id < 1 {
+			invalid(w, http.StatusBadRequest, "monitor must be a monitor's ID.")
+			return
+		}
+		one = id
+	}
+	f := s.uptime.latest.Load()
+	if f == nil {
+		writeJSON(w, http.StatusOK, overviewView{Days: []overviewMonitor{}, Hours: []overviewCount{}})
 		return
 	}
-	hourly, err := s.Store.FleetHours(r.Context(), now.Add(-23*time.Hour))
-	if err != nil {
-		s.fail(w, r, err)
+	if one != 0 {
+		writeJSON(w, http.StatusOK, buildOverview(f, days, one))
 		return
 	}
-	type count struct {
-		Start time.Time `json:"start"`
-		Up    int64     `json:"up"`
-		Down  int64     `json:"down"`
-		// AvgLatencyMS, for hours: the mean response time of every check.
-		AvgLatencyMS *float64 `json:"avg_latency_ms,omitempty"`
+	b, ok := f.overviews.Load(days)
+	if !ok {
+		var buf bytes.Buffer
+		json.NewEncoder(&buf).Encode(buildOverview(f, days, 0)) //nolint:errcheck,gosec // into memory
+		b, _ = f.overviews.LoadOrStore(days, buf.Bytes())
 	}
-	type monitorDays struct {
-		MonitorID int64   `json:"monitor_id"`
-		Days      []count `json:"days"`
-	}
-	out := struct {
-		Days  []monitorDays `json:"days"`
-		Hours []count       `json:"hours"`
-	}{Days: []monitorDays{}, Hours: []count{}}
-	ids := make([]int64, 0, len(daily))
-	for id := range daily {
-		ids = append(ids, id)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(b.([]byte)) //nolint:errcheck,gosec // fails only when the client has gone
+}
+
+// buildOverview is the last days of f's daily counts, of every monitor or
+// of one (0: every one), with its hourly counts.
+func buildOverview(f *uptimeFigures, days int, one int64) overviewView {
+	since := f.at.Add(-time.Duration(days-1) * 24 * time.Hour)
+	since = since.Truncate(24 * time.Hour) // days in UTC
+	out := overviewView{Days: []overviewMonitor{}, Hours: []overviewCount{}}
+	ids := make([]int64, 0, len(f.days))
+	for id := range f.days {
+		if one == 0 || id == one {
+			ids = append(ids, id)
+		}
 	}
 	slices.Sort(ids)
 	for _, id := range ids {
-		md := monitorDays{MonitorID: id, Days: []count{}}
-		for _, b := range daily[id] {
-			md.Days = append(md.Days, count{Start: b.Start, Up: b.Up, Down: b.Down})
+		md := overviewMonitor{MonitorID: id, Days: []overviewCount{}}
+		for _, b := range f.days[id] {
+			if !b.Start.Before(since) {
+				md.Days = append(md.Days, overviewCount{Start: b.Start, Up: b.Up, Down: b.Down})
+			}
 		}
-		out.Days = append(out.Days, md)
+		if len(md.Days) > 0 {
+			out.Days = append(out.Days, md)
+		}
 	}
-	for _, b := range hourly {
-		out.Hours = append(out.Hours, count{Start: b.Start, Up: b.Up, Down: b.Down, AvgLatencyMS: ms(b.AvgLatency())})
+	for _, b := range f.hours {
+		out.Hours = append(out.Hours, overviewCount{Start: b.Start, Up: b.Up, Down: b.Down, AvgLatencyMS: ms(b.AvgLatency())})
 	}
-	writeJSON(w, http.StatusOK, out)
+	return out
 }
 
 // monitorTypes answers the monitor types, for the form.

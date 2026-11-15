@@ -12,11 +12,14 @@ import (
 	"github.com/zjcochran/eyrie/internal/store"
 )
 
-// Every monitor's uptime over 24 hours, 30 days and a year is worked out in
+// Every figure added up from the hourly and daily stats is worked out in
 // the background, every UptimeSettings.RefreshMinutes, so that no page
-// waits for it: the list of monitors, a monitor's page, status pages and
-// badges read the figures last worked out. Before the first are, there are
-// none ("no data").
+// waits for it: every monitor's uptime over 24 hours, 30 days and a year,
+// its daily counts (the overview, status pages), its hourly counts and
+// response times (its charts), and every monitor's hourly counts added
+// together. The list of monitors, a monitor's page, status pages, badges
+// and the overview read the figures last worked out. Before the first are, there are none
+// ("no data").
 
 // SettingUptime holds UptimeSettings as JSON.
 const SettingUptime = "uptime"
@@ -35,10 +38,19 @@ const (
 	maxUptimeRefresh = 1440
 )
 
-// uptimeFigures are every monitor's totals, as worked out at a time.
+// uptimeFigures are every monitor's totals, its daily counts for the last
+// 90 days and every monitor's hourly counts for the last 24 hours (the
+// overview), as worked out at a time.
 type uptimeFigures struct {
 	day, month, year map[int64]store.Totals
+	days             map[int64][]store.HourBucket // the last 90 days
+	quarter          map[int64]store.Totals       // those days added up
+	hourly           map[int64][]store.HourBucket // the last 35 days, for a monitor's charts
+	hours            []store.HourBucket           // every monitor's, added together
 	at               time.Time
+	// overviews are the overview of every monitor, as sent, by number of
+	// days: encoded once, when first asked for.
+	overviews sync.Map
 }
 
 type uptimeWorker struct {
@@ -78,6 +90,23 @@ func (s *Server) refreshUptime(ctx context.Context) error {
 		return err
 	}
 	if f.year, err = s.Store.DailyTotals(ctx, now.Add(-365*24*time.Hour)); err != nil {
+		return err
+	}
+	if f.days, err = s.Store.Days(ctx, now.Add(-(overviewDays-1)*24*time.Hour)); err != nil {
+		return err
+	}
+	f.quarter = map[int64]store.Totals{}
+	for id, days := range f.days {
+		var t store.Totals
+		for _, d := range days {
+			t.Up, t.Down = t.Up+d.Up, t.Down+d.Down
+		}
+		f.quarter[id] = t
+	}
+	if f.hours, err = s.Store.FleetHours(ctx, now.Add(-23*time.Hour)); err != nil {
+		return err
+	}
+	if f.hourly, err = s.Store.AllHours(ctx, now.Add(-hoursDays*24*time.Hour)); err != nil {
 		return err
 	}
 	s.uptime.latest.Store(f)

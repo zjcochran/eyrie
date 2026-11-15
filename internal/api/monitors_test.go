@@ -5,11 +5,14 @@ package api
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -231,7 +234,12 @@ func TestHistory(t *testing.T) {
 		Up, Down     int64
 		AvgLatencyMS *float64 `json:"avg_latency_ms"`
 	}
-	if admin.call("GET", path+"/hours?days=99", nil, &hours); len(hours) != 1 || hours[0].Up != 1 || hours[0].AvgLatencyMS == nil {
+	// Worked out in the background.
+	eventually(t, "the hourly stats", func() bool {
+		admin.call("GET", path+"/hours?days=99", nil, &hours)
+		return len(hours) == 1
+	})
+	if hours[0].Up != 1 || hours[0].AvgLatencyMS == nil {
 		t.Errorf("hours %+v", hours)
 	}
 	// The uptime figures are worked out in the background.
@@ -269,9 +277,25 @@ func TestOverviewRoute(t *testing.T) {
 			AvgLatencyMS *float64 `json:"avg_latency_ms"`
 		}
 	}
-	if admin.call("GET", "/api/v1/overview?days=500", nil, &ov); len(ov.Days) != 1 || ov.Days[0].MonitorID != m.ID ||
-		len(ov.Days[0].Days) != 1 || ov.Days[0].Days[0].Up != 1 || len(ov.Hours) != 1 || ov.Hours[0].Up != 1 || ov.Hours[0].AvgLatencyMS == nil {
+	// Worked out in the background.
+	eventually(t, "the overview", func() bool {
+		admin.call("GET", "/api/v1/overview?days=500", nil, &ov)
+		return len(ov.Days) == 1
+	})
+	if ov.Days[0].MonitorID != m.ID || len(ov.Days[0].Days) != 1 || ov.Days[0].Days[0].Up != 1 || len(ov.Hours) != 1 ||
+		ov.Hours[0].Up != 1 || ov.Hours[0].AvgLatencyMS == nil {
 		t.Errorf("overview %+v", ov)
+	}
+	// Sent again as encoded the first time; one monitor's alone.
+	var again, one, other struct{ Days []json.RawMessage }
+	admin.call("GET", "/api/v1/overview?days=90", nil, &again)
+	admin.call("GET", fmt.Sprintf("/api/v1/overview?days=90&monitor=%d", m.ID), nil, &one)
+	admin.call("GET", "/api/v1/overview?monitor=9999", nil, &other)
+	if len(again.Days) != 1 || len(one.Days) != 1 || len(other.Days) != 0 {
+		t.Errorf("again %v, one %v, other %v", again, one, other)
+	}
+	if code, _ := admin.errorOf("GET", "/api/v1/overview?monitor=x", nil); code != http.StatusBadRequest {
+		t.Errorf("bad monitor: %d", code)
 	}
 }
 
@@ -506,6 +530,18 @@ func TestUptimeWorker(t *testing.T) {
 	s.uptime.read(&got)
 	if got.day != nil {
 		t.Errorf("figures before the first run: %+v", got)
+	}
+	rec := httptest.NewRecorder()
+	s.overview(rec, httptest.NewRequest(http.MethodGet, "/api/v1/overview", nil))
+	if body := strings.TrimSpace(rec.Body.String()); body != `{"days":[],"hours":[]}` {
+		t.Errorf("overview before the first run: %s", body)
+	}
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/monitors/%d/hours", m.ID), nil)
+	req.SetPathValue("id", strconv.FormatInt(m.ID, 10))
+	s.hours(rec, req)
+	if body := strings.TrimSpace(rec.Body.String()); body != `[]` {
+		t.Errorf("hours before the first run: %s", body)
 	}
 	if err := st.Save(ctx, []store.Record{{Beat: store.Beat{MonitorID: m.ID, At: time.Now(), Status: "up", Latency: -1},
 		State: store.MonitorState{MonitorID: m.ID, Status: "up", LastCheck: time.Now(), Latency: -1}}}); err != nil {

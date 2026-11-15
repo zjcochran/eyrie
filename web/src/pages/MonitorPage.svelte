@@ -51,7 +51,7 @@
       monitor = await api.monitor(id);
       beats = await api.heartbeats(id, new Date(Date.now() - 86400000));
       await loadChart();
-      api.history(90).then((h) => (daily = h.days.find((d) => d.monitor_id === id)?.days ?? []), () => {});
+      api.history(90, id).then((h) => (daily = h.days.find((d) => d.monitor_id === id)?.days ?? []), () => {});
     } catch (e) {
       notice = { ok: false, text: message(e) };
     }

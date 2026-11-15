@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"slices"
 	"testing"
 	"time"
 )
@@ -128,7 +129,14 @@ func TestTotalsCacheRace(t *testing.T) {
 func sameForOne(t *testing.T, s *Store, since time.Time, mons ...Monitor) {
 	t.Helper()
 	ctx := context.Background()
+	every, err := s.AllHours(ctx, since)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, m := range mons {
+		if own, _ := s.Hours(ctx, m.ID, since); !slices.Equal(every[m.ID], own) {
+			t.Errorf("%s all hours %+v, own %+v", m.Name, every[m.ID], own)
+		}
 		all, _ := s.HourlyTotals(ctx, since)
 		one, err := s.MonitorHourlyTotals(ctx, m.ID, since)
 		if err != nil || one != all[m.ID] {

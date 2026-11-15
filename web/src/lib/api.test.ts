@@ -232,6 +232,8 @@ describe('Client', () => {
         '/api/v1/monitors/4/heartbeats?since=2027-01-15T08%3A00%3A00.000Z',
       ],
       [() => client.hours(4, 7), 'GET', '/api/v1/monitors/4/hours?days=7'],
+      [() => client.history(30), 'GET', '/api/v1/overview?days=30'],
+      [() => client.history(90, 4), 'GET', '/api/v1/overview?days=90&monitor=4'],
       [() => client.createMonitor(change), 'POST', '/api/v1/monitors'],
       [() => client.updateMonitor(4, change), 'PUT', '/api/v1/monitors/4'],
       [() => client.deleteMonitor(4), 'DELETE', '/api/v1/monitors/4'],

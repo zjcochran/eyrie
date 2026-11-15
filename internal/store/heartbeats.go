@@ -469,6 +469,29 @@ func (s *Store) Hours(ctx context.Context, id int64, since time.Time) ([]HourBuc
 	return out, rows.Err()
 }
 
+// AllHours returns every monitor's hourly stats from the hour that contains
+// since, oldest first, by monitor ID.
+func (s *Store) AllHours(ctx context.Context, since time.Time) (map[int64][]HourBucket, error) {
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT monitor_id, bucket, up, down, latency_us_sum, latency_count, cpu_bp_sum,
+		memory_bp_sum, usage_count FROM stats_hourly WHERE bucket >= ? ORDER BY monitor_id, bucket`), since.UnixMilli()-since.UnixMilli()%hour)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64][]HourBucket{}
+	for rows.Next() {
+		var b HourBucket
+		var id, start int64
+		if err := rows.Scan(&id, &start, &b.Up, &b.Down, &b.LatencySum, &b.LatencyCount, &b.CPUSum, &b.MemorySum,
+			&b.UsageCount); err != nil {
+			return nil, err
+		}
+		b.Start = fromMillis(start)
+		out[id] = append(out[id], b)
+	}
+	return out, rows.Err()
+}
+
 // Days returns every monitor's daily stats from the day that contains
 // since (days in UTC), oldest first, by monitor ID.
 func (s *Store) Days(ctx context.Context, since time.Time) (map[int64][]HourBucket, error) {

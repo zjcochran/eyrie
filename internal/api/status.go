@@ -137,11 +137,15 @@ func (s *Server) buildStatus(ctx context.Context, p store.Page) (publicPage, err
 	if err != nil {
 		return out, err
 	}
-	first := now.UTC().Truncate(24*time.Hour).AddDate(0, 0, -(statusDays - 1))
-	days, err := s.Store.Days(ctx, first)
-	if err != nil {
-		return out, err
+	// The daily counts and their sums the background last worked out: its
+	// 90 days.
+	var days map[int64][]store.HourBucket
+	var quarter map[int64]store.Totals
+	at := now
+	if f := s.uptime.latest.Load(); f != nil {
+		days, quarter, at = f.days, f.quarter, f.at
 	}
+	first := at.UTC().Truncate(24*time.Hour).AddDate(0, 0, -(statusDays - 1))
 	statuses := s.Engine.Statuses()
 	byID := map[int64]store.Monitor{}
 	for _, m := range mons {
@@ -154,11 +158,7 @@ func (s *Server) buildStatus(ctx context.Context, p store.Page) (publicPage, err
 			pm := publicMonitor{ID: m.ID, Name: m.Name, Status: publicStatus(m, statuses[m.ID]),
 				Uptime: publicUptime{Day: share(st.day[m.ID]), Month: share(st.month[m.ID])},
 				Days:   dayBars(first, days[m.ID])}
-			var quarter store.Totals
-			for _, d := range days[m.ID] {
-				quarter.Up, quarter.Down = quarter.Up+d.Up, quarter.Down+d.Down
-			}
-			pm.Uptime.Quarter = share(quarter)
+			pm.Uptime.Quarter = share(quarter[m.ID])
 			if p.ShowTags {
 				for _, mt := range st.tags[m.ID] {
 					t := st.tagByID[mt.TagID]

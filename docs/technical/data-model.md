@@ -311,14 +311,18 @@ Uptime is `up / (up + down)`. The 24-hour and 30-day figures add up the
 hourly rows from the hour that contains "24 hours (30 days) ago", the 1-year
 figure the daily rows from the day 365 days ago.
 
-Every monitor's figures are worked out in the background (`internal/api`,
-`RunUptime`), at start and then every `refresh_minutes` of the `uptime`
-setting (30 by default); pages read the figures last worked out. To work
-them out, the store keeps in memory the sums of the rows before the
-previous hour (day), and reads only the rows from there on: the sums of
-hours and days that are over do not change. Rows written before that (a
-check saved late, a restore) and pruning drop what was kept. Alert analysis
-adds up only its monitor's rows, through the primary key.
+Every figure added up from these rows is worked out in the background
+(`internal/api`, `RunUptime`), at start and then every `refresh_minutes` of
+the `uptime` setting (30 by default): every monitor's uptime totals over 24
+hours, 30 days and a year, its daily rows of the last 90 days and their
+sum, its hourly rows of the last 35 days, and every monitor's hourly rows
+of the last 24 hours added together. Pages read the figures last worked
+out. To work out the uptime totals, the store keeps in memory the sums of
+the rows before the previous hour (day), and reads only the rows from
+there on: the sums of hours and days that are over do not change. Rows
+written before that (a check saved late, a restore) and pruning drop what
+was kept. Alert analysis adds up only its monitor's rows, through the
+primary key.
 
 ### notification_channels
 

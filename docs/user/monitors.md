@@ -740,11 +740,13 @@ check, such as a supplier's outage.
   towards the average response time).
 - The 24-hour and 30-day figures come from hourly totals, the 1-year figure
   from daily totals (days in UTC), so they never read every heartbeat.
-- Every monitor's figures are worked out in the background, at once when
-  Eyrie starts and then every 30 minutes by default (**Settings → History →
-  Uptime figures**, admins, from 1 to 1440 minutes), so that no page waits
-  for them. The list of monitors, a monitor's page, status pages and badges
-  show them as of the last time; just after Eyrie starts, before the first
+- Every figure added up from those totals is worked out in the background,
+  at once when Eyrie starts and then every 30 minutes by default
+  (**Settings → History → Uptime figures**, admins, from 1 to 1440
+  minutes), so that no page waits for it: uptime, average response times,
+  daily and hourly counts. The list of monitors, a monitor's page and its
+  charts, the dashboards, status pages and badges show them as of the last
+  time; just after Eyrie starts, before the first
   are worked out, they show no data. Saving the setting, and restoring a
   backup, work them out again at once.
 - Heartbeats are kept for 90 days by default: **Settings → History**
