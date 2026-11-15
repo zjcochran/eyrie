@@ -149,7 +149,7 @@ func TestSNMPStorage(t *testing.T) {
 			"/srv/pool: 75% used, 2.0 TB free of 8.0 TB; 2 commands OK"},
 		{"full", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"max_percent":70,"max_inode_percent":2`, false,
 			"/srv/pool 75% used, 3% of inodes used"},
-		{"little free", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"min_free_gb":3000`, false, "/srv/pool 2.0 TB free, / 3.1 GB free"},
+		{"little free", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"min_free_gb":3000`, false, "/ 3.1 GB free, /srv/pool 2.0 TB free"},
 		{"chosen volumes", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"volumes":["/"," /nope",""],"max_percent":20`, false,
 			"no volume /nope, / 25% used"},
 		{"chosen volume", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"volumes":["/"]`, true,
@@ -289,7 +289,7 @@ func TestDiscoverLinuxStorage(t *testing.T) {
 	for _, c := range d.Commands {
 		names = append(names, c.Name)
 	}
-	if !reflect.DeepEqual(names, []string{"/srv/pool", "/", "smart", "snapraid"}) || d.System != nil {
+	if !reflect.DeepEqual(names, []string{"/", "/srv/pool", "smart", "snapraid"}) || d.System != nil {
 		t.Errorf("linux: %q %+v", names, d.System)
 	}
 

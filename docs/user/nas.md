@@ -8,6 +8,8 @@ the system's own health, and anything else a command on the NAS can tell
 history. Nothing is installed on a NAS that has SNMP built in.
 [Discovery](discovery.md#nas-storage-snmp) finds a NAS, ready to add.
 
+![An SNMP storage monitor's page: each volume's use, the disks' health and temperature, the health of the pools and the system, and charts of volume use and disk temperature over 24 hours](../images/nas-dark.png)
+
 ## What each system reports
 
 | System | Space | Volume or pool health | Disk health | Disk temperature | System health |

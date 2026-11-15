@@ -787,6 +787,8 @@ func (d *StorageDevice) read(w *walker) error {
 			d.Volumes[i] = v
 		}
 	}
+	// By path: the device's own order changes as it mounts and unmounts.
+	slices.SortFunc(d.Volumes, func(a, b StorageVolume) int { return strings.Compare(a.Name, b.Name) })
 	if d.Pools, err = volumeStates(w); err != nil {
 		return err
 	}

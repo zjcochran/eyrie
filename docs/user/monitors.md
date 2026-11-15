@@ -381,12 +381,16 @@ of 7.6 TB; 2 volumes healthy; 4 disks healthy; hottest disk 41 °C`.
 
 The monitor's page shows the NAS instead of response times:
 
-- **Volumes**: each one's use as a bar, with the highest use marked, and
-  what is used, free and the total, and inode use where known.
+- **Volumes**: each one's use as a bar, by path, with the highest use
+  marked, and what is used, free and the total, and inode use where
+  known. Mount points with the same size and free space are one
+  filesystem mounted again (a NAS's shares for its containers), shown
+  once by the shortest path.
 - **Disks**: each disk's health and temperature.
 - **Health**: each volume or pool, the system and each command.
 - **Volume use** and **Disk temperature**: a line per volume and per disk
-  over 24 hours, 7 or 30 days, with the limit marked.
+  over 24 hours, 7 or 30 days, with the limit marked and a dot at each
+  line's latest value.
 
 Eyrie keeps what each check read, one sample in each five minutes, for 35
 days. Space is read from net-snmp's `dskTable` (64-bit sizes and inodes)
