@@ -60,6 +60,17 @@
     }),
   );
 
+  // Each series' latest value, marked so that a short history still shows.
+  const ends = $derived(
+    series.map((s) => {
+      for (let i = s.points.length - 1; i >= 0; i--) {
+        const { t, v } = s.points[i];
+        if (v !== null) return { x: x(t), y: y(v) };
+      }
+      return null;
+    }),
+  );
+
   const fmt = (t: number) =>
     to - from >= 2 * 86400000
       ? new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -93,6 +104,7 @@
         {#each runs as pts, j (j)}
           <polyline class="line" points={pts} style:stroke={color(i)} />
         {/each}
+        {#if ends[i]}<circle class="end" cx={ends[i]?.x} cy={ends[i]?.y} r="3" style:fill={color(i)} />{/if}
       {/each}
       {#if at !== null}
         <line class="cursor" x1={x(at)} x2={x(at)} y1={pad.t} y2={base} />
@@ -146,6 +158,10 @@
     stroke-width: 2;
     stroke-linejoin: round;
     stroke-linecap: round;
+  }
+  .end {
+    stroke: var(--surface);
+    stroke-width: 1.5;
   }
   .cursor {
     stroke: var(--muted);

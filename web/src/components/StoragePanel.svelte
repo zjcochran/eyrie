@@ -59,7 +59,7 @@
   <section class="card">
     <div class="row between">
       <h2>Volumes</h2>
-      <span class="muted small">{d.description || d.name}{storage?.at ? ` · read ${ago(storage.at, now)}` : ''}</span>
+      <span class="muted small">{[d.description || d.name, storage?.at ? `read ${ago(storage.at, now)}` : ''].filter(Boolean).join(' · ')}</span>
     </div>
     {#each d.volumes ?? [] as v (v.name)}
       {@const lv = level(v.percent, maxPct, 10)}
