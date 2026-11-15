@@ -803,8 +803,6 @@ func (d *StorageDevice) read(w *walker) error {
 			d.Volumes[i] = v
 		}
 	}
-	// By path: the device's own order changes as it mounts and unmounts.
-	slices.SortFunc(d.Volumes, func(a, b StorageVolume) int { return strings.Compare(a.Name, b.Name) })
 	if d.Pools, err = volumeStates(w); err != nil {
 		return err
 	}
@@ -814,11 +812,47 @@ func (d *StorageDevice) read(w *walker) error {
 	if d.Temps, err = temperatures(w); err != nil {
 		return err
 	}
+	// By name: a device lists them as it made them (Synology's Volume 2
+	// can come before Volume 1) and reorders its mounts.
+	slices.SortFunc(d.Volumes, func(a, b StorageVolume) int { return natural(a.Name, b.Name) })
+	slices.SortStableFunc(d.Pools, func(a, b StorageState) int { return natural(a.Name, b.Name) })
+	slices.SortStableFunc(d.Disks, func(a, b StorageState) int { return natural(a.Name, b.Name) })
+	slices.SortStableFunc(d.Temps, func(a, b StorageTemp) int { return natural(a.Name, b.Name) })
 	if st, err := systemState(w); err == nil {
 		d.System = &st
 	}
 	d.Commands, err = commands(w)
 	return err
+}
+
+// natural compares names with their numbers as numbers: Disk 2 before
+// Disk 10.
+func natural(a, b string) int {
+	for a != "" && b != "" {
+		da, db := digits(a), digits(b)
+		if da > 0 && db > 0 {
+			x, y := strings.TrimLeft(a[:da], "0"), strings.TrimLeft(b[:db], "0")
+			if c := cmp.Or(cmp.Compare(len(x), len(y)), strings.Compare(x, y)); c != 0 {
+				return c
+			}
+			a, b = a[da:], b[db:]
+			continue
+		}
+		if a[0] != b[0] {
+			return cmp.Compare(a[0], b[0])
+		}
+		a, b = a[1:], b[1:]
+	}
+	return cmp.Compare(len(a), len(b))
+}
+
+// digits counts the digits a string starts with.
+func digits(s string) int {
+	n := 0
+	for n < len(s) && s[n] >= '0' && s[n] <= '9' {
+		n++
+	}
+	return n
 }
 
 // commands reads what each command snmpd runs said.

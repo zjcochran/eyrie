@@ -6,6 +6,7 @@ import (
 	"context"
 	"net"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -217,6 +218,15 @@ func TestSNMPStorageDescribe(t *testing.T) {
 	s.Volumes, s.IgnoreVolumes, s.MinFreeGB, s.MaxInodePercent = []string{"/volume1"}, []string{"/volume2"}, 100, 5
 	if f := s.describe(); len(f) != 8 || f[2].Value != "/volume1" || f[5].Value != "/volume2" {
 		t.Errorf("all: %v", f)
+	}
+}
+
+func TestNatural(t *testing.T) {
+	names := []string{"Volume 10", "Volume 2", "Storage Pool 2", "Volume 1", "Storage Pool 1", "Disk 02", "Disk 1", "Disk", "/volume1", "/"}
+	slices.SortFunc(names, natural)
+	want := []string{"/", "/volume1", "Disk", "Disk 1", "Disk 02", "Storage Pool 1", "Storage Pool 2", "Volume 1", "Volume 2", "Volume 10"}
+	if !slices.Equal(names, want) {
+		t.Errorf("sorted: %q", names)
 	}
 }
 

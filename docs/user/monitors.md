@@ -388,8 +388,9 @@ The monitor's page shows the NAS instead of response times:
   alert on it again. Mount points with the same size and free space are one
   filesystem mounted again (a NAS's shares for its containers), shown
   once by the shortest path.
-- **Disks**: each disk's health and temperature.
-- **Health**: each volume or pool, the system and each command.
+- **Disks**: each disk's health and temperature, by name (Disk 2 before
+  Disk 10).
+- **Health**: each volume or pool by name, the system and each command.
 - **Volume use** and **Disk temperature**: a line per volume and per disk
   over 24 hours, 7 or 30 days, with the limit marked and a dot at each
   line's latest value.

@@ -55,7 +55,7 @@
 {#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
 <div class="stats">
-  <div class="card stat"><span class="k">Up now</span><span class="v">{o.counts.up}/{o.active}</span><span class="s">{o.counts.down} down · {o.counts.pending} pending</span></div>
+  <div class="card stat"><span class="k">Up now</span><span class="v">{o.counts.up}/{o.active}</span><span class="s">{o.counts.pending} pending · {o.counts.down} down</span></div>
   <div class="card stat"><span class="k">Uptime, 30 days</span><span class="v">{percent(o.uptimeMonth)}</span><span class="s">24 h {percent(o.uptimeDay)}</span></div>
   <div class="card stat"><span class="k">Response, 24 hours</span><span class="v">{millis(o.latencyDay)}</span><span class="s">mean of every monitor</span></div>
   <div class="card stat">

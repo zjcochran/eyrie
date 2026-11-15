@@ -224,8 +224,8 @@
 {:else}
   <p class="summary">
     <span><StatusDot status="up" /> {counts.up}</span>
-    <span><StatusDot status="down" /> {counts.down}</span>
     <span><StatusDot status="pending" /> {counts.pending}</span>
+    <span><StatusDot status="down" /> {counts.down}</span>
     {#if counts.maintenance}<span><StatusDot status="maintenance" /> {counts.maintenance}</span>{/if}
     <span><StatusDot status="unknown" active={false} /> {counts.paused}</span>
   </p>
