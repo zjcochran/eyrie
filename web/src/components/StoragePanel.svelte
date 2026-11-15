@@ -8,8 +8,19 @@
 
   // A NAS's storage on its SNMP storage monitor's page: its volumes, pools,
   // disks and system as last read, and how full its volumes and how hot its
-  // disks were over time. version changes with each new check.
-  let { id, settings, version }: { id: number; settings: Record<string, unknown>; version: number } = $props();
+  // disks were over time. version changes with each new check; ignore,
+  // for admins, stops or starts alerting on a volume's space.
+  let {
+    id,
+    settings,
+    version,
+    ignore,
+  }: {
+    id: number;
+    settings: Record<string, unknown>;
+    version: number;
+    ignore?: (name: string, ignore: boolean) => void;
+  } = $props();
 
   let storage = $state<Storage | null>(null);
   let error = $state('');
@@ -37,6 +48,7 @@
   const d = $derived(storage?.device ?? null);
   const maxPct = $derived(limit(settings, 'max_percent', 90));
   const maxC = $derived(limit(settings, 'max_celsius', 50));
+  const ignored = $derived(Array.isArray(settings.ignore_volumes) ? (settings.ignore_volumes as string[]) : []);
   const temp = (name: string) => d?.temps?.find((t) => t.name === name)?.celsius;
   // Disks by name, with their health and temperature, from either table.
   const disks = $derived.by(() => {
@@ -62,14 +74,23 @@
       <span class="muted small">{[d.description || d.name, storage?.at ? `read ${ago(storage.at, now)}` : ''].filter(Boolean).join(' · ')}</span>
     </div>
     {#each d.volumes ?? [] as v (v.name)}
-      {@const lv = level(v.percent, maxPct, 10)}
+      {@const off = ignored.includes(v.name)}
+      {@const lv = off ? 'off' : level(v.percent, maxPct, 10)}
       <div class="vol">
-        <div class="row between"><strong class="mono">{v.name}</strong><span class="mono {lv}">{v.percent.toFixed(1)}%</span></div>
+        <div class="row between">
+          <strong class="mono">{v.name}</strong>
+          <span class="row">
+            {#if ignore}<button class="toggle" onclick={() => ignore?.(v.name, !off)}>{off ? 'Alert on its space' : 'Ignore its space'}</button>{/if}
+            <span class="mono {lv}">{v.percent.toFixed(1)}%</span>
+          </span>
+        </div>
         <div class="bar" role="meter" aria-label="{v.name} used" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(v.percent)}>
-          <span class={lv} style:width="{Math.min(100, v.percent)}%"></span><b style:left="{maxPct}%"></b>
+          <span class={lv} style:width="{Math.min(100, v.percent)}%"></span>{#if !off}<b style:left="{maxPct}%"></b>{/if}
         </div>
         <div class="muted small">
-          {size(v.total - v.free)} used · {size(v.free)} free of {size(v.total)}{v.inode_percent >= 0 ? ` · inodes ${v.inode_percent}% used` : ''}
+          {size(v.total - v.free)} used · {size(v.free)} free of {size(v.total)}{v.inode_percent >= 0 ? ` · inodes ${v.inode_percent}% used` : ''}{off
+            ? ' · space ignored'
+            : ''}
         </div>
       </div>
     {:else}
@@ -165,6 +186,22 @@
   .bar span.bad {
     background: var(--down);
   }
+  /* A quiet action beside a volume's use. */
+  .toggle {
+    padding: 0.1rem 0.5rem;
+    font-size: 0.8rem;
+    border-color: transparent;
+    background: none;
+    color: var(--muted);
+  }
+  .toggle:hover {
+    color: var(--text, currentColor);
+    border-color: var(--border);
+  }
+  .bar span.off {
+    background: var(--muted);
+    opacity: 0.6;
+  }
   .bar b {
     position: absolute;
     top: 0;
@@ -178,6 +215,9 @@
   }
   .bad {
     color: var(--down);
+  }
+  .off {
+    color: var(--muted);
   }
   .pair {
     display: grid;

@@ -33,6 +33,9 @@ type SNMPStorage struct {
 	// Volumes are the mount points whose space is watched; none: every
 	// one the device has, but its memory and devices (/dev, /run, …).
 	Volumes []string `json:"volumes"`
+	// IgnoreVolumes are mount points whose space is never down: they
+	// still show, and their health still counts.
+	IgnoreVolumes []string `json:"ignore_volumes"`
 	// Down above MaxPercent of a volume's space used (90 by default),
 	// below MinFreeGB gigabytes free or above MaxInodePercent of its
 	// inodes used (0: no limit).
@@ -50,13 +53,7 @@ func (s *SNMPStorage) normalize() error {
 	if err := s.normalizeAgent(); err != nil {
 		return err
 	}
-	vols := []string{}
-	for _, v := range s.Volumes {
-		if v = strings.TrimSpace(v); v != "" && !slices.Contains(vols, v) {
-			vols = append(vols, v)
-		}
-	}
-	s.Volumes = vols
+	s.Volumes, s.IgnoreVolumes = mountPoints(s.Volumes), mountPoints(s.IgnoreVolumes)
 	if s.MaxPercent == 0 {
 		s.MaxPercent = 90
 	}
@@ -74,11 +71,25 @@ func (s *SNMPStorage) normalize() error {
 	return nil
 }
 
+// mountPoints trims a list of mount points, without blanks or repeats.
+func mountPoints(list []string) []string {
+	out := []string{}
+	for _, v := range list {
+		if v = strings.TrimSpace(v); v != "" && !slices.Contains(out, v) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 func (s *SNMPStorage) checker(env *Env) Checker { return &storageChecker{s: s, env: env} }
 
 func (s *SNMPStorage) describe() []Fact {
 	f := append(s.facts(), Fact{"Volumes", cmp.Or(strings.Join(s.Volumes, ", "), "all")},
 		Fact{"Highest use", strconv.Itoa(s.MaxPercent) + "%"}, Fact{"Highest disk temperature", strconv.Itoa(s.MaxCelsius) + " °C"})
+	if len(s.IgnoreVolumes) > 0 {
+		f = append(f, Fact{"Space ignored on", strings.Join(s.IgnoreVolumes, ", ")})
+	}
 	if s.MinFreeGB > 0 {
 		f = append(f, Fact{"Least free space", strconv.Itoa(s.MinFreeGB) + " GB"})
 	}
@@ -124,12 +135,16 @@ func (s *SNMPStorage) judge(d *StorageDevice) (bool, string) {
 }
 
 // space returns the volumes a monitor watches, and what is wrong with them.
+// An ignored volume is neither, even when it is missing.
 func (s *SNMPStorage) space(d *StorageDevice) ([]StorageVolume, []string) {
 	var bad []string
 	vols := d.Volumes
 	if len(s.Volumes) > 0 {
 		vols = nil
 		for _, name := range s.Volumes {
+			if slices.Contains(s.IgnoreVolumes, name) {
+				continue
+			}
 			i := slices.IndexFunc(d.Volumes, func(v StorageVolume) bool { return v.Name == name })
 			if i < 0 {
 				bad = append(bad, "no volume "+name)
@@ -138,6 +153,7 @@ func (s *SNMPStorage) space(d *StorageDevice) ([]StorageVolume, []string) {
 			vols = append(vols, d.Volumes[i])
 		}
 	}
+	vols = slices.DeleteFunc(slices.Clone(vols), func(v StorageVolume) bool { return slices.Contains(s.IgnoreVolumes, v.Name) })
 	for _, v := range vols {
 		if why := s.full(v); why != "" {
 			bad = append(bad, v.Name+" "+why)

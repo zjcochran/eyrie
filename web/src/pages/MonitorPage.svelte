@@ -127,6 +127,24 @@
     }
   }
 
+  // ignoreSpace stops or starts alerting on a NAS volume's space, and
+  // checks again so that the status follows.
+  function ignoreSpace(name: string, ignore: boolean) {
+    const m = monitor;
+    if (!m) return;
+    const old = Array.isArray(m.settings.ignore_volumes) ? (m.settings.ignore_volumes as string[]) : [];
+    const list = old.filter((v) => v !== name).concat(ignore ? [name] : []);
+    const { name: n, group_id, agent_id, active, interval, retry_interval, retries, resend_every, timeout, upside_down, description, channels } = m;
+    return run(async () => {
+      await api.updateMonitor(id, {
+        name: n, group_id, agent_id, active, interval, retry_interval, retries, resend_every, timeout, upside_down, description, channels,
+        settings: { ...m.settings, ignore_volumes: list },
+      });
+      if (active) await api.checkMonitor(id);
+      return ignore ? `The space on ${name} no longer alerts.` : `The space on ${name} alerts again.`;
+    });
+  }
+
   // checkNow asks for a check; its heartbeat clears the notice.
   async function checkNow() {
     checking = true;
@@ -264,7 +282,7 @@
   {/if}
 
   {#if nas}
-    <StoragePanel {id} settings={m.settings} version={checks} />
+    <StoragePanel {id} settings={m.settings} version={checks} ignore={admin && !busy ? ignoreSpace : undefined} />
   {:else}<section class="card">
     <div class="row between">
       <h2>{resources ? 'CPU' : 'Response time'}</h2>

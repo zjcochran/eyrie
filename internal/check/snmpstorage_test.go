@@ -154,6 +154,10 @@ func TestSNMPStorage(t *testing.T) {
 			"no volume /nope, / 25% used"},
 		{"chosen volume", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"volumes":["/"]`, true,
 			"/: 25% used, 3.1 GB free of 4.1 GB; 2 commands OK"},
+		{"ignored volume", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"ignore_volumes":["/srv/pool"," /srv/pool"],"max_percent":70`, true,
+			"/: 25% used, 3.1 GB free of 4.1 GB; 2 commands OK"},
+		{"ignored and chosen", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"volumes":["/nope","/"],"ignore_volumes":["/nope","/"]`, true,
+			"2 commands OK"},
 
 		{"synology", synology, ``, false, "Disk 2 normal, health warning, Disk 2 at 52 °C"},
 		{"synology healthy", goodSyno, ``, true,
@@ -210,8 +214,8 @@ func TestSNMPStorageDescribe(t *testing.T) {
 	if f := s.describe(); len(f) != 5 || f[2].Value != "all" {
 		t.Errorf("defaults: %v", f)
 	}
-	s.Volumes, s.MinFreeGB, s.MaxInodePercent = []string{"/volume1"}, 100, 5
-	if f := s.describe(); len(f) != 7 || f[2].Value != "/volume1" {
+	s.Volumes, s.IgnoreVolumes, s.MinFreeGB, s.MaxInodePercent = []string{"/volume1"}, []string{"/volume2"}, 100, 5
+	if f := s.describe(); len(f) != 8 || f[2].Value != "/volume1" || f[5].Value != "/volume2" {
 		t.Errorf("all: %v", f)
 	}
 }

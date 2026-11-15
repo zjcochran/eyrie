@@ -159,6 +159,13 @@ export const fields: Record<string, Field[]> = {
       placeholder: 'all',
       help: 'Mount points whose space is watched, separated by commas, such as /volume1; empty: every one',
     },
+    {
+      key: 'ignore_volumes',
+      label: 'Ignore space on',
+      kind: 'text',
+      placeholder: 'none',
+      help: 'Mount points that are never down for their space, separated by commas, such as a USB disk kept full',
+    },
     { key: 'max_percent', label: 'Highest volume use (%)', kind: 'number', min: 1, max: 100, placeholder: '90' },
     { key: 'min_free_gb', label: 'Least free space per volume (GB)', kind: 'number', min: 0, max: 1000000000, placeholder: 'no limit' },
     { key: 'max_inode_percent', label: 'Highest inode use (%)', kind: 'number', min: 0, max: 100, placeholder: 'no limit', help: 'Only from net-snmp disk lines' },
@@ -317,7 +324,7 @@ export function shown(f: Field, values: Values): boolean {
 /** Map fields: one "name: value" per line. */
 const maps = ['headers', 'metadata'];
 /** List fields: values separated by commas. */
-const lists = ['accepted_status_codes', 'nodes', 'brokers', 'volumes'];
+const lists = ['accepted_status_codes', 'nodes', 'brokers', 'volumes', 'ignore_volumes'];
 
 /** Form values: every field as text or a boolean. */
 export type Values = Record<string, string | boolean>;

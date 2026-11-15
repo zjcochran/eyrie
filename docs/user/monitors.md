@@ -368,7 +368,7 @@ It is down when any of these is true:
 
 | What | Down when | Settings |
 | --- | --- | --- |
-| A volume's space | More than **highest volume use** is used (90%), less than **least free space per volume** is free, or more than **highest inode use** of its inodes are used (both off by default) | **Volumes**: the mount points to watch, separated by commas, such as `/volume1`; empty: every volume but the system's memory and devices (`/dev`, `/run`, `/sys`, `/proc`, `/tmp`). A volume named but missing is down. |
+| A volume's space | More than **highest volume use** is used (90%), less than **least free space per volume** is free, or more than **highest inode use** of its inodes are used (both off by default) | **Volumes**: the mount points to watch, separated by commas, such as `/volume1`; empty: every volume but the system's memory and devices (`/dev`, `/run`, `/sys`, `/proc`, `/tmp`). A volume named but missing is down. **Ignore space on**: mount points that are never down for their space (a USB disk kept full, say); they still show on the page. |
 | A volume or pool | It is degraded, crashed, failed, faulted or in a state Eyrie does not know | **Down while a volume is being repaired or rebuilt** (off): repairs, rebuilds, scrubs, expansions and parity checks are up otherwise, as the failure that started a repair was down already. |
 | A disk | It has failed, or its SMART status is not good; on Synology DSM 7.1 and later, also when its health is a warning or worse | |
 | A disk's temperature | Above **highest disk temperature** (50 °C) | |
@@ -383,7 +383,9 @@ The monitor's page shows the NAS instead of response times:
 
 - **Volumes**: each one's use as a bar, by path, with the highest use
   marked, and what is used, free and the total, and inode use where
-  known. Mount points with the same size and free space are one
+  known. An admin can ignore a volume's space from here (**Ignore its
+  space**, which adds it to **Ignore space on** and checks again) and
+  alert on it again. Mount points with the same size and free space are one
   filesystem mounted again (a NAS's shares for its containers), shown
   once by the shortest path.
 - **Disks**: each disk's health and temperature.

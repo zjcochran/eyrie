@@ -73,6 +73,11 @@ describe('lists', () => {
     assert.deepEqual(s.brokers, ['k1.example.com:9092', 'k2.example.com:9092']);
     assert.equal(s.username, undefined, 'hidden without SASL');
   });
+  it('splits the volumes to ignore', () => {
+    const v = toValues('snmp-storage', { host: 'nas.example.com', ignore_volumes: ['/volume2', '/volume3'] });
+    assert.equal(v.ignore_volumes, '/volume2, /volume3');
+    assert.deepEqual(toSettings('snmp-storage', v).ignore_volumes, ['/volume2', '/volume3']);
+  });
 });
 
 describe('workload settings', () => {
