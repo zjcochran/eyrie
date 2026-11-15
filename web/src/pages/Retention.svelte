@@ -6,14 +6,14 @@
   import { api } from '../lib/session.svelte.ts';
 
   let days = $state(90);
-  let seconds = $state(60);
+  let minutes = $state(30);
   let notice = $state<{ ok: boolean; text: string } | null>(null);
   let busy = $state(false);
 
   onMount(() => {
     const fail = (e: unknown) => (notice = { ok: false, text: message(e) });
     api.retention().then((r) => (days = r.heartbeat_days), fail);
-    api.uptimeSettings().then((u) => (seconds = u.refresh_seconds), fail);
+    api.uptimeSettings().then((u) => (minutes = u.refresh_minutes), fail);
   });
 
   async function run(f: () => Promise<string>) {
@@ -35,10 +35,10 @@
     });
   }
 
-  function saveSeconds(event: SubmitEvent) {
+  function saveMinutes(event: SubmitEvent) {
     event.preventDefault();
     run(async () => {
-      seconds = (await api.saveUptimeSettings(seconds)).refresh_seconds;
+      minutes = (await api.saveUptimeSettings(minutes)).refresh_minutes;
       return 'Saved. The uptime figures are worked out now, then at this interval.';
     });
   }
@@ -62,10 +62,8 @@
     Every monitor's uptime over 24 hours, 30 days and a year is worked out in the background, so that no page waits for
     it. Pages show the figures as of the last time.
   </p>
-  <form onsubmit={saveSeconds}>
-    <label
-      >Work them out every (seconds) <input type="number" bind:value={seconds} min="10" max="3600" required /></label
-    >
+  <form onsubmit={saveMinutes}>
+    <label>Work them out every (minutes) <input type="number" bind:value={minutes} min="1" max="1440" required /></label>
     <div><button class="primary" disabled={busy}>Save</button></div>
   </form>
 </section>

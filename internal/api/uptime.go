@@ -13,7 +13,7 @@ import (
 )
 
 // Every monitor's uptime over 24 hours, 30 days and a year is worked out in
-// the background, every UptimeSettings.RefreshSeconds, so that no page
+// the background, every UptimeSettings.RefreshMinutes, so that no page
 // waits for it: the list of monitors, a monitor's page, status pages and
 // badges read the figures last worked out. Before the first are, there are
 // none ("no data").
@@ -23,16 +23,16 @@ const SettingUptime = "uptime"
 
 // UptimeSettings are how often the uptime figures are worked out.
 type UptimeSettings struct {
-	RefreshSeconds int `json:"refresh_seconds"`
+	RefreshMinutes int `json:"refresh_minutes"`
 }
 
-// DefaultUptime works them out every minute.
-var DefaultUptime = UptimeSettings{RefreshSeconds: 60}
+// DefaultUptime works them out every 30 minutes.
+var DefaultUptime = UptimeSettings{RefreshMinutes: 30}
 
-// They are worked out every 10 seconds to every hour.
+// They are worked out every minute to once a day.
 const (
-	minUptimeRefresh = 10
-	maxUptimeRefresh = 3600
+	minUptimeRefresh = 1
+	maxUptimeRefresh = 1440
 )
 
 // uptimeFigures are every monitor's totals, as worked out at a time.
@@ -85,14 +85,14 @@ func (s *Server) refreshUptime(ctx context.Context) error {
 }
 
 // RunUptime works out the uptime figures until ctx ends, at once and then
-// every UptimeSettings.RefreshSeconds. Call it after Handler.
+// every UptimeSettings.RefreshMinutes. Call it after Handler.
 func (s *Server) RunUptime(ctx context.Context) {
 	s.uptime.init()
 	for {
 		if err := s.refreshUptime(ctx); err != nil && ctx.Err() == nil {
 			s.Log.Warn("cannot work out the uptime figures", "err", err)
 		}
-		every := time.Duration(s.uptimeSettings(ctx).RefreshSeconds) * time.Second
+		every := time.Duration(s.uptimeSettings(ctx).RefreshMinutes) * time.Minute
 		if s.uptimeEvery > 0 {
 			every = s.uptimeEvery
 		}
@@ -131,8 +131,8 @@ func (s *Server) saveUptimeSettings(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &v) {
 		return
 	}
-	if v.RefreshSeconds < minUptimeRefresh || v.RefreshSeconds > maxUptimeRefresh {
-		invalid(w, http.StatusUnprocessableEntity, "Uptime figures are worked out every 10 to 3600 seconds.")
+	if v.RefreshMinutes < minUptimeRefresh || v.RefreshMinutes > maxUptimeRefresh {
+		invalid(w, http.StatusUnprocessableEntity, "Uptime figures are worked out every 1 to 1440 minutes.")
 		return
 	}
 	if err := s.Store.SetSetting(r.Context(), SettingUptime, v, s.now()); err != nil {
@@ -140,6 +140,6 @@ func (s *Server) saveUptimeSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.uptime.refreshSoon() // and from now on at the new interval
-	s.audit(r, "uptime settings saved", "refresh_seconds", v.RefreshSeconds, "by", sessionFrom(r).User.Username)
+	s.audit(r, "uptime settings saved", "refresh_minutes", v.RefreshMinutes, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, v)
 }

@@ -830,9 +830,9 @@ export class Client {
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });
-  uptimeSettings = () => this.request<{ refresh_seconds: number }>('GET', '/api/v1/settings/uptime');
-  saveUptimeSettings = (seconds: number) =>
-    this.request<{ refresh_seconds: number }>('PUT', '/api/v1/settings/uptime', { refresh_seconds: seconds });
+  uptimeSettings = () => this.request<{ refresh_minutes: number }>('GET', '/api/v1/settings/uptime');
+  saveUptimeSettings = (minutes: number) =>
+    this.request<{ refresh_minutes: number }>('PUT', '/api/v1/settings/uptime', { refresh_minutes: minutes });
 
   audit = (f: { action?: string; user?: string; before?: number; offset?: number; size?: PageSize }) => {
     const q = new URLSearchParams();

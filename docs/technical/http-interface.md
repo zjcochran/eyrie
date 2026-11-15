@@ -295,8 +295,8 @@ The keys themselves are never returned. `claude_code` is `null` unless
 | `GET /api/v1/events` | read | | `text/event-stream`, below |
 | `GET /api/v1/settings/retention` | admin | | `200` `{"heartbeat_days":90}` |
 | `PUT /api/v1/settings/retention` | admin | `{"heartbeat_days"}`, 1 to 3650 | `200` the saved setting |
-| `GET /api/v1/settings/uptime` | admin | | `200` `{"refresh_seconds":60}`: how often every monitor's uptime figures are worked out |
-| `PUT /api/v1/settings/uptime` | admin | `{"refresh_seconds"}`, 10 to 3600 | `200` the saved setting; the figures are worked out at once |
+| `GET /api/v1/settings/uptime` | admin | | `200` `{"refresh_minutes":30}`: how often every monitor's uptime figures are worked out |
+| `PUT /api/v1/settings/uptime` | admin | `{"refresh_minutes"}`, 1 to 1440 | `200` the saved setting; the figures are worked out at once |
 
 #### Monitor
 

@@ -255,7 +255,7 @@ describe('Client', () => {
       [() => client.notifySettings(), 'GET', '/api/v1/settings/notifications'],
       [() => client.saveNotifySettings([21, 7]), 'PUT', '/api/v1/settings/notifications'],
       [() => client.saveRetention(30), 'PUT', '/api/v1/settings/retention'],
-      [() => client.saveUptimeSettings(300), 'PUT', '/api/v1/settings/uptime'],
+      [() => client.saveUptimeSettings(30), 'PUT', '/api/v1/settings/uptime'],
       [() => client.backupSchedule(), 'GET', '/api/v1/settings/backup'],
       [
         () => client.saveBackupSchedule({ enabled: true, time: '03:00', keep: 14, history: 'none', passphrase: '' }),

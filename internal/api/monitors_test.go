@@ -469,21 +469,21 @@ func TestUptimeSettings(t *testing.T) {
 	e := newEnv(t)
 	admin := e.setup()
 	var u UptimeSettings
-	if admin.call("GET", "/api/v1/settings/uptime", nil, &u); u.RefreshSeconds != 60 {
+	if admin.call("GET", "/api/v1/settings/uptime", nil, &u); u.RefreshMinutes != 30 {
 		t.Errorf("default %+v", u)
 	}
-	for _, secs := range []int{9, 3601} {
-		if code, _ := admin.errorOf("PUT", "/api/v1/settings/uptime", UptimeSettings{RefreshSeconds: secs}); code != http.StatusUnprocessableEntity {
-			t.Errorf("%d seconds: %d", secs, code)
+	for _, mins := range []int{0, 1441} {
+		if code, _ := admin.errorOf("PUT", "/api/v1/settings/uptime", UptimeSettings{RefreshMinutes: mins}); code != http.StatusUnprocessableEntity {
+			t.Errorf("%d minutes: %d", mins, code)
 		}
 	}
-	if code := admin.call("PUT", "/api/v1/settings/uptime", UptimeSettings{RefreshSeconds: 300}, &u); code != http.StatusOK || u.RefreshSeconds != 300 {
+	if code := admin.call("PUT", "/api/v1/settings/uptime", UptimeSettings{RefreshMinutes: 5}, &u); code != http.StatusOK || u.RefreshMinutes != 5 {
 		t.Errorf("save: %d %+v", code, u)
 	}
-	if admin.call("GET", "/api/v1/settings/uptime", nil, &u); u.RefreshSeconds != 300 {
+	if admin.call("GET", "/api/v1/settings/uptime", nil, &u); u.RefreshMinutes != 5 {
 		t.Errorf("saved %+v", u)
 	}
-	if got := e.s.uptimeSettings(context.Background()); got.RefreshSeconds != 300 {
+	if got := e.s.uptimeSettings(context.Background()); got.RefreshMinutes != 5 {
 		t.Errorf("the worker reads %+v", got)
 	}
 	if code, _ := admin.errorOf("PUT", "/api/v1/settings/uptime", "every minute"); code != http.StatusBadRequest {
@@ -513,7 +513,7 @@ func TestUptimeWorker(t *testing.T) {
 	}
 	run, stop := context.WithCancel(ctx)
 	done := make(chan struct{})
-	go func() { s.RunUptime(run); close(done) }() // every minute: only the first run and refreshSoon
+	go func() { s.RunUptime(run); close(done) }() // every 30 minutes: only the first run and refreshSoon
 	eventually(t, "the first figures", func() bool { s.uptime.read(&got); return got.day[m.ID].Up == 1 })
 	st.Save(ctx, []store.Record{{Beat: store.Beat{MonitorID: m.ID, At: time.Now(), Status: "down", Latency: -1}, //nolint:errcheck // checked below
 		State: store.MonitorState{MonitorID: m.ID, Status: "down", LastCheck: time.Now(), Latency: -1}}})
