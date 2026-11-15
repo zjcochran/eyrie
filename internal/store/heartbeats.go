@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"math"
 	"time"
 )
@@ -65,12 +66,16 @@ type MonitorState struct {
 type Record struct {
 	Beat  Beat
 	State MonitorState
+	// Storage is what an SNMP storage check read of its device, as JSON;
+	// nil: none.
+	Storage json.RawMessage
 }
 
-// Bucket sizes of the stats tables.
+// Bucket sizes of the stats tables, and of storage samples.
 const (
-	hour = int64(time.Hour / time.Millisecond)
-	day  = int64(24 * time.Hour / time.Millisecond)
+	storageBucket = int64(5 * time.Minute / time.Millisecond)
+	hour          = int64(time.Hour / time.Millisecond)
+	day           = int64(24 * time.Hour / time.Millisecond)
 )
 
 // millisOrZero is t in milliseconds, or 0 for the zero time.
@@ -162,6 +167,16 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 		st.MonitorID, st.Status, st.Since.UnixMilli(), st.Message, st.LastCheck.UnixMilli(), latencyMS(st.Latency), latencyUS(st.Latency), cert,
 		st.Failures, st.DownChecks, st.CertNotified, st.BeforeStatus, millisOrZero(st.BeforeSince), stCPU, stMemory); err != nil {
 		return err
+	}
+	if len(r.Storage) > 0 {
+		// Parameterized: every value is a bound argument, not SQL text.
+		// nosemgrep
+		if _, err := tx.ExecContext(ctx, s.q(`
+			INSERT INTO storage_samples (monitor_id, bucket, at, data) VALUES (?, ?, ?, ?)
+			ON CONFLICT (monitor_id, bucket) DO UPDATE SET at = excluded.at, data = excluded.data`),
+			b.MonitorID, at-at%storageBucket, at, string(r.Storage)); err != nil {
+			return err
+		}
 	}
 	if b.Status == "maintenance" {
 		return nil
@@ -455,7 +470,8 @@ func (s *Store) FleetHours(ctx context.Context, since time.Time) ([]HourBucket, 
 	return out, rows.Err()
 }
 
-// Prune deletes heartbeats older than beats, hourly stats older than hours
+// Prune deletes heartbeats older than beats, hourly stats and storage
+// samples older than hours
 // and daily stats and audit log entries older than days.
 func (s *Store) Prune(ctx context.Context, beats, hours, days time.Time) error {
 	for _, p := range []struct {
@@ -464,6 +480,7 @@ func (s *Store) Prune(ctx context.Context, beats, hours, days time.Time) error {
 	}{
 		{`DELETE FROM heartbeats WHERE at < ?`, beats},
 		{`DELETE FROM stats_hourly WHERE bucket < ?`, hours},
+		{`DELETE FROM storage_samples WHERE bucket < ?`, hours},
 		{`DELETE FROM stats_daily WHERE bucket < ?`, days},
 		{`DELETE FROM audit_log WHERE at < ?`, days},
 	} {
@@ -472,4 +489,31 @@ func (s *Store) Prune(ctx context.Context, beats, hours, days time.Time) error {
 		}
 	}
 	return nil
+}
+
+// StorageSample is what an SNMP storage check read of its device.
+type StorageSample struct {
+	At   time.Time
+	Data json.RawMessage // a check.StorageDevice
+}
+
+// StorageSamples returns a monitor's storage samples since a time, oldest
+// first.
+func (s *Store) StorageSamples(ctx context.Context, monitor int64, since time.Time) ([]StorageSample, error) {
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT at, data FROM storage_samples WHERE monitor_id = ? AND bucket >= ? ORDER BY bucket`),
+		monitor, since.UnixMilli()-since.UnixMilli()%storageBucket)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StorageSample
+	for rows.Next() {
+		var at int64
+		var data string
+		if err := rows.Scan(&at, &data); err != nil {
+			return nil, err
+		}
+		out = append(out, StorageSample{At: fromMillis(at), Data: json.RawMessage(data)})
+	}
+	return out, rows.Err()
 }

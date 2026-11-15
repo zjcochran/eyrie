@@ -17,67 +17,43 @@ import (
 	"time"
 )
 
-// SNMP storage: a NAS's volumes, disks and health, read over SNMP. Space
-// comes from the standard tables (HOST-RESOURCES-MIB's hrStorageTable and
-// net-snmp's dskTable), which every NAS has; health from Synology's, QNAP's
-// and TrueNAS's own MIBs, whichever the device answers; and anything else,
-// such as SnapRAID or SMART on a Linux box, from a command snmpd runs
+// SNMP storage: everything a NAS says about its storage, read over SNMP
+// in one check. Space comes from the standard tables (HOST-RESOURCES-MIB's
+// hrStorageTable and net-snmp's dskTable), which every NAS has; health
+// and temperatures from Synology's, QNAP's, Asustor's and TrueNAS's own
+// MIBs, whichever the device answers; and anything else, such as SnapRAID
+// or SMART on a Linux box, from the commands snmpd runs
 // (NET-SNMP-EXTEND-MIB).
 
-// SNMPStorage is the settings of the snmp-storage type.
+// SNMPStorage is the settings of the snmp-storage type: a NAS is down when
+// a volume is too full, a volume, pool or disk is unhealthy, a disk is too
+// hot, the system reports a failure or a command snmpd runs fails.
 type SNMPStorage struct {
 	SNMPAgent
-	// Watch is what is checked: capacity (the default), volume-health,
-	// disk-health, disk-temperature, system-health or command.
-	Watch string `json:"watch"`
-	// Volume is a volume as the device names it: a mount point such as
-	// /volume1 for capacity, the volume or pool's name for its health
-	// ("": all of them).
-	Volume string `json:"volume"`
-	// Disk is a disk as the device names it; "": all of them.
-	Disk string `json:"disk"`
-	// Capacity: down above MaxPercent of the space used (90 by default),
-	// below MinFreeGB gigabytes free or above MaxInodePercent of the
+	// Volumes are the mount points whose space is watched; none: every
+	// one the device has, but its memory and devices (/dev, /run, …).
+	Volumes []string `json:"volumes"`
+	// IgnoreVolumes are mount points whose space is never down: they
+	// still show, and their health still counts.
+	IgnoreVolumes []string `json:"ignore_volumes"`
+	// Down above MaxPercent of a volume's space used (90 by default),
+	// below MinFreeGB gigabytes free or above MaxInodePercent of its
 	// inodes used (0: no limit).
 	MaxPercent      int `json:"max_percent"`
 	MinFreeGB       int `json:"min_free_gb"`
 	MaxInodePercent int `json:"max_inode_percent"`
+	// MaxCelsius is the hottest a disk may be: 50 by default.
+	MaxCelsius int `json:"max_celsius"`
 	// RepairingDown makes a volume being repaired or rebuilt down; it is
 	// up by default, as its failure was already down.
 	RepairingDown bool `json:"repairing_down"`
-	// MaxCelsius is the hottest a disk may be: 50 by default.
-	MaxCelsius int `json:"max_celsius"`
-	// Command is the name of an extend line in snmpd.conf: up when the
-	// command it runs exits with 0.
-	Command string `json:"command"`
 }
-
-// The watches of snmp-storage.
-const (
-	WatchCapacity        = "capacity"
-	WatchVolumeHealth    = "volume-health"
-	WatchDiskHealth      = "disk-health"
-	WatchDiskTemperature = "disk-temperature"
-	WatchSystemHealth    = "system-health"
-	WatchCommand         = "command"
-)
-
-var (
-	storageWatches = []string{WatchCapacity, WatchVolumeHealth, WatchDiskHealth, WatchDiskTemperature, WatchSystemHealth, WatchCommand}
-	extendName     = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
-)
 
 func (s *SNMPStorage) normalize() error {
 	if err := s.normalizeAgent(); err != nil {
 		return err
 	}
-	if s.Watch == "" {
-		s.Watch = WatchCapacity
-	}
-	if !slices.Contains(storageWatches, s.Watch) {
-		return fmt.Errorf("what to watch must be one of %s", strings.Join(storageWatches, ", "))
-	}
-	s.Volume, s.Disk, s.Command = strings.TrimSpace(s.Volume), strings.TrimSpace(s.Disk), strings.TrimSpace(s.Command)
+	s.Volumes, s.IgnoreVolumes = mountPoints(s.Volumes), mountPoints(s.IgnoreVolumes)
 	if s.MaxPercent == 0 {
 		s.MaxPercent = 90
 	}
@@ -85,10 +61,6 @@ func (s *SNMPStorage) normalize() error {
 		s.MaxCelsius = 50
 	}
 	switch {
-	case s.Watch == WatchCapacity && s.Volume == "":
-		return errors.New("the volume is required, such as /volume1")
-	case s.Watch == WatchCommand && !extendName.MatchString(s.Command):
-		return errors.New("the command is the name of an extend line in snmpd.conf: letters, digits, dots, dashes and underscores")
 	case s.MaxPercent < 1 || s.MaxPercent > 100 || s.MaxInodePercent < 0 || s.MaxInodePercent > 100:
 		return errors.New("a percentage is from 1 to 100")
 	case s.MinFreeGB < 0:
@@ -99,27 +71,30 @@ func (s *SNMPStorage) normalize() error {
 	return nil
 }
 
+// mountPoints trims a list of mount points, without blanks or repeats.
+func mountPoints(list []string) []string {
+	out := []string{}
+	for _, v := range list {
+		if v = strings.TrimSpace(v); v != "" && !slices.Contains(out, v) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 func (s *SNMPStorage) checker(env *Env) Checker { return &storageChecker{s: s, env: env} }
 
 func (s *SNMPStorage) describe() []Fact {
-	f := append(s.facts(), Fact{"Watch", s.Watch})
-	switch s.Watch {
-	case WatchCapacity:
-		f = append(f, Fact{"Volume", s.Volume}, Fact{"Highest use", strconv.Itoa(s.MaxPercent) + "%"})
-		if s.MinFreeGB > 0 {
-			f = append(f, Fact{"Least free space", strconv.Itoa(s.MinFreeGB) + " GB"})
-		}
-		if s.MaxInodePercent > 0 {
-			f = append(f, Fact{"Highest inode use", strconv.Itoa(s.MaxInodePercent) + "%"})
-		}
-	case WatchVolumeHealth:
-		f = append(f, Fact{"Volume", cmp.Or(s.Volume, "all")})
-	case WatchDiskHealth:
-		f = append(f, Fact{"Disk", cmp.Or(s.Disk, "all")})
-	case WatchDiskTemperature:
-		f = append(f, Fact{"Disk", cmp.Or(s.Disk, "all")}, Fact{"Highest temperature", strconv.Itoa(s.MaxCelsius) + " °C"})
-	case WatchCommand:
-		f = append(f, Fact{"Command", s.Command})
+	f := append(s.facts(), Fact{"Volumes", cmp.Or(strings.Join(s.Volumes, ", "), "all")},
+		Fact{"Highest use", strconv.Itoa(s.MaxPercent) + "%"}, Fact{"Highest disk temperature", strconv.Itoa(s.MaxCelsius) + " °C"})
+	if len(s.IgnoreVolumes) > 0 {
+		f = append(f, Fact{"Space ignored on", strings.Join(s.IgnoreVolumes, ", ")})
+	}
+	if s.MinFreeGB > 0 {
+		f = append(f, Fact{"Least free space", strconv.Itoa(s.MinFreeGB) + " GB"})
+	}
+	if s.MaxInodePercent > 0 {
+		f = append(f, Fact{"Highest inode use", strconv.Itoa(s.MaxInodePercent) + "%"})
 	}
 	return f
 }
@@ -136,36 +111,141 @@ func (c *storageChecker) Check(ctx context.Context) Result {
 	}
 	defer w.conn.Close()
 	start := time.Now()
-	ok, msg, err := c.check(w)
-	if err != nil {
+	d := &StorageDevice{}
+	if err := d.read(w); err != nil {
 		return failErr(err)
 	}
-	return Result{OK: ok, Message: msg, Latency: time.Since(start)}
+	ok, msg := c.s.judge(d)
+	return Result{OK: ok, Message: msg, Latency: time.Since(start), Storage: d}
 }
 
-func (c *storageChecker) check(w *walker) (bool, string, error) {
-	s := c.s
-	switch s.Watch {
-	case WatchVolumeHealth:
-		return c.states(w, "volume", s.Volume, volumeStates)
-	case WatchDiskHealth:
-		return c.states(w, "disk", s.Disk, diskStates)
-	case WatchDiskTemperature:
-		return c.temperature(w)
-	case WatchSystemHealth:
-		st, err := systemState(w)
-		if err != nil {
-			return false, "", err
-		}
-		return st.OK, st.State, nil
-	case WatchCommand:
-		cmd, err := extendResult(w, s.Command)
-		if err != nil {
-			return false, "", err
-		}
-		return cmd.Status == 0, cmd.message(), nil
+// judge says whether a device's storage is as it should be, and what is
+// wrong with it, or a summary.
+func (s *SNMPStorage) judge(d *StorageDevice) (bool, string) {
+	vols, bad := s.space(d)
+	healthy, sick := s.health(d)
+	bad = append(bad, sick...)
+	if len(bad) > 0 {
+		return false, listText(bad)
 	}
-	return c.capacity(w)
+	if len(vols) == 0 && len(d.Pools) == 0 && len(d.Disks) == 0 && len(d.Temps) == 0 && d.System == nil && len(d.Commands) == 0 {
+		return false, "The device reports no storage over SNMP"
+	}
+	return true, d.summary(vols, healthy)
+}
+
+// space returns the volumes a monitor watches, and what is wrong with them.
+// An ignored volume is neither, even when it is missing.
+func (s *SNMPStorage) space(d *StorageDevice) ([]StorageVolume, []string) {
+	var bad []string
+	vols := d.Volumes
+	if len(s.Volumes) > 0 {
+		vols = nil
+		for _, name := range s.Volumes {
+			if slices.Contains(s.IgnoreVolumes, name) {
+				continue
+			}
+			i := slices.IndexFunc(d.Volumes, func(v StorageVolume) bool { return v.Name == name })
+			if i < 0 {
+				bad = append(bad, "no volume "+name)
+				continue
+			}
+			vols = append(vols, d.Volumes[i])
+		}
+	}
+	vols = slices.DeleteFunc(slices.Clone(vols), func(v StorageVolume) bool { return slices.Contains(s.IgnoreVolumes, v.Name) })
+	for _, v := range vols {
+		if why := s.full(v); why != "" {
+			bad = append(bad, v.Name+" "+why)
+		}
+	}
+	return vols, bad
+}
+
+// health counts the healthy volumes or pools, and says what is wrong with
+// the rest, the disks, the system and the commands.
+func (s *SNMPStorage) health(d *StorageDevice) (int, []string) {
+	var bad []string
+	healthy := 0
+	for _, p := range d.Pools {
+		if p.OK && (!p.Repairing || !s.RepairingDown) {
+			healthy++
+		} else {
+			bad = append(bad, p.Name+" "+p.State)
+		}
+	}
+	for _, disk := range d.Disks {
+		if !disk.OK {
+			bad = append(bad, disk.Name+" "+disk.State)
+		}
+	}
+	for _, t := range d.Temps {
+		if t.Celsius > s.MaxCelsius {
+			bad = append(bad, fmt.Sprintf("%s at %d °C", t.Name, t.Celsius))
+		}
+	}
+	if d.System != nil && !d.System.OK {
+		bad = append(bad, d.System.State)
+	}
+	for _, c := range d.Commands {
+		if c.Status != 0 {
+			bad = append(bad, c.message())
+		}
+	}
+	return healthy, bad
+}
+
+// Judge says how a device is by a monitor's default settings, for
+// discovery.
+func (d *StorageDevice) Judge() (bool, string) {
+	s := SNMPStorage{MaxPercent: 90, MaxCelsius: 50}
+	return s.judge(d)
+}
+
+// full says how a volume is fuller than allowed; "" when it is not.
+func (s *SNMPStorage) full(v StorageVolume) string {
+	var over []string
+	if v.Percent > float64(s.MaxPercent) {
+		over = append(over, fmt.Sprintf("%.0f%% used", v.Percent))
+	}
+	if s.MinFreeGB > 0 && v.Free < int64(s.MinFreeGB)*1e9 {
+		over = append(over, sizeText(v.Free)+" free")
+	}
+	if s.MaxInodePercent > 0 && v.InodePercent > s.MaxInodePercent {
+		over = append(over, fmt.Sprintf("%d%% of inodes used", v.InodePercent))
+	}
+	return strings.Join(over, ", ")
+}
+
+// summary sums up a healthy device: its fullest volume, its pools and
+// disks, its hottest disk.
+func (d *StorageDevice) summary(vols []StorageVolume, pools int) string {
+	var parts []string
+	if len(vols) > 0 {
+		top := slices.MaxFunc(vols, func(a, b StorageVolume) int { return cmp.Compare(a.Percent, b.Percent) })
+		parts = append(parts, top.String())
+	}
+	if pools > 0 {
+		parts = append(parts, plural(pools, "volume", "volumes")+" healthy")
+	}
+	if len(d.Disks) > 0 {
+		parts = append(parts, plural(len(d.Disks), "disk", "disks")+" healthy")
+	}
+	if len(d.Temps) > 0 {
+		top := slices.MaxFunc(d.Temps, func(a, b StorageTemp) int { return cmp.Compare(a.Celsius, b.Celsius) })
+		parts = append(parts, fmt.Sprintf("hottest disk %d °C", top.Celsius))
+	}
+	if len(d.Commands) > 0 {
+		parts = append(parts, plural(len(d.Commands), "command", "commands")+" OK")
+	}
+	return strings.Join(parts, "; ")
+}
+
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return "1 " + one
+	}
+	return strconv.Itoa(n) + " " + many
 }
 
 func dialWalker(ctx context.Context, env *Env, a *SNMPAgent) (*walker, error) {
@@ -292,37 +372,6 @@ func volumes(w *walker) ([]StorageVolume, error) {
 	return out, nil
 }
 
-func (c *storageChecker) capacity(w *walker) (bool, string, error) {
-	s := c.s
-	vols, err := volumes(w)
-	if err != nil {
-		return false, "", err
-	}
-	i := slices.IndexFunc(vols, func(v StorageVolume) bool { return v.Name == s.Volume })
-	if i < 0 {
-		return false, "", missing("volume", s.Volume, vols, func(v StorageVolume) string { return v.Name })
-	}
-	v := vols[i]
-	msg := v.String()
-	if v.InodePercent >= 0 && s.MaxInodePercent > 0 {
-		msg += fmt.Sprintf(", %d%% of inodes used", v.InodePercent)
-	}
-	var over []string
-	if v.Percent > float64(s.MaxPercent) {
-		over = append(over, fmt.Sprintf("more than %d%% used", s.MaxPercent))
-	}
-	if s.MinFreeGB > 0 && v.Free < int64(s.MinFreeGB)*1e9 {
-		over = append(over, fmt.Sprintf("less than %d GB free", s.MinFreeGB))
-	}
-	if s.MaxInodePercent > 0 && v.InodePercent > s.MaxInodePercent {
-		over = append(over, fmt.Sprintf("more than %d%% of inodes used", s.MaxInodePercent))
-	}
-	if len(over) > 0 {
-		return false, msg + ": " + strings.Join(over, " and "), nil
-	}
-	return true, msg, nil
-}
-
 // sizeText writes bytes in decimal units, as disks are sold.
 func sizeText(b int64) string {
 	units := []string{"B", "kB", "MB", "GB", "TB", "PB"}
@@ -335,22 +384,6 @@ func sizeText(b int64) string {
 		return fmt.Sprintf("%d B", b)
 	}
 	return fmt.Sprintf("%.1f %s", f, units[i])
-}
-
-// missing says that a device has no volume or disk of a name, and which it
-// has.
-func missing[T any](what, name string, have []T, nameOf func(T) string) error {
-	if len(have) == 0 {
-		return fmt.Errorf("the device reports no %ss", what)
-	}
-	var names []string
-	for _, h := range have[:min(len(have), 10)] {
-		names = append(names, nameOf(h))
-	}
-	if len(have) > 10 {
-		names = append(names, "…")
-	}
-	return fmt.Errorf("the device has no %s %q; it has %s", what, name, strings.Join(names, ", "))
 }
 
 // Health.
@@ -525,47 +558,12 @@ func asusDisk(r row) (d struct {
 	return d
 }
 
-// states checks the volumes or disks a monitor watches.
-func (c *storageChecker) states(w *walker, what, name string, read func(*walker) ([]StorageState, error)) (bool, string, error) {
-	all, err := read(w)
-	if err != nil {
-		return false, "", err
-	}
-	if len(all) == 0 {
-		return false, "", noHealth(what + " health")
-	}
-	if name != "" {
-		i := slices.IndexFunc(all, func(s StorageState) bool { return s.Name == name })
-		if i < 0 {
-			return false, "", missing(what, name, all, func(s StorageState) string { return s.Name })
-		}
-		all = all[i : i+1]
-	}
-	var bad, good []string
-	for _, s := range all {
-		if s.OK && (!s.Repairing || !c.s.RepairingDown) {
-			good = append(good, s.Name+" "+s.State)
-		} else {
-			bad = append(bad, s.Name+" "+s.State)
-		}
-	}
-	if len(bad) > 0 {
-		return false, listText(bad), nil
-	}
-	return true, listText(good), nil
-}
-
 // listText joins at most ten things.
 func listText(items []string) string {
 	if len(items) > 10 {
 		return strings.Join(items[:10], ", ") + fmt.Sprintf(" and %d more", len(items)-10)
 	}
 	return strings.Join(items, ", ")
-}
-
-func noHealth(what string) error {
-	return fmt.Errorf("the device reports no %s over SNMP: Synology DSM, QNAP QTS, Asustor ADM and TrueNAS do; "+
-		"on others, watch a command that snmpd runs", what)
 }
 
 // StorageTemp is a disk's temperature.
@@ -600,37 +598,8 @@ func qnapTemp(r row) (StorageTemp, bool) {
 	return StorageTemp{r.v[2], int(num(m[1]))}, true
 }
 
-func (c *storageChecker) temperature(w *walker) (bool, string, error) {
-	s := c.s
-	all, err := temperatures(w)
-	if err != nil {
-		return false, "", err
-	}
-	if len(all) == 0 {
-		return false, "", noHealth("disk temperatures")
-	}
-	if s.Disk != "" {
-		i := slices.IndexFunc(all, func(t StorageTemp) bool { return t.Name == s.Disk })
-		if i < 0 {
-			return false, "", missing("disk", s.Disk, all, func(t StorageTemp) string { return t.Name })
-		}
-		all = all[i : i+1]
-	}
-	var hot []string
-	for _, t := range all {
-		if t.Celsius > s.MaxCelsius {
-			hot = append(hot, fmt.Sprintf("%s %d °C", t.Name, t.Celsius))
-		}
-	}
-	if len(hot) > 0 {
-		return false, fmt.Sprintf("Above %d °C: %s", s.MaxCelsius, listText(hot)), nil
-	}
-	top := slices.MaxFunc(all, func(a, b StorageTemp) int { return cmp.Compare(a.Celsius, b.Celsius) })
-	if len(all) == 1 {
-		return true, fmt.Sprintf("%s %d °C", top.Name, top.Celsius), nil
-	}
-	return true, fmt.Sprintf("Hottest of %d disks: %s %d °C", len(all), top.Name, top.Celsius), nil
-}
+// errNoSystem: the device does not judge its system.
+var errNoSystem = errors.New("the device reports no system health")
 
 // systemState reads a device's own judgement of its fans, power and
 // system: Synology's or QNAP's.
@@ -682,11 +651,14 @@ func systemState(w *walker) (StorageState, error) {
 		}
 	}
 	if len(parts) == 0 {
-		return st, noHealth("system health")
+		return st, errNoSystem
 	}
 	st.State = sentence(strings.Join(parts, ", "))
 	return st, nil
 }
+
+// extendName is what an extend line's name may be, to be shown.
+var extendName = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
 
 // Commands snmpd runs (NET-SNMP-EXTEND-MIB): their rows are indexed by
 // the extend line's name, as a string.
@@ -811,17 +783,28 @@ func DiscoverStorage(ctx context.Context, env *Env, settings []byte) (StorageDev
 	return d, d.read(w)
 }
 
-// read reads what a device's storage monitors would watch.
+// read reads what a device says about its storage.
 func (d *StorageDevice) read(w *walker) error {
 	vols, err := volumes(w)
 	if err != nil {
 		return err
 	}
 	for _, v := range vols {
-		if !slices.ContainsFunc(skipVolumes, func(p string) bool { return v.Name == p || strings.HasPrefix(v.Name, p+"/") }) {
+		if slices.ContainsFunc(skipVolumes, func(p string) bool { return v.Name == p || strings.HasPrefix(v.Name, p+"/") }) {
+			continue
+		}
+		// Bind mounts (a NAS's shares mounted for its containers) are the
+		// same filesystem again: one entry each, by its shortest path.
+		i := slices.IndexFunc(d.Volumes, func(o StorageVolume) bool { return o.Total == v.Total && o.Free == v.Free })
+		switch {
+		case i < 0:
 			d.Volumes = append(d.Volumes, v)
+		case len(v.Name) < len(d.Volumes[i].Name):
+			d.Volumes[i] = v
 		}
 	}
+	// By path: the device's own order changes as it mounts and unmounts.
+	slices.SortFunc(d.Volumes, func(a, b StorageVolume) int { return strings.Compare(a.Name, b.Name) })
 	if d.Pools, err = volumeStates(w); err != nil {
 		return err
 	}
@@ -856,57 +839,6 @@ func commands(w *walker) ([]StorageCommand, error) {
 	}
 	slices.SortFunc(out, func(a, b StorageCommand) int { return cmp.Compare(a.Name, b.Name) })
 	return out, nil
-}
-
-// Suggestion is a monitor discovery suggests.
-type Suggestion struct {
-	Name     string         // after the device's name
-	Detail   string         // how it is now
-	Up       bool           // whether it would be up now
-	Settings map[string]any // over the device's
-}
-
-// Suggestions are the monitors of a device's storage: each volume's space
-// and health, its disks' health and temperature, the system's health and
-// each command snmpd runs.
-func (d StorageDevice) Suggestions() []Suggestion {
-	var out []Suggestion
-	for _, v := range d.Volumes {
-		out = append(out, Suggestion{Name: v.Name + " space", Detail: v.String(), Up: v.Percent <= 90,
-			Settings: map[string]any{"watch": WatchCapacity, "volume": v.Name}})
-	}
-	for _, p := range d.Pools {
-		out = append(out, Suggestion{Name: p.Name + " health", Detail: sentence(p.State), Up: p.OK,
-			Settings: map[string]any{"watch": WatchVolumeHealth, "volume": p.Name}})
-	}
-	if len(d.Disks) > 0 {
-		var bad []string
-		for _, s := range d.Disks {
-			if !s.OK {
-				bad = append(bad, s.Name+" "+s.State)
-			}
-		}
-		detail := fmt.Sprintf("%d disks, all healthy", len(d.Disks))
-		if len(bad) > 0 {
-			detail = sentence(listText(bad))
-		}
-		out = append(out, Suggestion{Name: "disk health", Detail: detail, Up: len(bad) == 0,
-			Settings: map[string]any{"watch": WatchDiskHealth, "disk": ""}})
-	}
-	if len(d.Temps) > 0 {
-		top := slices.MaxFunc(d.Temps, func(a, b StorageTemp) int { return cmp.Compare(a.Celsius, b.Celsius) })
-		out = append(out, Suggestion{Name: "disk temperature", Detail: fmt.Sprintf("Hottest: %s %d °C", top.Name, top.Celsius),
-			Up: top.Celsius <= 50, Settings: map[string]any{"watch": WatchDiskTemperature, "disk": ""}})
-	}
-	if d.System != nil {
-		out = append(out, Suggestion{Name: "system health", Detail: d.System.State, Up: d.System.OK,
-			Settings: map[string]any{"watch": WatchSystemHealth}})
-	}
-	for _, c := range d.Commands {
-		out = append(out, Suggestion{Name: c.Name, Detail: sentence(c.message()), Up: c.Status == 0,
-			Settings: map[string]any{"watch": WatchCommand, "command": c.Name}})
-	}
-	return out
 }
 
 // bigMul is a*b, for sizes that may not fit 64 bits; capped at the

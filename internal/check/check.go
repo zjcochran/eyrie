@@ -32,6 +32,9 @@ type Result struct {
 	Latency     time.Duration // negative: none
 	CertExpires time.Time     // HTTPS: when the server's certificate expires
 	Usage       *Usage        // system resources: the host's use; nil: none
+	// Storage is what an SNMP storage check read of the whole device:
+	// its volumes, pools, disks and system; nil: none.
+	Storage *StorageDevice
 }
 
 func fail(format string, args ...any) Result {

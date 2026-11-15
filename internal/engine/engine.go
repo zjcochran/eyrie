@@ -17,6 +17,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -379,7 +380,7 @@ func (e *Engine) record(en *entry, started time.Time, res check.Result) {
 		if !res.CertExpires.IsZero() {
 			e.checkCert(en, res.CertExpires)
 		}
-		e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: res.Message}, res.Latency, usage(res))
+		e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: res.Message}, res.Latency, usage(res), storage(res))
 		return
 	}
 	o := state.Next(en.rules, en.st, state.Result{OK: res.OK, Message: res.Message}, e.Clock.Now())
@@ -393,7 +394,16 @@ func (e *Engine) record(en *entry, started time.Time, res check.Result) {
 	if !res.CertExpires.IsZero() {
 		e.checkCert(en, res.CertExpires)
 	}
-	e.beat(en, o, res.Latency, usage(res))
+	e.beat(en, o, res.Latency, usage(res), storage(res))
+}
+
+// storage is what an SNMP storage check read of its device, as saved.
+func storage(res check.Result) json.RawMessage {
+	if res.Storage == nil {
+		return nil
+	}
+	b, _ := json.Marshal(res.Storage) //nolint:errchkjson // a struct of strings and numbers
+	return b
 }
 
 // usage is a result's use of its host, as saved.
@@ -428,7 +438,7 @@ func (e *Engine) checkCert(en *entry, expires time.Time) {
 }
 
 // beat records a heartbeat for an outcome.
-func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration, use *store.Usage) {
+func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration, use *store.Usage, stor json.RawMessage) {
 	now := e.Clock.Now()
 	old := en.st
 	en.st = o.State
@@ -445,7 +455,7 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration, use *st
 		Important: o.Important, Usage: use}
 	rec := store.Record{Beat: b, State: store.MonitorState{MonitorID: en.m.ID, Status: string(o.Status), Since: o.State.Since,
 		Message: o.Message, LastCheck: now, Latency: latency, CertExpires: s.CertExpires, Usage: use, Failures: o.State.Failures,
-		DownChecks: o.State.DownChecks, CertNotified: en.certNotified}}
+		DownChecks: o.State.DownChecks, CertNotified: en.certNotified}, Storage: stor}
 	if o.Status == state.Maintenance {
 		rec.State.BeforeStatus, rec.State.BeforeSince = string(en.before.Status), en.before.Since
 	}
@@ -702,12 +712,12 @@ func (e *Engine) SetManual(ctx context.Context, id int64, status state.Status, m
 		if en.status.Maintenance != "" {
 			// It takes this status when the maintenance ends.
 			en.before = state.Set(en.before, status, e.Clock.Now()).State
-			e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: msg + " (after the maintenance)"}, -1, nil)
+			e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: msg + " (after the maintenance)"}, -1, nil, nil)
 			return nil
 		}
 		o := state.Set(en.st, status, e.Clock.Now())
 		o.Message = msg
-		e.beat(en, o, -1, nil)
+		e.beat(en, o, -1, nil, nil)
 		return nil
 	})
 }

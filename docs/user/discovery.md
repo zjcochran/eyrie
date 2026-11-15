@@ -24,7 +24,7 @@ when you ask, for one type at a time, and adds nothing by itself.
 | Kubernetes workloads | No | Kubernetes agents | Deployments, StatefulSets and DaemonSets, with their namespace | [Kubernetes workload](monitors.md#docker-swarm-service-kubernetes-workload-proxmox-ve-guest) |
 | Proxmox VE guests | No | Proxmox VE agents | LXC containers and VMs, with their node | [Proxmox VE guest](monitors.md#docker-swarm-service-kubernetes-workload-proxmox-ve-guest), by VM ID |
 | Network devices (SNMP) | Asked from Eyrie's network | Any agent: asked from the agent's network | The device, and each of its interfaces | [SNMP](monitors.md#snmp) |
-| NAS storage (SNMP) | Asked from Eyrie's network | Any agent: asked from the agent's network | Each volume's space and health, the disks' health and temperature, the system's health, each command snmpd runs | [SNMP storage](monitors.md#snmp-storage-nas) |
+| NAS storage (SNMP) | Asked from Eyrie's network | Any agent: asked from the agent's network | The NAS, with how it is now | [SNMP storage](monitors.md#snmp-storage-nas) |
 
 An agent's list is its last report, sent every 30 seconds. An agent that is
 not reporting, or could not list its platform, says so instead:
@@ -36,8 +36,7 @@ default. Change what you like, then **Add**.
 
 What a monitor already checks is not listed: one of the same type, running
 on the same place, of the same container, service, workload or guest, or
-of the same SNMP host and OID, or of the same SNMP host, watch, volume,
-disk and command. The list says how many it left out
+of the same SNMP host and OID, or of the same NAS. The list says how many it left out
 (`Not listed: 3 monitored already.`), and when that is everything,
 `Nothing new found.`
 
@@ -79,20 +78,9 @@ where it ran and how many were found).
 
 Enter the NAS as for a network device. Eyrie, or the agent, asks it,
 within 60 seconds, for its name and description (on Synology, its model
-and DSM version), and for what [SNMP storage](monitors.md#snmp-storage-nas)
-monitors watch, as [NAS monitoring](nas.md) describes. It offers:
-
-| Monitor | Name | Watch | Up now when |
-| --- | --- | --- | --- |
-| Each volume's space | The device's name, the mount point and `space` | `capacity` | At most 90% is used |
-| Each volume's or pool's health | The device's name, the volume and `health` | `volume-health` | It is healthy, or being repaired or scrubbed |
-| The disks' health | The device's name and `disk health` | `disk-health`, all disks | Every disk is healthy |
-| The disks' temperature | The device's name and `disk temperature` | `disk-temperature`, all disks | No disk is above 50 °C |
-| The system's health | The device's name and `system health` | `system-health` | Nothing has failed |
-| Each command snmpd runs | The device's name and the `extend` line's name | `command` | It exited with 0 |
-
-The space table leaves out the mount points of the system's memory and
-devices (`/dev`, `/run`, `/sys`, `/proc`, `/tmp` and below). An agent from
-before NAS discovery answers `The agent edge cannot discover: update it
-to this version of Eyrie.`
-
+and DSM version) and for everything an [SNMP
+storage](monitors.md#snmp-storage-nas) monitor reads. It offers one
+monitor of the whole NAS, named after it, with what a monitor with the
+default settings would say now: what is wrong, or a summary. An agent from
+before NAS discovery answers `The agent edge cannot discover: update it to
+this version of Eyrie.`

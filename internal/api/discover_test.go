@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/zjcochran/eyrie/internal/agentauth"
 	"github.com/zjcochran/eyrie/internal/check"
+	"github.com/zjcochran/eyrie/internal/store"
 	"github.com/zjcochran/eyrie/internal/workload"
 )
 
@@ -193,39 +195,36 @@ func TestDiscoverSNMP(t *testing.T) {
 func TestDiscoverStorage(t *testing.T) {
 	e, admin, a := agentEnv(t)
 	device := check.StorageDevice{Name: "nas1", Description: "Synology DSX1, DSM 7.0-00000",
-		Volumes: []check.StorageVolume{
-			{Name: "/volume1", Total: 8e12, Free: 2e12, Percent: 75, InodePercent: -1},
-			{Name: "/volume2", Total: 4e12, Free: 2e11, Percent: 95, InodePercent: -1},
-		},
-		Pools:    []check.StorageState{{Name: "Volume 1", State: "normal", OK: true}},
-		Commands: []check.StorageCommand{{Name: "snapraid", Status: 1, Output: "SnapRAID: 2 errors"}},
+		Volumes: []check.StorageVolume{{Name: "/volume1", Total: 8e12, Free: 2e12, Percent: 75, InodePercent: -1}},
+		Pools:   []check.StorageState{{Name: "Volume 1", State: "normal", OK: true}},
+		Disks:   []check.StorageState{{Name: "Disk 1", State: "normal", OK: true}},
 	}
 	a.serve(func(j agentauth.Job) agentauth.Result {
 		if !j.Discover {
 			return agentauth.Result{Message: "not a discovery"}
 		}
-		if j.Type != "snmp-storage" {
-			return agentauth.Result{Message: "The agent cannot discover " + j.Type}
-		}
 		raw, _ := json.Marshal(device)
 		return agentauth.Result{OK: true, Found: raw}
 	})
 	settings := map[string]any{"host": "nas.example.com", "version": "2c", "community": "private"}
-	if code := admin.call("POST", "/api/v1/monitors", map[string]any{"name": "Volume 1", "type": "snmp-storage", "agent_id": a.id,
-		"settings": map[string]any{"host": "NAS.example.com", "volume": "/volume1"}}, nil); code != http.StatusCreated {
-		t.Fatalf("monitor: %d", code)
-	}
 	var got discovered
 	if code := admin.call("POST", "/api/v1/discover", map[string]any{"type": "snmp-storage", "agent_id": a.id, "settings": settings}, &got); code != http.StatusOK {
 		t.Fatalf("discover: %d", code)
 	}
-	want := []found{
-		{Name: "nas1 /volume2 space", Detail: "/volume2: 95% used, 200.0 GB free of 4.0 TB", Settings: map[string]any{"watch": "capacity", "volume": "/volume2"}},
-		{Name: "nas1 Volume 1 health", Detail: "Normal", Up: true, Settings: map[string]any{"watch": "volume-health", "volume": "Volume 1"}},
-		{Name: "nas1 snapraid", Detail: "SnapRAID: 2 errors (exit status 1)", Settings: map[string]any{"watch": "command", "command": "snapraid"}},
-	}
-	if got.Device != "nas1: Synology DSX1, DSM 7.0-00000" || !reflect.DeepEqual(got.Found, want) || got.Monitored != 1 {
+	want := []found{{Name: "nas1", Detail: "/volume1: 75% used, 2.0 TB free of 8.0 TB; 1 volume healthy; 1 disk healthy", Up: true,
+		Settings: map[string]any{}}}
+	if got.Device != "nas1: Synology DSX1, DSM 7.0-00000" || !reflect.DeepEqual(got.Found, want) || got.Monitored != 0 {
 		t.Errorf("found %+v", got)
+	}
+
+	// Monitored already: one monitor of the whole NAS.
+	if code := admin.call("POST", "/api/v1/monitors", map[string]any{"name": "NAS", "type": "snmp-storage", "agent_id": a.id,
+		"settings": map[string]any{"host": "NAS.example.com"}}, nil); code != http.StatusCreated {
+		t.Fatalf("monitor: %d", code)
+	}
+	if code := admin.call("POST", "/api/v1/discover", map[string]any{"type": "snmp-storage", "agent_id": a.id, "settings": settings}, &got); code != http.StatusOK ||
+		len(got.Found) != 0 || got.Monitored != 1 {
+		t.Errorf("monitored: %d %+v", code, got)
 	}
 
 	// From Eyrie, whose test network answers nothing.
@@ -236,6 +235,48 @@ func TestDiscoverStorage(t *testing.T) {
 	e.up.Store(false)
 	if code, _ := admin.errorOf("POST", "/api/v1/discover", map[string]any{"type": "snmp-storage", "settings": settings}); code != http.StatusUnprocessableEntity {
 		t.Errorf("unreachable: %d", code)
+	}
+}
+
+func TestStorageRoute(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	m := create(t, admin, map[string]any{"name": "NAS", "type": "snmp-storage", "interval_seconds": 3600,
+		"settings": map[string]any{"host": "nas.example.com"}})
+	path := fmt.Sprintf("/api/v1/monitors/%d/storage", m.ID)
+	var got struct {
+		At      *time.Time           `json:"at"`
+		Device  *check.StorageDevice `json:"device"`
+		History []storagePoint       `json:"history"`
+	}
+	if code := admin.call("GET", path, nil, &got); code != http.StatusOK || got.At != nil || got.Device != nil || len(got.History) != 0 {
+		t.Errorf("empty: %d %+v", code, got)
+	}
+	ctx := context.Background()
+	now := e.s.now()
+	var recs []store.Record
+	for i := range 700 {
+		at := now.Add(-time.Duration(700-i) * 5 * time.Minute)
+		d := check.StorageDevice{Volumes: []check.StorageVolume{{Name: "/volume1", Percent: float64(i % 100)}},
+			Temps: []check.StorageTemp{{Name: "Disk 1", Celsius: 30 + i%10}}}
+		raw, _ := json.Marshal(d)
+		recs = append(recs, store.Record{Beat: store.Beat{MonitorID: m.ID, At: at, Status: "up", Latency: -1},
+			State: store.MonitorState{MonitorID: m.ID, Status: "up", Since: at, LastCheck: at}, Storage: raw})
+	}
+	recs = append(recs, store.Record{Beat: store.Beat{MonitorID: m.ID, At: now, Status: "up", Latency: -1},
+		State: store.MonitorState{MonitorID: m.ID, Status: "up", Since: now, LastCheck: now}, Storage: json.RawMessage(`not json`)})
+	if err := e.st.Save(ctx, recs); err != nil {
+		t.Fatal(err)
+	}
+	if admin.call("GET", path+"?days=99", nil, &got); got.Device == nil || len(got.History) == 0 || len(got.History) > maxStoragePoints+1 ||
+		got.History[len(got.History)-1].Volumes["/volume1"] != 99 || got.History[0].Temps["Disk 1"] != 30 {
+		t.Errorf("history: %d points, %+v", len(got.History), got.Device)
+	}
+	if admin.call("GET", path, nil, &got); len(got.History) != 288 && len(got.History) != 289 {
+		t.Errorf("a day: %d points", len(got.History))
+	}
+	if code := admin.call("GET", "/api/v1/monitors/9999/storage", nil, nil); code != http.StatusNotFound {
+		t.Errorf("unknown: %d", code)
 	}
 }
 

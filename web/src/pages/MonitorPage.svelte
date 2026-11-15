@@ -2,6 +2,7 @@
 <script lang="ts">
   import Chart from '../components/Chart.svelte';
   import Notice from '../components/Notice.svelte';
+  import StoragePanel from '../components/StoragePanel.svelte';
   import TagChip from '../components/TagChip.svelte';
   import { type Beat, type Count, type Monitor, message } from '../lib/api.ts';
   import { normalize } from '../lib/appearance.ts';
@@ -33,6 +34,10 @@
   const from = $derived(now - days[period] * 86400000);
   const changes = $derived(beats.filter((b) => b.important).slice(0, 20));
   const resources = $derived(monitor?.type === 'system-resources');
+  // An SNMP storage monitor shows its NAS's storage instead of response times.
+  const nas = $derived(monitor?.type === 'snmp-storage');
+  // Counts the storage monitor's checks, so its panel reloads with each.
+  let checks = $state(0);
   const look = $derived(normalize(app.session?.user?.appearance).layout);
   // The last 90 days, for the uptime heatmap.
   let daily = $state<Count[]>([]);
@@ -83,6 +88,7 @@
         if (notice?.ok) notice = null;
       }
       beats = [b, ...beats];
+      checks++;
       if (b.important && (b.status === 'maintenance') !== (monitor.status.status === 'maintenance')) {
         api.monitor(id).then((m) => (monitor = m), () => {});
       }
@@ -119,6 +125,24 @@
     } finally {
       busy = false;
     }
+  }
+
+  // ignoreSpace stops or starts alerting on a NAS volume's space, and
+  // checks again so that the status follows.
+  function ignoreSpace(name: string, ignore: boolean) {
+    const m = monitor;
+    if (!m) return;
+    const old = Array.isArray(m.settings.ignore_volumes) ? (m.settings.ignore_volumes as string[]) : [];
+    const list = old.filter((v) => v !== name).concat(ignore ? [name] : []);
+    const { name: n, group_id, agent_id, active, interval, retry_interval, retries, resend_every, timeout, upside_down, description, channels } = m;
+    return run(async () => {
+      await api.updateMonitor(id, {
+        name: n, group_id, agent_id, active, interval, retry_interval, retries, resend_every, timeout, upside_down, description, channels,
+        settings: { ...m.settings, ignore_volumes: list },
+      });
+      if (active) await api.checkMonitor(id);
+      return ignore ? `The space on ${name} no longer alerts.` : `The space on ${name} alerts again.`;
+    });
   }
 
   // checkNow asks for a check; its heartbeat clears the notice.
@@ -197,6 +221,11 @@
     {#if resources}
       <div class="card kpi"><span class="k">CPU</span><span class="v">{m.status.usage ? `${m.status.usage.cpu.toFixed(1)}%` : '–'}</span><span class="s muted">now</span></div>
       <div class="card kpi"><span class="k">Memory</span><span class="v">{m.status.usage ? `${m.status.usage.memory.toFixed(1)}%` : '–'}</span><span class="s muted">now</span></div>
+    {:else if nas}
+      <div class="card kpi">
+        <span class="k">Uptime, 24 hours</span><span class="v">{percent(m.uptime['24h'])}</span>
+        <span class="s muted">30 d {percent(m.uptime['30d'])} · 1 y {percent(m.uptime['1y'])}</span>
+      </div>
     {:else}
       <div class="card kpi">
         <span class="k">Response</span><span class="v">{m.status.status === 'down' ? '—' : millis(m.status.latency_ms)}</span>
@@ -211,7 +240,7 @@
       <span class="k">Last check</span><span class="v">{ago(m.status.last_check, now)}</span>
       <span class="s" class:bad={m.status.status === 'down'} class:muted={m.status.status !== 'down'}>{m.status.message || '–'}</span>
     </div>
-    <div class="card kpi">
+    {#if !nas}<div class="card kpi">
       <span class="k">Certificate</span>
       {#if m.status.cert_expires}
         {@const d = daysUntil(m.status.cert_expires, now)}
@@ -219,7 +248,7 @@
       {:else}
         <span class="v">—</span><span class="s muted">none checked</span>
       {/if}
-    </div>
+    </div>{/if}
   </div>
 
   {#if m.push_url}
@@ -252,7 +281,9 @@
     </section>
   {/if}
 
-  <section class="card">
+  {#if nas}
+    <StoragePanel {id} settings={m.settings} version={checks} ignore={admin && !busy ? ignoreSpace : undefined} />
+  {:else}<section class="card">
     <div class="row between">
       <h2>{resources ? 'CPU' : 'Response time'}</h2>
       <div class="row" role="group" aria-label="Period">
@@ -272,7 +303,7 @@
     {:else}
       <Chart {points} {from} to={now} />
     {/if}
-  </section>
+  </section>{/if}
 
   {#if resources}
     <section class="card">
@@ -292,7 +323,7 @@
               >every {duration(m.interval)}</span
             ></span
           >
-          <span class="mono">{millis(m.status.latency_ms)}</span>
+          {#if !nas}<span class="mono">{millis(m.status.latency_ms)}</span>{/if}
         </div>
       </section>
       <section class="card">

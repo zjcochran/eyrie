@@ -4,7 +4,6 @@ package check
 
 import (
 	"context"
-	"encoding/json"
 	"net"
 	"reflect"
 	"strings"
@@ -33,7 +32,7 @@ func nas(values map[string]any) *fakeAgent {
 	return a
 }
 
-// linuxBox is a Debian box with net-snmp: a mergerfs pool of 8 TB in
+// linuxBox is a Linux box with net-snmp: a pool of 8 TB in
 // dskTable, its system disk in hrStorageTable, and two extend lines.
 func linuxBox() *fakeAgent {
 	const dsk, hr = "1.3.6.1.4.1.2021.9.1.", "1.3.6.1.2.1.25.2.3.1."
@@ -41,14 +40,14 @@ func linuxBox() *fakeAgent {
 	return nas(map[string]any{
 		// 8e12 bytes in kB: 7812500000, so 1<<32 + 3517532704; 6e12 used,
 		// 2e12 free.
-		dsk + "2.1": "/mnt/storage", dsk + "10.1": 3,
+		dsk + "2.1": "/srv/pool", dsk + "10.1": 3,
 		dsk + "11.1": 3517532704, dsk + "12.1": 1,
 		dsk + "13.1": 1953125000, dsk + "14.1": 0,
 		dsk + "15.1": 1564407704, dsk + "16.1": 1,
 		hr + "2.1": "oid:" + oidHrFixedDisk, hr + "3.1": "/", hr + "4.1": 4096, hr + "5.1": 1000000, hr + "6.1": 250000,
 		hr + "2.2": "oid:1.3.6.1.2.1.25.2.1.2", hr + "3.2": "Physical memory", hr + "4.2": 1024, hr + "5.2": 100, hr + "6.2": 50,
 		hr + "2.3": "oid:" + oidHrFixedDisk, hr + "3.3": "/run", hr + "4.3": 4096, hr + "5.3": 100, hr + "6.3": 1,
-		hr + "2.4": "oid:" + oidHrFixedDisk, hr + "3.4": "/mnt/storage", hr + "4.4": 4096, hr + "5.4": 100, hr + "6.4": 1,
+		hr + "2.4": "oid:" + oidHrFixedDisk, hr + "3.4": "/srv/pool", hr + "4.4": 4096, hr + "5.4": 100, hr + "6.4": 1,
 		hr + "2.5": "oid:" + oidHrNetworkDisk, hr + "3.5": "/mnt/empty", hr + "4.5": 4096, hr + "5.5": 0, hr + "6.5": 0,
 		oidExtendCommand + "." + snap: "/usr/local/bin/eyrie-nas-health", oidExtendCommand + "." + smart: "/usr/local/bin/eyrie-nas-health",
 		oidExtendCommand + ".3.1.2.3": "not a name",
@@ -69,6 +68,11 @@ func synology() *fakeAgent {
 		raid + "2.3": "Volume 2", raid + "3.3": 2,
 		"1.3.6.1.2.1.25.2.3.1.2.31": "oid:" + oidHrFixedDisk, "1.3.6.1.2.1.25.2.3.1.3.31": "/volume1",
 		"1.3.6.1.2.1.25.2.3.1.4.31": 65536, "1.3.6.1.2.1.25.2.3.1.5.31": 100000000, "1.3.6.1.2.1.25.2.3.1.6.31": 40000000,
+		// The same filesystem, mounted again for containers.
+		"1.3.6.1.2.1.25.2.3.1.2.30": "oid:" + oidHrFixedDisk, "1.3.6.1.2.1.25.2.3.1.3.30": "/volume1/@appdata/shares/media",
+		"1.3.6.1.2.1.25.2.3.1.4.30": 65536, "1.3.6.1.2.1.25.2.3.1.5.30": 100000000, "1.3.6.1.2.1.25.2.3.1.6.30": 40000000,
+		"1.3.6.1.2.1.25.2.3.1.2.32": "oid:" + oidHrFixedDisk, "1.3.6.1.2.1.25.2.3.1.3.32": "/volume1/@docker",
+		"1.3.6.1.2.1.25.2.3.1.4.32": 65536, "1.3.6.1.2.1.25.2.3.1.5.32": 100000000, "1.3.6.1.2.1.25.2.3.1.6.32": 40000000,
 	})
 }
 
@@ -119,7 +123,20 @@ func truenas() *fakeAgent {
 	})
 }
 
+// healthy makes a fixture's device healthy, with values by OID.
+func healthy(a *fakeAgent, values map[string]int) *fakeAgent {
+	for k, v := range values {
+		a.values[k] = berInt(int64(v))
+	}
+	return a
+}
+
 func TestSNMPStorage(t *testing.T) {
+	const synoDisk, synoSys = "1.3.6.1.4.1.6574.2.1.1.", "1.3.6.1.4.1.6574.1."
+	smartOK := map[string]int{oidExtendResult + "." + extendIndex("smart"): 0}
+	goodSyno := func() *fakeAgent {
+		return healthy(synology(), map[string]int{synoDisk + "13.2": 1, synoDisk + "6.2": 45})
+	}
 	for _, c := range []struct {
 		name     string
 		agent    func() *fakeAgent
@@ -127,61 +144,40 @@ func TestSNMPStorage(t *testing.T) {
 		ok       bool
 		msg      string
 	}{
-		{"pool", linuxBox, `"volume":"/mnt/storage"`, true, "/mnt/storage: 75% used, 2.0 TB free of 8.0 TB"},
-		{"pool full", linuxBox, `"volume":"/mnt/storage","max_percent":70,"min_free_gb":3000`, false,
-			"/mnt/storage: 75% used, 2.0 TB free of 8.0 TB: more than 70% used and less than 3000 GB free"},
-		{"inodes", linuxBox, `"watch":"capacity","volume":"/mnt/storage","max_inode_percent":2`, false,
-			"/mnt/storage: 75% used, 2.0 TB free of 8.0 TB, 3% of inodes used: more than 2% of inodes used"},
-		{"root", linuxBox, `"volume":"/"`, true, "/: 25% used, 3.1 GB free of 4.1 GB"},
-		{"command", linuxBox, `"watch":"command","command":"snapraid"`, true, "SnapRAID: no errors, synced 3 hours ago"},
-		{"command fails", linuxBox, `"watch":"command","command":"smart"`, false, "/dev/sdb: SMART says the disk is failing (exit status 1)"},
-		{"no health", linuxBox, `"watch":"volume-health"`, false, "The device reports no volume health over SNMP: " +
-			"Synology DSM, QNAP QTS, Asustor ADM and TrueNAS do; on others, watch a command that snmpd runs"},
-		{"no system", linuxBox, `"watch":"system-health"`, false, "The device reports no system health over SNMP: " +
-			"Synology DSM, QNAP QTS, Asustor ADM and TrueNAS do; on others, watch a command that snmpd runs"},
-		{"no disks", linuxBox, `"watch":"disk-health"`, false, "The device reports no disk health over SNMP: " +
-			"Synology DSM, QNAP QTS, Asustor ADM and TrueNAS do; on others, watch a command that snmpd runs"},
-		{"no temperatures", linuxBox, `"watch":"disk-temperature"`, false, "The device reports no disk temperatures over SNMP: " +
-			"Synology DSM, QNAP QTS, Asustor ADM and TrueNAS do; on others, watch a command that snmpd runs"},
+		{"linux", linuxBox, ``, false, "/dev/sdb: SMART says the disk is failing (exit status 1)"},
+		{"linux healthy", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, ``, true,
+			"/srv/pool: 75% used, 2.0 TB free of 8.0 TB; 2 commands OK"},
+		{"full", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"max_percent":70,"max_inode_percent":2`, false,
+			"/srv/pool 75% used, 3% of inodes used"},
+		{"little free", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"min_free_gb":3000`, false, "/ 3.1 GB free, /srv/pool 2.0 TB free"},
+		{"chosen volumes", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"volumes":["/"," /nope",""],"max_percent":20`, false,
+			"no volume /nope, / 25% used"},
+		{"chosen volume", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"volumes":["/"]`, true,
+			"/: 25% used, 3.1 GB free of 4.1 GB; 2 commands OK"},
+		{"ignored volume", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"ignore_volumes":["/srv/pool"," /srv/pool"],"max_percent":70`, true,
+			"/: 25% used, 3.1 GB free of 4.1 GB; 2 commands OK"},
+		{"ignored and chosen", func() *fakeAgent { return healthy(linuxBox(), smartOK) }, `,"volumes":["/nope","/"],"ignore_volumes":["/nope","/"]`, true,
+			"2 commands OK"},
 
-		{"synology space", synology, `"volume":"/volume1"`, true, "/volume1: 40% used, 3.9 TB free of 6.6 TB"},
-		{"no volume", synology, `"volume":"/volume9"`, false, `The device has no volume "/volume9"; it has /volume1`},
-		{"synology volumes", synology, `"watch":"volume-health"`, true,
-			"Storage Pool 1 normal, Volume 1 scrubbing, Volume 2 repairing"},
-		{"repairing down", synology, `"watch":"volume-health","volume":"Volume 2","repairing_down":true`, false, "Volume 2 repairing"},
-		{"synology volume", synology, `"watch":"volume-health","volume":"Volume 1"`, true, "Volume 1 scrubbing"},
-		{"synology disks", synology, `"watch":"disk-health"`, false, "Disk 2 normal, health warning"},
-		{"synology disk", synology, `"watch":"disk-health","disk":"Disk 1"`, true, "Disk 1 normal"},
-		{"unknown disk", synology, `"watch":"disk-health","disk":"Disk 9"`, false, `The device has no disk "Disk 9"; it has Disk 1, Disk 2`},
-		{"synology hot", synology, `"watch":"disk-temperature"`, false, "Above 50 °C: Disk 2 52 °C"},
-		{"synology cool", synology, `"watch":"disk-temperature","max_celsius":55`, true, "Hottest of 2 disks: Disk 2 52 °C"},
-		{"one disk", synology, `"watch":"disk-temperature","disk":"Disk 1"`, true, "Disk 1 36 °C"},
-		{"no such disk", synology, `"watch":"disk-temperature","disk":"Disk 9"`, false, `The device has no disk "Disk 9"; it has Disk 1, Disk 2`},
-		{"synology system", synology, `"watch":"system-health"`, true,
-			"System normal, power normal, system fan normal, CPU fan normal, 41 °C"},
+		{"synology", synology, ``, false, "Disk 2 normal, health warning, Disk 2 at 52 °C"},
+		{"synology healthy", goodSyno, ``, true,
+			"/volume1: 40% used, 3.9 TB free of 6.6 TB; 3 volumes healthy; 2 disks healthy; hottest disk 45 °C"},
+		{"repairing down", goodSyno, `,"repairing_down":true`, false, "Volume 2 repairing"},
+		{"synology too hot", goodSyno, `,"max_celsius":40`, false, "Disk 2 at 45 °C"},
+		{"synology power", func() *fakeAgent { return healthy(goodSyno(), map[string]int{synoSys + "3.0": 2}) }, ``, false,
+			"System normal, power failed, system fan normal, CPU fan normal, 41 °C"},
 
-		{"qnap volumes", qnap, `"watch":"volume-health"`, true, "DataVol1 ready, DataVol2 rebuilding..."},
-		{"qnap disks", qnap, `"watch":"disk-health"`, false, "HDD3 read/write error, SMART abnormal"},
-		{"qnap temperature", qnap, `"watch":"disk-temperature"`, true, "Hottest of 2 disks: HDD3 45 °C"},
-		{"qnap system", qnap, `"watch":"system-health"`, false, "1 of 2 fans failed, power supplies normal"},
-		{"old qnap volumes", oldQnap, `"watch":"volume-health"`, false, "Volume1 degraded"},
-		{"old qnap disks", oldQnap, `"watch":"disk-health"`, true, "HDD1 ready, HDD2 ready"},
-		{"old qnap temperature", oldQnap, `"watch":"disk-temperature"`, true, "HDD1 40 °C"},
-
-		{"asustor volumes", func() *fakeAgent { return asustor(true) }, `"watch":"volume-health"`, true, "Volume 1 healthy, Volume 2 recovering"},
-		{"asustor disks", func() *fakeAgent { return asustor(true) }, `"watch":"disk-health"`, false, "Disk2 abnormal, SMART risky"},
-		{"asustor temperature", func() *fakeAgent { return asustor(true) }, `"watch":"disk-temperature"`, true, "Hottest of 2 disks: Disk2 44 °C"},
-		{"older asustor", func() *fakeAgent { return asustor(false) }, `"watch":"disk-temperature"`, true, "Hottest of 2 disks: Disk2 43 °C"},
-		{"older asustor disks", func() *fakeAgent { return asustor(false) }, `"watch":"disk-health","disk":"Disk1"`, true, "Disk1 good"},
-
-		{"truenas pools", truenas, `"watch":"volume-health"`, false, "backup degraded"},
-		{"truenas pool", truenas, `"watch":"volume-health","volume":"tank"`, true, "tank online"},
-		{"truenas temperature", truenas, `"watch":"disk-temperature"`, true, "Hottest of 2 disks: sdb 37 °C"},
+		{"qnap", qnap, ``, false, "HDD3 read/write error, SMART abnormal, 1 of 2 fans failed, power supplies normal"},
+		{"old qnap", oldQnap, ``, false, "Volume1 degraded"},
+		{"asustor", func() *fakeAgent { return asustor(true) }, ``, false, "Disk2 abnormal, SMART risky"},
+		{"older asustor", func() *fakeAgent { return asustor(false) }, ``, false, "Disk2 abnormal"},
+		{"truenas", truenas, `,"max_celsius":35`, false, "backup degraded, sdb at 37 °C"},
+		{"nothing", func() *fakeAgent { return nas(nil) }, ``, false, "The device reports no storage over SNMP"},
 	} {
 		env := testEnv()
 		env.Dial = pipeDial(c.agent().serve, nil)
-		r := run(t, env, "snmp-storage", `{"host":"nas.example.com",`+c.settings+`}`)
-		if r.OK != c.ok || r.Message != c.msg {
+		r := run(t, env, "snmp-storage", `{"host":"nas.example.com"`+c.settings+`}`)
+		if r.OK != c.ok || r.Message != c.msg || (c.name != "nothing" && r.Storage == nil) {
 			t.Errorf("%s: %+v", c.name, r)
 		}
 	}
@@ -190,38 +186,22 @@ func TestSNMPStorage(t *testing.T) {
 func TestSNMPStorageErrors(t *testing.T) {
 	env := testEnv()
 	a := linuxBox()
-	env.Dial = pipeDial(a.serve, nil)
-	if r := run(t, env, "snmp-storage", `{"host":"nas.example.com","watch":"command","command":"backup"}`); r.OK ||
-		r.Message != "Snmpd has no extend line named backup: add one to snmpd.conf" {
-		t.Errorf("no extend: %+v", r)
-	}
-	a = nas(nil)
-	env.Dial = pipeDial(a.serve, nil)
-	if r := run(t, env, "snmp-storage", `{"host":"nas.example.com","volume":"/"}`); r.OK || r.Message != "The device reports no volumes" {
-		t.Errorf("no volumes: %+v", r)
-	}
-	a = linuxBox()
 	a.errStatus = 5
 	env.Dial = pipeDial(a.serve, nil)
-	for _, w := range []string{`"volume":"/"`, `"watch":"volume-health"`, `"watch":"disk-health"`, `"watch":"disk-temperature"`} {
-		if r := run(t, env, "snmp-storage", `{"host":"nas.example.com",`+w+`}`); r.OK || r.Message != "The agent answered genErr" {
-			t.Errorf("%s: %+v", w, r)
-		}
+	if r := run(t, env, "snmp-storage", `{"host":"nas.example.com"}`); r.OK || r.Message != "The agent answered genErr" || r.Storage != nil {
+		t.Errorf("error status: %+v", r)
 	}
 	env.Dial = func(context.Context, string, string) (net.Conn, error) { return nil, context.DeadlineExceeded }
-	if r := run(t, env, "snmp-storage", `{"host":"nas.example.com","volume":"/"}`); r.OK || r.Message != "Timed out" {
+	if r := run(t, env, "snmp-storage", `{"host":"nas.example.com"}`); r.OK || r.Message != "Timed out" {
 		t.Errorf("dial: %+v", r)
 	}
 	for _, s := range []string{
-		`{"volume":"/"}`,
-		`{"host":"nas.example.com","watch":"smart"}`,
-		`{"host":"nas.example.com"}`,
-		`{"host":"nas.example.com","watch":"command","command":"two words"}`,
-		`{"host":"nas.example.com","volume":"/","max_percent":101}`,
-		`{"host":"nas.example.com","volume":"/","max_inode_percent":-1}`,
-		`{"host":"nas.example.com","volume":"/","min_free_gb":-1}`,
-		`{"host":"nas.example.com","watch":"disk-temperature","max_celsius":200}`,
-		`{"host":"nas.example.com","volume":"/","oid":"1.3.6"}`,
+		`{}`,
+		`{"host":"nas.example.com","max_percent":101}`,
+		`{"host":"nas.example.com","max_inode_percent":-1}`,
+		`{"host":"nas.example.com","min_free_gb":-1}`,
+		`{"host":"nas.example.com","max_celsius":200}`,
+		`{"host":"nas.example.com","watch":"capacity"}`,
 	} {
 		if _, _, err := Parse(testEnv(), "snmp-storage", []byte(s)); err == nil {
 			t.Errorf("%s accepted", s)
@@ -230,21 +210,13 @@ func TestSNMPStorageErrors(t *testing.T) {
 }
 
 func TestSNMPStorageDescribe(t *testing.T) {
-	for _, c := range []struct {
-		s    SNMPStorage
-		want int
-	}{
-		{SNMPStorage{Watch: WatchCapacity, Volume: "/", MaxPercent: 90, MinFreeGB: 10, MaxInodePercent: 5}, 7},
-		{SNMPStorage{Watch: WatchVolumeHealth}, 4},
-		{SNMPStorage{Watch: WatchDiskHealth, Disk: "Disk 1"}, 4},
-		{SNMPStorage{Watch: WatchDiskTemperature, MaxCelsius: 50}, 5},
-		{SNMPStorage{Watch: WatchSystemHealth}, 3},
-		{SNMPStorage{Watch: WatchCommand, Command: "snapraid"}, 4},
-	} {
-		c.s.Host, c.s.Port, c.s.Version = "nas.example.com", 161, "2c"
-		if f := c.s.describe(); len(f) != c.want {
-			t.Errorf("%s: %v", c.s.Watch, f)
-		}
+	s := SNMPStorage{SNMPAgent: SNMPAgent{Host: "nas.example.com", Port: 161, Version: "2c"}, MaxPercent: 90, MaxCelsius: 50}
+	if f := s.describe(); len(f) != 5 || f[2].Value != "all" {
+		t.Errorf("defaults: %v", f)
+	}
+	s.Volumes, s.IgnoreVolumes, s.MinFreeGB, s.MaxInodePercent = []string{"/volume1"}, []string{"/volume2"}, 100, 5
+	if f := s.describe(); len(f) != 8 || f[2].Value != "/volume1" || f[5].Value != "/volume2" {
+		t.Errorf("all: %v", f)
 	}
 }
 
@@ -275,9 +247,8 @@ func TestStorageText(t *testing.T) {
 	if got := listText(many); !strings.HasSuffix(got, " and 2 more") {
 		t.Errorf("list: %s", got)
 	}
-	vols := make([]StorageVolume, 11)
-	if err := missing("volume", "/x", vols, func(StorageVolume) string { return "v" }); !strings.HasSuffix(err.Error(), ", …") {
-		t.Errorf("missing: %v", err)
+	if plural(1, "disk", "disks") != "1 disk" || plural(3, "disk", "disks") != "3 disks" {
+		t.Error("plural")
 	}
 	for _, c := range []struct {
 		c    StorageCommand
@@ -297,44 +268,33 @@ func TestDiscoverStorage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Name != "nas" || d.Description != "Synology DSX1, DSM 7.0-00000" || d.System == nil || !d.System.OK {
+	if d.Name != "nas" || d.Description != "Synology DSX1, DSM 7.0-00000" || d.System == nil || !d.System.OK ||
+		len(d.Volumes) != 1 || len(d.Pools) != 3 || len(d.Disks) != 2 || len(d.Temps) != 2 {
 		t.Errorf("device: %+v", d)
 	}
-	var got []string
-	for _, s := range d.Suggestions() {
-		b, _ := json.Marshal(s.Settings)
-		got = append(got, s.Name+"|"+s.Detail+"|"+map[bool]string{true: "up", false: "down"}[s.Up]+"|"+string(b))
-	}
-	want := []string{
-		`/volume1 space|/volume1: 40% used, 3.9 TB free of 6.6 TB|up|{"volume":"/volume1","watch":"capacity"}`,
-		`Storage Pool 1 health|Normal|up|{"volume":"Storage Pool 1","watch":"volume-health"}`,
-		`Volume 1 health|Scrubbing|up|{"volume":"Volume 1","watch":"volume-health"}`,
-		`Volume 2 health|Repairing|up|{"volume":"Volume 2","watch":"volume-health"}`,
-		`disk health|Disk 2 normal, health warning|down|{"disk":"","watch":"disk-health"}`,
-		`disk temperature|Hottest: Disk 2 52 °C|down|{"disk":"","watch":"disk-temperature"}`,
-		`system health|System normal, power normal, system fan normal, CPU fan normal, 41 °C|up|{"watch":"system-health"}`,
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("suggestions:\n%s", strings.Join(got, "\n"))
+	if ok, msg := d.Judge(); ok || msg != "Disk 2 normal, health warning, Disk 2 at 52 °C" {
+		t.Errorf("judged %v %s", ok, msg)
 	}
 
+}
+
+func TestDiscoverLinuxStorage(t *testing.T) {
+	ctx := context.Background()
+	env := testEnv()
 	env.Dial = pipeDial(linuxBox().serve, nil)
-	if d, err = DiscoverStorage(ctx, env, []byte(`{"host":"nas.example.com"}`)); err != nil {
+	d, err := DiscoverStorage(ctx, env, []byte(`{"host":"nas.example.com"}`))
+	if err != nil {
 		t.Fatal(err)
 	}
-	got = nil
-	for _, s := range d.Suggestions() {
-		got = append(got, s.Name+"|"+s.Detail)
+	var names []string
+	for _, v := range d.Volumes {
+		names = append(names, v.Name)
 	}
-	want = []string{"/mnt/storage space|/mnt/storage: 75% used, 2.0 TB free of 8.0 TB", "/ space|/: 25% used, 3.1 GB free of 4.1 GB",
-		"smart|/dev/sdb: SMART says the disk is failing (exit status 1)", "snapraid|SnapRAID: no errors, synced 3 hours ago"}
-	if !reflect.DeepEqual(got, want) || d.System != nil {
-		t.Errorf("linux: %q %+v", got, d.System)
+	for _, c := range d.Commands {
+		names = append(names, c.Name)
 	}
-
-	env.Dial = pipeDial(qnap().serve, nil)
-	if d, err = DiscoverStorage(ctx, env, []byte(`{"host":"nas.example.com"}`)); err != nil || len(d.Disks) != 2 || d.Suggestions()[2].Detail != "HDD3 read/write error, SMART abnormal" {
-		t.Errorf("qnap: %+v %v", d, err)
+	if !reflect.DeepEqual(names, []string{"/", "/srv/pool", "smart", "snapraid"}) || d.System != nil {
+		t.Errorf("linux: %q %+v", names, d.System)
 	}
 
 	a := linuxBox()

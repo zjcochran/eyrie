@@ -272,6 +272,9 @@ type Result struct {
 	// check.StorageDevice); nil for
 	// checks.
 	Found json.RawMessage `json:"found,omitempty"`
+	// Storage is what an SNMP storage check read of the whole device (a
+	// check.StorageDevice); nil for other checks.
+	Storage json.RawMessage `json:"storage,omitempty"`
 }
 
 // Usage is how busy a host is, in percent.

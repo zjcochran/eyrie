@@ -236,9 +236,7 @@ func (s *Server) discoverSNMP(ctx context.Context, agent int64, settings json.Ra
 }
 
 // discoverStorage asks an SNMP device, from Eyrie or an agent, about its
-// storage: a monitor of each volume's space and health, of its disks'
-// health and temperature, of its system's health and of each command its
-// snmpd runs.
+// storage: one monitor of all of it.
 func (s *Server) discoverStorage(ctx context.Context, agent int64, settings json.RawMessage) (discovered, error) {
 	var d check.StorageDevice
 	ctx, cancel := context.WithTimeout(ctx, discoverTimeout+20*time.Second)
@@ -264,16 +262,12 @@ func (s *Server) discoverStorage(ctx context.Context, agent int64, settings json
 	}
 	_ = json.Unmarshal(settings, &dev) // DiscoverStorage read them
 	name := cmp.Or(clipText(d.Name), strings.TrimSpace(dev.Host))
-	out := discovered{Device: name, Found: []found{}}
+	out := discovered{Device: name}
 	if descr := clipText(d.Description); descr != "" {
 		out.Device += ": " + descr
 	}
-	for i, f := range d.Suggestions() {
-		if i == check.MaxInterfaces {
-			break
-		}
-		out.Found = append(out.Found, found{Name: name + " " + clipText(f.Name), Detail: clipText(f.Detail), Up: f.Up, Settings: f.Settings})
-	}
+	up, detail := d.Judge()
+	out.Found = []found{{Name: name, Detail: clipText(detail), Up: up, Settings: map[string]any{}}}
 	return out, nil
 }
 
@@ -294,7 +288,7 @@ func clipText(s string) string {
 
 // dropMonitored leaves out what a monitor already checks: one on the same
 // agent (or Eyrie), of the same workload, of the same SNMP device and
-// OID, or of the same thing on the same NAS.
+// OID, or of the same NAS.
 func (s *Server) dropMonitored(ctx context.Context, typ string, agent int64, settings json.RawMessage, out *discovered) error {
 	mons, err := s.Store.Monitors(ctx)
 	if err != nil {
@@ -327,11 +321,9 @@ func monitors(typ string, saved json.RawMessage, settings map[string]any, host s
 		_ = json.Unmarshal(saved, &m)
 		return strings.EqualFold(m.Host, strings.TrimSpace(host)) && m.OID == settings["oid"]
 	case "snmp-storage":
-		var m struct{ Host, Watch, Volume, Disk, Command string }
+		var m struct{ Host string }
 		_ = json.Unmarshal(saved, &m)
-		same := func(saved, key string) bool { v, _ := settings[key].(string); return saved == v }
-		return strings.EqualFold(m.Host, strings.TrimSpace(host)) && same(m.Watch, "watch") && same(m.Volume, "volume") &&
-			same(m.Disk, "disk") && same(m.Command, "command")
+		return strings.EqualFold(m.Host, strings.TrimSpace(host))
 	}
 	b, _ := json.Marshal(settings) //nolint:errchkjson // strings and numbers
 	keys := check.WorkloadKeys(typ, b)

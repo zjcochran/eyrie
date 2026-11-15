@@ -225,6 +225,12 @@ func toCheck(r agentauth.Result) check.Result {
 	if r.Usage != nil {
 		res.Usage = &check.Usage{CPU: percent(r.Usage.CPU), Memory: percent(r.Usage.Memory)}
 	}
+	if len(r.Storage) > 0 {
+		var d check.StorageDevice
+		if json.Unmarshal(r.Storage, &d) == nil {
+			res.Storage = &d
+		}
+	}
 	return res
 }
 

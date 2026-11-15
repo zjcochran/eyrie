@@ -357,36 +357,48 @@ queries (`==`, `!=`, `<`, `<=`, `>`, `>=` as numbers when both are, and
 
 ### SNMP storage (NAS)
 
-Reads a NAS's storage over SNMP, from the same **host**, port, version and
-credentials as an [SNMP](#snmp) monitor. **Watch** is what is checked;
-[NAS monitoring](nas.md) says what each system reports and how to set it
-up.
+One monitor for a whole NAS, read over SNMP from the same **host**, port,
+version and credentials as an [SNMP](#snmp) monitor. Each check reads
+everything the NAS reports: every volume's space, the health of its
+volumes or pools, its disks' health and temperature, the system's own
+health, and the commands its snmpd runs. [NAS monitoring](nas.md) says
+what each system reports and how to set it up.
 
-| Watch | Settings | Down when | Message |
-| --- | --- | --- | --- |
-| `capacity` (the default) | **Volume**: its mount point, such as `/volume1`; **highest use** (90%), **least free space** in GB, **highest inode use** (both off by default) | More is used, or less is free, than set | `/volume1: 72% used, 2.1 TB free of 7.6 TB`, then why it is down |
-| `volume-health` | **Volume**: a volume or pool as the device names it, empty for all; **down while a volume is being repaired or rebuilt** (off) | A volume is degraded, crashed, failed, faulted or in a state Eyrie does not know | `Volume 1 normal, Volume 2 scrubbing` |
-| `disk-health` | **Disk**, empty for all | A disk has failed or its SMART status is not good; on Synology DSM 7.1 and later, also its health is a warning or worse | `Disk 2 normal, health warning` |
-| `disk-temperature` | **Disk**, empty for all; **highest temperature** (50 °C) | A disk is hotter | `Hottest of 4 disks: Disk 2 41 °C`, `Above 50 °C: Disk 2 52 °C` |
-| `system-health` | | Synology: the system, power or a fan has failed; QNAP: a fan or power supply has | `System normal, power normal, system fan normal, CPU fan normal, 41 °C` |
-| `command` | **Command**: the name of an `extend` line in the device's `snmpd.conf` | The command did not exit with 0 | Its first line, with `(exit status 1)` when it failed |
+It is down when any of these is true:
 
-- Space is read from net-snmp's `dskTable` (64-bit sizes and inodes)
-  where the device has the volume there, otherwise from `hrStorageTable`.
-  Used space is counted as `df` counts it; sizes are in decimal units
-  (1 TB = 10¹² bytes).
-- Health is read from Synology's, QNAP's, Asustor's or TrueNAS's MIB,
-  whichever the device answers; a device with none says `The device
-  reports no volume health over SNMP: …`.
-- Volumes and disks are found by name, not by their place in a table, which
-  can change when disks are added. A name the device does not have is
-  down: `The device has no volume "/volume9"; it has /volume1, /volume2`.
-- Repairs, rebuilds, scrubs, expansions and parity checks are up, with
-  their state in the message, unless **down while a volume is being
-  repaired or rebuilt** is ticked: the failure that started a repair was
-  down already.
-- A missing extend line is down: `Snmpd has no extend line named snapraid:
-  add one to snmpd.conf`.
+| What | Down when | Settings |
+| --- | --- | --- |
+| A volume's space | More than **highest volume use** is used (90%), less than **least free space per volume** is free, or more than **highest inode use** of its inodes are used (both off by default) | **Volumes**: the mount points to watch, separated by commas, such as `/volume1`; empty: every volume but the system's memory and devices (`/dev`, `/run`, `/sys`, `/proc`, `/tmp`). A volume named but missing is down. **Ignore space on**: mount points that are never down for their space (a USB disk kept full, say); they still show on the page. |
+| A volume or pool | It is degraded, crashed, failed, faulted or in a state Eyrie does not know | **Down while a volume is being repaired or rebuilt** (off): repairs, rebuilds, scrubs, expansions and parity checks are up otherwise, as the failure that started a repair was down already. |
+| A disk | It has failed, or its SMART status is not good; on Synology DSM 7.1 and later, also when its health is a warning or worse | |
+| A disk's temperature | Above **highest disk temperature** (50 °C) | |
+| The system | Synology: the system, power or a fan has failed; QNAP: a fan or a power supply has | |
+| A command snmpd runs | It did not exit with 0 | Every `extend` line in the NAS's `snmpd.conf` is checked. |
+
+The message lists what is wrong (`Disk 2 normal, health warning, Disk 2
+at 52 °C`), or sums up a healthy NAS: `/volume1: 72% used, 2.1 TB free
+of 7.6 TB; 2 volumes healthy; 4 disks healthy; hottest disk 41 °C`.
+
+The monitor's page shows the NAS instead of response times:
+
+- **Volumes**: each one's use as a bar, by path, with the highest use
+  marked, and what is used, free and the total, and inode use where
+  known. An admin can ignore a volume's space from here (**Ignore its
+  space**, which adds it to **Ignore space on** and checks again) and
+  alert on it again. Mount points with the same size and free space are one
+  filesystem mounted again (a NAS's shares for its containers), shown
+  once by the shortest path.
+- **Disks**: each disk's health and temperature.
+- **Health**: each volume or pool, the system and each command.
+- **Volume use** and **Disk temperature**: a line per volume and per disk
+  over 24 hours, 7 or 30 days, with the limit marked and a dot at each
+  line's latest value.
+
+Eyrie keeps what each check read, one sample in each five minutes, for 35
+days. Space is read from net-snmp's `dskTable` (64-bit sizes and inodes)
+where the NAS has the volume there, otherwise from `hrStorageTable`; used
+space is counted as `df` counts it, and sizes are in decimal units
+(1 TB = 10¹² bytes).
 
 ### Docker container
 

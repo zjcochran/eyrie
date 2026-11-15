@@ -37,24 +37,17 @@ describe('toSettings', () => {
     assert.equal(s.auth_password, ' pass word ', 'secrets are sent as typed');
     assert.equal(s.community, undefined);
   });
-  it('sends only what an SNMP storage monitor watches', () => {
-    const v = toValues('snmp-storage', {});
-    assert.equal(v.watch, 'capacity');
+  it('sends an SNMP storage monitor\'s volumes as a list', () => {
+    const v = toValues('snmp-storage', { volumes: ['/volume1', '/volume2'] });
+    assert.equal(v.volumes, '/volume1, /volume2');
     v.host = 'nas.example.com';
-    v.volume = '/volume1';
-    v.max_percent = '85';
-    v.disk = 'Disk 1';
-    assert.deepEqual(toSettings('snmp-storage', v), { host: 'nas.example.com', version: '2c', watch: 'capacity', volume: '/volume1', max_percent: 85 });
-    v.watch = 'disk-temperature';
-    assert.deepEqual(toSettings('snmp-storage', v), { host: 'nas.example.com', version: '2c', watch: 'disk-temperature', disk: 'Disk 1' });
-    v.watch = 'volume-health';
-    v.repairing_down = true;
+    v.max_celsius = '55';
     assert.deepEqual(toSettings('snmp-storage', v), {
       host: 'nas.example.com',
       version: '2c',
-      watch: 'volume-health',
-      volume: '/volume1',
-      repairing_down: true,
+      volumes: ['/volume1', '/volume2'],
+      max_celsius: 55,
+      repairing_down: false,
     });
   });
   it('reads maps and status codes', () => {
@@ -79,6 +72,11 @@ describe('lists', () => {
     const s = toSettings('kafka-producer', v);
     assert.deepEqual(s.brokers, ['k1.example.com:9092', 'k2.example.com:9092']);
     assert.equal(s.username, undefined, 'hidden without SASL');
+  });
+  it('splits the volumes to ignore', () => {
+    const v = toValues('snmp-storage', { host: 'nas.example.com', ignore_volumes: ['/volume2', '/volume3'] });
+    assert.equal(v.ignore_volumes, '/volume2, /volume3');
+    assert.deepEqual(toSettings('snmp-storage', v).ignore_volumes, ['/volume2', '/volume3']);
   });
 });
 

@@ -49,7 +49,13 @@ func TestJobs(t *testing.T) {
 		*r.Usage != (check.Usage{CPU: 100, Memory: 40}) {
 		t.Errorf("result %+v", r)
 	}
-
+	if r := toCheck(agentauth.Result{OK: true, Storage: json.RawMessage(`{"name":"nas","disks":[{"name":"Disk 1","ok":true}]}`)}); r.Storage == nil ||
+		r.Storage.Name != "nas" || len(r.Storage.Disks) != 1 {
+		t.Errorf("storage %+v", r.Storage)
+	}
+	if r := toCheck(agentauth.Result{Storage: json.RawMessage(`[`)}); r.Storage != nil {
+		t.Errorf("bad storage %+v", r.Storage)
+	}
 }
 
 func TestJobsLateOrWrong(t *testing.T) {

@@ -105,6 +105,9 @@ func (a *Agent) send1(ctx context.Context, id string, res check.Result) {
 	if res.Usage != nil {
 		r.Usage = &agentauth.Usage{CPU: res.Usage.CPU, Memory: res.Usage.Memory}
 	}
+	if res.Storage != nil {
+		r.Storage, _ = json.Marshal(res.Storage) //nolint:errchkjson // a struct of strings and numbers
+	}
 	a.post(ctx, r)
 }
 
