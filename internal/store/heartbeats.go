@@ -310,13 +310,14 @@ func (s *Store) CountChanges(ctx context.Context) (int, error) {
 }
 
 // RecentBeats returns the last n heartbeats of every monitor, oldest first.
+// Each monitor's are read from the end of its index, so the time taken
+// does not grow with the heartbeats kept.
 func (s *Store) RecentBeats(ctx context.Context, n int) (map[int64][]Beat, error) {
 	rows, err := s.db.QueryContext(ctx, s.q(`
-		SELECT monitor_id, at, status, latency_us, message, important, cpu_bp, memory_bp FROM (
-			SELECT monitor_id, at, status, latency_us, message, important, cpu_bp, memory_bp, id,
-				ROW_NUMBER() OVER (PARTITION BY monitor_id ORDER BY at DESC, id DESC) AS n
-			FROM heartbeats) recent
-		WHERE n <= ? ORDER BY monitor_id, at, id`), n)
+		SELECT h.monitor_id, h.at, h.status, h.latency_us, h.message, h.important, h.cpu_bp, h.memory_bp
+		FROM monitors m JOIN heartbeats h ON h.id IN (
+			SELECT id FROM heartbeats WHERE monitor_id = m.id ORDER BY at DESC, id DESC LIMIT ?)
+		ORDER BY h.monitor_id, h.at, h.id`), n)
 	if err != nil {
 		return nil, err
 	}
