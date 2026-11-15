@@ -285,7 +285,9 @@ pruning). Rows are kept 35 days.
 
 Check counts per monitor and hour (`bucket`: the hour's start) or day
 (`bucket`: midnight UTC). Primary key `(monitor_id, bucket)`; `monitor_id`
-`ON DELETE CASCADE`. Hourly rows are kept 35 days, daily rows 400 days.
+`ON DELETE CASCADE`; indexes `stats_hourly_bucket` and `stats_daily_bucket`
+on `bucket` (`00016_stats_bucket`, for the latest rows of every monitor).
+Hourly rows are kept 35 days, daily rows 400 days.
 
 | Column | Type | Notes |
 | --- | --- | --- |
@@ -307,6 +309,14 @@ same for a backup made before it.
 Uptime is `up / (up + down)`. The 24-hour and 30-day figures add up the
 hourly rows from the hour that contains "24 hours (30 days) ago", the 1-year
 figure the daily rows from the day 365 days ago.
+
+For every monitor at once (the list of monitors, status pages), Eyrie keeps
+in memory the sums of the rows before the previous hour (day), and reads
+only the rows from there on each time: the sums of hours and days that are
+over do not change. Rows written before that (a check saved late, a
+restore) and pruning drop what was kept. One monitor's figures (its page,
+its badges, alert analysis) add up only its own rows, through the primary
+key.
 
 ### notification_channels
 

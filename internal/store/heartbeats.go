@@ -133,7 +133,17 @@ func (s *Store) Save(ctx context.Context, recs []Record) error {
 			return err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	oldest := recs[0].Beat.At
+	for _, r := range recs {
+		if r.Beat.At.Before(oldest) {
+			oldest = r.Beat.At
+		}
+	}
+	s.cache.saved(oldest)
+	return nil
 }
 
 func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
@@ -366,22 +376,54 @@ func (t Totals) AvgUsage() *Usage {
 // HourlyTotals adds up every monitor's hourly stats from the hour that
 // contains since.
 func (s *Store) HourlyTotals(ctx context.Context, since time.Time) (map[int64]Totals, error) {
-	return s.totals(ctx, "stats_hourly", since.UnixMilli()-since.UnixMilli()%hour)
+	return s.cachedTotals(ctx, "stats_hourly", hour, since.UnixMilli()-since.UnixMilli()%hour)
 }
 
 // DailyTotals adds up every monitor's daily stats from the day that
 // contains since.
 func (s *Store) DailyTotals(ctx context.Context, since time.Time) (map[int64]Totals, error) {
-	return s.totals(ctx, "stats_daily", since.UnixMilli()-since.UnixMilli()%day)
+	return s.cachedTotals(ctx, "stats_daily", day, since.UnixMilli()-since.UnixMilli()%day)
 }
 
-func (s *Store) totals(ctx context.Context, table string, from int64) (map[int64]Totals, error) {
-	// The table name is one of two constants; from is a bound argument.
+// MonitorHourlyTotals adds up one monitor's hourly stats from the hour that
+// contains since.
+func (s *Store) MonitorHourlyTotals(ctx context.Context, id int64, since time.Time) (Totals, error) {
+	t, err := s.totals(ctx, "stats_hourly", since.UnixMilli()-since.UnixMilli()%hour, 0, id)
+	return t[id], err
+}
+
+// MonitorDailyTotals adds up one monitor's daily stats from the day that
+// contains since.
+func (s *Store) MonitorDailyTotals(ctx context.Context, id int64, since time.Time) (Totals, error) {
+	t, err := s.totals(ctx, "stats_daily", since.UnixMilli()-since.UnixMilli()%day, 0, id)
+	return t[id], err
+}
+
+// totals adds up the stats in table from the period that starts at from,
+// until the one that starts at to (0: to the latest), of one monitor (0:
+// of each).
+func (s *Store) totals(ctx context.Context, table string, from, to, monitor int64) (map[int64]Totals, error) {
+	where, args := "bucket >= ?", []any{from}
+	if to > 0 {
+		where, args = where+" AND bucket < ?", append(args, to)
+	}
+	if monitor > 0 {
+		where, args = where+" AND monitor_id = ?", append(args, monitor)
+	}
+	// The latest periods of every monitor are a few rows, found by the
+	// index on bucket; SQLite would rather read every row in monitor_id
+	// order to group them, unless told not to.
+	id := "monitor_id"
+	if to == 0 && monitor == 0 && s.dialect == SQLite {
+		id = "+monitor_id"
+	}
+	// The table name is one of two constants and the rest fixed text; the
+	// values are bound arguments.
 	// nosemgrep
-	rows, err := s.db.QueryContext(ctx, s.q(`SELECT monitor_id, CAST(SUM(up) AS BIGINT), CAST(SUM(down) AS BIGINT),
+	rows, err := s.db.QueryContext(ctx, s.q(`SELECT `+id+`, CAST(SUM(up) AS BIGINT), CAST(SUM(down) AS BIGINT),
 		CAST(SUM(latency_us_sum) AS BIGINT), CAST(SUM(latency_count) AS BIGINT), CAST(SUM(cpu_bp_sum) AS BIGINT),
 		CAST(SUM(memory_bp_sum) AS BIGINT), CAST(SUM(usage_count) AS BIGINT)
-		FROM `+table+` WHERE bucket >= ? GROUP BY monitor_id`), from)
+		FROM `+table+` WHERE `+where+` GROUP BY `+id), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -489,6 +531,7 @@ func (s *Store) Prune(ctx context.Context, beats, hours, days time.Time) error {
 			return err
 		}
 	}
+	s.cache.reset()
 	return nil
 }
 
