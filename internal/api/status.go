@@ -133,7 +133,7 @@ func (s *Server) buildStatus(ctx context.Context, p store.Page) (publicPage, err
 	if err != nil {
 		return out, err
 	}
-	st, err := s.stats(ctx, 0)
+	st, err := s.stats(ctx)
 	if err != nil {
 		return out, err
 	}
@@ -412,20 +412,18 @@ func (s *Server) uptimeBadge(r *http.Request, m store.Monitor) (badge.Badge, boo
 	if period == "" {
 		period = "24h"
 	}
+	var st stats
+	s.uptime.read(&st)
 	var totals store.Totals
-	var err error
 	switch period {
 	case "24h":
-		totals, err = s.Store.MonitorHourlyTotals(r.Context(), m.ID, s.now().Add(-24*time.Hour))
+		totals = st.day[m.ID]
 	case "30d":
-		totals, err = s.Store.MonitorHourlyTotals(r.Context(), m.ID, s.now().Add(-30*24*time.Hour))
+		totals = st.month[m.ID]
 	case "1y":
-		totals, err = s.Store.MonitorDailyTotals(r.Context(), m.ID, s.now().Add(-365*24*time.Hour))
+		totals = st.year[m.ID]
 	default:
 		return badge.Badge{}, false, nil
-	}
-	if err != nil {
-		return badge.Badge{}, false, err
 	}
 	b := badge.Badge{Label: "uptime " + period, Message: "no data", Color: badge.Grey}
 	if u := totals.Uptime(); u >= 0 {

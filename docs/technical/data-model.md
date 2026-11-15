@@ -89,6 +89,7 @@ Settings saved from the web UI, one JSON document per key.
 | `analysis` | Alert analysis settings: `enabled`, `provider` (`api`, `claude-code` or `local`), `model` (`""` for the default), `api_key` (the Anthropic API key, sealed with the instance key; `""` for none), `base_url` (the local server's API), `local_api_key` (sealed; `""` for none), `timeout_s`. Missing: off, `api`, 60 seconds. |
 | `notifications` | `{"cert_expiry_days":[21,14,7]}`: the days before a certificate expires when monitors that ask for it warn. Missing: 21, 14, 7. |
 | `retention` | `{"heartbeat_days":90}`: how many days heartbeats are kept, 1 to 3650. Missing: 90. |
+| `uptime` | `{"refresh_seconds":60}`: how often every monitor's uptime figures are worked out in the background, 10 to 3600 seconds. Missing: 60. |
 | `updates` | [Update checks](../user/updates.md): `enabled`, `interval_hours` (1 to 720), `proxy` (`""`: the environment's), `proxy_user`, `proxy_password` (sealed with the instance key; `""` for none), `notify`, `channels` (channel IDs). Missing: off, 24 hours. |
 | `update_status` | The last update check: `checked`, `latest` (`{"version","name","notes","url","published"}` or `null`), `error`, `notified` (the release last sent to channels). |
 | `update_reminder.<user id>` | An admin's answer to the update reminder: `version`, `never`, `until` (remind me later). |
@@ -310,13 +311,14 @@ Uptime is `up / (up + down)`. The 24-hour and 30-day figures add up the
 hourly rows from the hour that contains "24 hours (30 days) ago", the 1-year
 figure the daily rows from the day 365 days ago.
 
-For every monitor at once (the list of monitors, status pages), Eyrie keeps
-in memory the sums of the rows before the previous hour (day), and reads
-only the rows from there on each time: the sums of hours and days that are
-over do not change. Rows written before that (a check saved late, a
-restore) and pruning drop what was kept. One monitor's figures (its page,
-its badges, alert analysis) add up only its own rows, through the primary
-key.
+Every monitor's figures are worked out in the background (`internal/api`,
+`RunUptime`), at start and then every `refresh_seconds` of the `uptime`
+setting (60 by default); pages read the figures last worked out. To work
+them out, the store keeps in memory the sums of the rows before the
+previous hour (day), and reads only the rows from there on: the sums of
+hours and days that are over do not change. Rows written before that (a
+check saved late, a restore) and pruning drop what was kept. Alert analysis
+adds up only its monitor's rows, through the primary key.
 
 ### notification_channels
 

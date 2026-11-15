@@ -120,6 +120,7 @@ func (s *Server) restore(w http.ResponseWriter, r *http.Request, setup bool) {
 		return
 	}
 	s.reloadSettings(r)
+	s.uptime.refreshSoon() // the restored monitors' uptime
 	by := "setup"
 	if sess := sessionFrom(r); sess != nil {
 		by = sess.User.Username

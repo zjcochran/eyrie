@@ -142,8 +142,8 @@ type monitorTagView struct {
 	Value string `json:"value"`
 }
 
-// stats are the uptime figures, channels and tags of every monitor, or of
-// one, read once per request.
+// stats are the uptime figures, channels and tags of every monitor, read
+// once per request.
 type stats struct {
 	day, month, year map[int64]store.Totals
 	channels         map[int64][]int64
@@ -151,19 +151,12 @@ type stats struct {
 	tagByID          map[int64]store.Tag
 }
 
-// stats reads the stats of every monitor, or of the one with this ID (its
-// uptime only: the rest is cheap).
-func (s *Server) stats(ctx context.Context, id int64) (stats, error) {
+// stats reads the channels and tags of every monitor, with the uptime
+// figures the background last worked out.
+func (s *Server) stats(ctx context.Context) (stats, error) {
 	var st stats
 	var err error
-	if id == 0 {
-		err = s.allTotals(ctx, &st)
-	} else {
-		err = s.monitorTotals(ctx, id, &st)
-	}
-	if err != nil {
-		return st, err
-	}
+	s.uptime.read(&st)
 	if st.channels, err = s.Store.MonitorChannels(ctx); err != nil {
 		return st, err
 	}
@@ -176,34 +169,6 @@ func (s *Server) stats(ctx context.Context, id int64) (stats, error) {
 		st.tagByID[t.ID] = t
 	}
 	return st, err
-}
-
-func (s *Server) allTotals(ctx context.Context, st *stats) error {
-	now := s.now()
-	var err error
-	if st.day, err = s.Store.HourlyTotals(ctx, now.Add(-24*time.Hour)); err != nil {
-		return err
-	}
-	if st.month, err = s.Store.HourlyTotals(ctx, now.Add(-30*24*time.Hour)); err != nil {
-		return err
-	}
-	st.year, err = s.Store.DailyTotals(ctx, now.Add(-365*24*time.Hour))
-	return err
-}
-
-func (s *Server) monitorTotals(ctx context.Context, id int64, st *stats) error {
-	now := s.now()
-	day, err := s.Store.MonitorHourlyTotals(ctx, id, now.Add(-24*time.Hour))
-	if err != nil {
-		return err
-	}
-	month, err := s.Store.MonitorHourlyTotals(ctx, id, now.Add(-30*24*time.Hour))
-	if err != nil {
-		return err
-	}
-	year, err := s.Store.MonitorDailyTotals(ctx, id, now.Add(-365*24*time.Hour))
-	st.day, st.month, st.year = map[int64]store.Totals{id: day}, map[int64]store.Totals{id: month}, map[int64]store.Totals{id: year}
-	return err
 }
 
 func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status, st stats) monitorView {
@@ -259,7 +224,7 @@ func (s *Server) listMonitors(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	st, err := s.stats(ctx, 0)
+	st, err := s.stats(ctx)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -300,7 +265,7 @@ func (s *Server) monitorFor(w http.ResponseWriter, r *http.Request) (store.Monit
 }
 
 func (s *Server) writeMonitor(w http.ResponseWriter, r *http.Request, code int, m store.Monitor) {
-	st, err := s.stats(r.Context(), m.ID)
+	st, err := s.stats(r.Context())
 	if err != nil {
 		s.fail(w, r, err)
 		return

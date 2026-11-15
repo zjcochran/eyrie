@@ -148,8 +148,10 @@ func newEnv(t *testing.T) *env {
 		now:      e.clock,
 		jobsWait: 200 * time.Millisecond,
 	}
+	e.s.uptimeEvery = 20 * time.Millisecond
 	e.srv = httptest.NewServer(e.s.Handler())
 	t.Cleanup(e.srv.Close)
+	go e.s.RunUptime(t.Context())
 	eng.Publish = e.s.Publish
 	eng.Agents = e.s.Agents
 	ctx, cancel := context.WithCancel(context.Background())

@@ -245,6 +245,7 @@ describe('Client', () => {
       [() => client.deleteGroup(3), 'DELETE', '/api/v1/groups/3'],
       [() => client.arrange([{ type: 'monitor', id: 4, group_id: 3 }]), 'PUT', '/api/v1/layout'],
       [() => client.retention(), 'GET', '/api/v1/settings/retention'],
+      [() => client.uptimeSettings(), 'GET', '/api/v1/settings/uptime'],
       [() => client.channelKinds(), 'GET', '/api/v1/channel-kinds'],
       [() => client.channels(), 'GET', '/api/v1/channels'],
       [() => client.createChannel(channel), 'POST', '/api/v1/channels'],
@@ -254,6 +255,7 @@ describe('Client', () => {
       [() => client.notifySettings(), 'GET', '/api/v1/settings/notifications'],
       [() => client.saveNotifySettings([21, 7]), 'PUT', '/api/v1/settings/notifications'],
       [() => client.saveRetention(30), 'PUT', '/api/v1/settings/retention'],
+      [() => client.saveUptimeSettings(300), 'PUT', '/api/v1/settings/uptime'],
       [() => client.backupSchedule(), 'GET', '/api/v1/settings/backup'],
       [
         () => client.saveBackupSchedule({ enabled: true, time: '03:00', keep: 14, history: 'none', passphrase: '' }),
