@@ -104,13 +104,13 @@
       <h2>Health</h2>
       <ul class="states">
         {#each d.pools ?? [] as p (p.name)}
-          <li><i class={p.ok ? (p.repairing ? 'warn' : 'ok') : 'bad'}></i><span class="grow">{p.name}</span><span class="muted">{p.state}</span></li>
+          <li><i class={p.ok ? (p.repairing ? 'warn' : 'ok') : 'bad'}></i><span class="name">{p.name}</span><span class="state muted">{p.state}</span></li>
         {/each}
         {#if d.system}
-          <li><i class={d.system.ok ? 'ok' : 'bad'}></i><span class="grow">System</span><span class="muted">{d.system.state}</span></li>
+          <li><i class={d.system.ok ? 'ok' : 'bad'}></i><span class="name">System</span><span class="state muted">{d.system.state}</span></li>
         {/if}
         {#each d.commands ?? [] as c (c.name)}
-          <li><i class={c.status === 0 ? 'ok' : 'bad'}></i><span class="grow mono">{c.name}</span><span class="muted">{c.output || `exit status ${c.status}`}</span></li>
+          <li><i class={c.status === 0 ? 'ok' : 'bad'}></i><span class="name mono">{c.name}</span><span class="state muted">{c.output || `exit status ${c.status}`}</span></li>
         {/each}
       </ul>
       {#if !d.pools?.length && !d.system && !d.commands?.length}<p class="muted">The device reports no volume or system health.</p>{/if}
@@ -134,6 +134,9 @@
 {/if}
 
 <style>
+  .between {
+    justify-content: space-between;
+  }
   .vol {
     display: grid;
     gap: 0.3rem;
@@ -214,9 +217,14 @@
   .states i.bad {
     background: var(--down);
   }
-  .grow {
+  .name {
+    flex: none;
+  }
+  /* A long state (the system's, a command's output) wraps on the right. */
+  .state {
     flex: 1;
     min-width: 0;
+    text-align: right;
   }
   .small {
     font-size: 0.85rem;
