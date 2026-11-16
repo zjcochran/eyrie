@@ -89,6 +89,7 @@ Settings saved from the web UI, one JSON document per key.
 | `analysis` | Alert analysis settings: `enabled`, `provider` (`api`, `claude-code` or `local`), `model` (`""` for the default), `api_key` (the Anthropic API key, sealed with the instance key; `""` for none), `base_url` (the local server's API), `local_api_key` (sealed; `""` for none), `timeout_s`. Missing: off, `api`, 60 seconds. |
 | `notifications` | `{"cert_expiry_days":[21,14,7]}`: the days before a certificate expires when monitors that ask for it warn. Missing: 21, 14, 7. |
 | `retention` | `{"heartbeat_days":90}`: how many days heartbeats are kept, 1 to 3650. Missing: 90. |
+| `uptime` | `{"refresh_minutes":30}`: how often every monitor's uptime figures are worked out in the background, 1 to 1440 minutes. Missing: 30. |
 | `updates` | [Update checks](../user/updates.md): `enabled`, `interval_hours` (1 to 720), `proxy` (`""`: the environment's), `proxy_user`, `proxy_password` (sealed with the instance key; `""` for none), `notify`, `channels` (channel IDs). Missing: off, 24 hours. |
 | `update_status` | The last update check: `checked`, `latest` (`{"version","name","notes","url","published"}` or `null`), `error`, `notified` (the release last sent to channels). |
 | `update_reminder.<user id>` | An admin's answer to the update reminder: `version`, `never`, `until` (remind me later). |
@@ -285,7 +286,9 @@ pruning). Rows are kept 35 days.
 
 Check counts per monitor and hour (`bucket`: the hour's start) or day
 (`bucket`: midnight UTC). Primary key `(monitor_id, bucket)`; `monitor_id`
-`ON DELETE CASCADE`. Hourly rows are kept 35 days, daily rows 400 days.
+`ON DELETE CASCADE`; indexes `stats_hourly_bucket` and `stats_daily_bucket`
+on `bucket` (`00016_stats_bucket`, for the latest rows of every monitor).
+Hourly rows are kept 35 days, daily rows 400 days.
 
 | Column | Type | Notes |
 | --- | --- | --- |
@@ -307,6 +310,19 @@ same for a backup made before it.
 Uptime is `up / (up + down)`. The 24-hour and 30-day figures add up the
 hourly rows from the hour that contains "24 hours (30 days) ago", the 1-year
 figure the daily rows from the day 365 days ago.
+
+Every figure added up from these rows is worked out in the background
+(`internal/api`, `RunUptime`), at start and then every `refresh_minutes` of
+the `uptime` setting (30 by default): every monitor's uptime totals over 24
+hours, 30 days and a year, its daily rows of the last 90 days and their
+sum, its hourly rows of the last 35 days, and every monitor's hourly rows
+of the last 24 hours added together. Pages read the figures last worked
+out. To work out the uptime totals, the store keeps in memory the sums of
+the rows before the previous hour (day), and reads only the rows from
+there on: the sums of hours and days that are over do not change. Rows
+written before that (a check saved late, a restore) and pruning drop what
+was kept. Alert analysis adds up only its monitor's rows, through the
+primary key.
 
 ### notification_channels
 

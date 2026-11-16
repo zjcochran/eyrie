@@ -4,11 +4,20 @@ package api
 
 import (
 	"bufio"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zjcochran/eyrie/internal/store"
 )
 
 // eventually retries cond for up to 5 seconds.
@@ -225,12 +234,21 @@ func TestHistory(t *testing.T) {
 		Up, Down     int64
 		AvgLatencyMS *float64 `json:"avg_latency_ms"`
 	}
-	if admin.call("GET", path+"/hours?days=99", nil, &hours); len(hours) != 1 || hours[0].Up != 1 || hours[0].AvgLatencyMS == nil {
+	// Worked out in the background.
+	eventually(t, "the hourly stats", func() bool {
+		admin.call("GET", path+"/hours?days=99", nil, &hours)
+		return len(hours) == 1
+	})
+	if hours[0].Up != 1 || hours[0].AvgLatencyMS == nil {
 		t.Errorf("hours %+v", hours)
 	}
+	// The uptime figures are worked out in the background.
 	var list []monitorView
-	admin.call("GET", "/api/v1/monitors?beats=10", nil, &list)
-	if len(list) != 1 || len(list[0].Beats) != 1 || list[0].Uptime.Day == nil || *list[0].Uptime.Day != 1 || list[0].Uptime.Year == nil {
+	eventually(t, "the uptime figures", func() bool {
+		admin.call("GET", "/api/v1/monitors?beats=10", nil, &list)
+		return len(list) == 1 && list[0].Uptime.Day != nil
+	})
+	if len(list[0].Beats) != 1 || *list[0].Uptime.Day != 1 || list[0].Uptime.Year == nil {
 		t.Errorf("list with beats %+v", list)
 	}
 	for _, p := range []string{"/heartbeats", "/hours"} {
@@ -259,9 +277,25 @@ func TestOverviewRoute(t *testing.T) {
 			AvgLatencyMS *float64 `json:"avg_latency_ms"`
 		}
 	}
-	if admin.call("GET", "/api/v1/overview?days=500", nil, &ov); len(ov.Days) != 1 || ov.Days[0].MonitorID != m.ID ||
-		len(ov.Days[0].Days) != 1 || ov.Days[0].Days[0].Up != 1 || len(ov.Hours) != 1 || ov.Hours[0].Up != 1 || ov.Hours[0].AvgLatencyMS == nil {
+	// Worked out in the background.
+	eventually(t, "the overview", func() bool {
+		admin.call("GET", "/api/v1/overview?days=500", nil, &ov)
+		return len(ov.Days) == 1
+	})
+	if ov.Days[0].MonitorID != m.ID || len(ov.Days[0].Days) != 1 || ov.Days[0].Days[0].Up != 1 || len(ov.Hours) != 1 ||
+		ov.Hours[0].Up != 1 || ov.Hours[0].AvgLatencyMS == nil {
 		t.Errorf("overview %+v", ov)
+	}
+	// Sent again as encoded the first time; one monitor's alone.
+	var again, one, other struct{ Days []json.RawMessage }
+	admin.call("GET", "/api/v1/overview?days=90", nil, &again)
+	admin.call("GET", fmt.Sprintf("/api/v1/overview?days=90&monitor=%d", m.ID), nil, &one)
+	admin.call("GET", "/api/v1/overview?monitor=9999", nil, &other)
+	if len(again.Days) != 1 || len(one.Days) != 1 || len(other.Days) != 0 {
+		t.Errorf("again %v, one %v, other %v", again, one, other)
+	}
+	if code, _ := admin.errorOf("GET", "/api/v1/overview?monitor=x", nil); code != http.StatusBadRequest {
+		t.Errorf("bad monitor: %d", code)
 	}
 }
 
@@ -452,6 +486,87 @@ func TestRetention(t *testing.T) {
 	}
 	if admin.call("GET", "/api/v1/settings/retention", nil, &r); r.HeartbeatDays != 30 {
 		t.Errorf("saved %+v", r)
+	}
+}
+
+func TestUptimeSettings(t *testing.T) {
+	e := newEnv(t)
+	admin := e.setup()
+	var u UptimeSettings
+	if admin.call("GET", "/api/v1/settings/uptime", nil, &u); u.RefreshMinutes != 30 {
+		t.Errorf("default %+v", u)
+	}
+	for _, mins := range []int{0, 1441} {
+		if code, _ := admin.errorOf("PUT", "/api/v1/settings/uptime", UptimeSettings{RefreshMinutes: mins}); code != http.StatusUnprocessableEntity {
+			t.Errorf("%d minutes: %d", mins, code)
+		}
+	}
+	if code := admin.call("PUT", "/api/v1/settings/uptime", UptimeSettings{RefreshMinutes: 5}, &u); code != http.StatusOK || u.RefreshMinutes != 5 {
+		t.Errorf("save: %d %+v", code, u)
+	}
+	if admin.call("GET", "/api/v1/settings/uptime", nil, &u); u.RefreshMinutes != 5 {
+		t.Errorf("saved %+v", u)
+	}
+	if got := e.s.uptimeSettings(context.Background()); got.RefreshMinutes != 5 {
+		t.Errorf("the worker reads %+v", got)
+	}
+	if code, _ := admin.errorOf("PUT", "/api/v1/settings/uptime", "every minute"); code != http.StatusBadRequest {
+		t.Errorf("not JSON: %d", code)
+	}
+}
+
+// The figures come only from the background: none before it first runs,
+// then those it worked out until it runs again.
+func TestUptimeWorker(t *testing.T) {
+	st, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "eyrie.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	ctx := context.Background()
+	m, _ := st.CreateMonitor(ctx, store.Monitor{Name: "A", Type: "manual", Config: []byte("{}")}, time.Now())
+	s := &Server{Store: st, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), now: time.Now}
+	var got stats
+	s.uptime.read(&got)
+	if got.day != nil {
+		t.Errorf("figures before the first run: %+v", got)
+	}
+	rec := httptest.NewRecorder()
+	s.overview(rec, httptest.NewRequest(http.MethodGet, "/api/v1/overview", nil))
+	if body := strings.TrimSpace(rec.Body.String()); body != `{"days":[],"hours":[]}` {
+		t.Errorf("overview before the first run: %s", body)
+	}
+	rec = httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/monitors/%d/hours", m.ID), nil)
+	req.SetPathValue("id", strconv.FormatInt(m.ID, 10))
+	s.hours(rec, req)
+	if body := strings.TrimSpace(rec.Body.String()); body != `[]` {
+		t.Errorf("hours before the first run: %s", body)
+	}
+	if err := st.Save(ctx, []store.Record{{Beat: store.Beat{MonitorID: m.ID, At: time.Now(), Status: "up", Latency: -1},
+		State: store.MonitorState{MonitorID: m.ID, Status: "up", LastCheck: time.Now(), Latency: -1}}}); err != nil {
+		t.Fatal(err)
+	}
+	run, stop := context.WithCancel(ctx)
+	done := make(chan struct{})
+	go func() { s.RunUptime(run); close(done) }() // every 30 minutes: only the first run and refreshSoon
+	eventually(t, "the first figures", func() bool { s.uptime.read(&got); return got.day[m.ID].Up == 1 })
+	st.Save(ctx, []store.Record{{Beat: store.Beat{MonitorID: m.ID, At: time.Now(), Status: "down", Latency: -1}, //nolint:errcheck // checked below
+		State: store.MonitorState{MonitorID: m.ID, Status: "down", LastCheck: time.Now(), Latency: -1}}})
+	if s.uptime.read(&got); got.day[m.ID].Down != 0 {
+		t.Errorf("a page worked out the figures: %+v", got.day[m.ID])
+	}
+	s.uptime.refreshSoon()
+	eventually(t, "the figures worked out again", func() bool { s.uptime.read(&got); return got.day[m.ID].Down == 1 })
+	stop()
+	<-done
+	// A closed database: the figures it had stay.
+	st.Close()
+	if err := s.refreshUptime(ctx); err == nil {
+		t.Error("worked out figures from a closed database")
+	}
+	if s.uptime.read(&got); got.day[m.ID].Up != 1 {
+		t.Errorf("figures after a failure %+v", got.day[m.ID])
 	}
 }
 

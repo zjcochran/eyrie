@@ -47,6 +47,7 @@ var ErrNewerDatabase = errors.New("the database was used by a newer version of E
 type Store struct {
 	db      *sql.DB
 	dialect Dialect
+	cache   totalsCache // sums of past hourly and daily stats
 }
 
 // Open connects to the database and applies migrations. dsn is a

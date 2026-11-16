@@ -82,6 +82,8 @@ type Server struct {
 	codes        *pendingCodes
 	sso          *sso.Client
 	hub          *hub
+	uptime       uptimeWorker
+	uptimeEvery  time.Duration // in place of the setting, for tests
 }
 
 // Handler returns the routes, wrapped in cross-origin protection and the
@@ -251,6 +253,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/updates/news", s.user(s.seenNews))
 	mux.Handle("GET /api/v1/settings/retention", s.admin(s.getRetention))
 	mux.Handle("PUT /api/v1/settings/retention", s.admin(s.saveRetention))
+	mux.Handle("GET /api/v1/settings/uptime", s.admin(s.getUptimeSettings))
+	mux.Handle("PUT /api/v1/settings/uptime", s.admin(s.saveUptimeSettings))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorBody{"no such API route"})

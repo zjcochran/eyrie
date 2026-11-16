@@ -746,7 +746,9 @@ export class Client {
     const changes = await this.answer<StatusChange[]>(resp, 'GET', path);
     return { changes, total: Number(resp.headers.get('X-Total-Count') ?? changes.length) };
   };
-  history = (days: number) => this.request<History>('GET', `/api/v1/overview?days=${days}`);
+  /** The overview: every monitor's daily counts, or one monitor's. */
+  history = (days: number, monitor?: number) =>
+    this.request<History>('GET', `/api/v1/overview?days=${days}${monitor ? `&monitor=${monitor}` : ''}`);
   hours = (id: number, days: number) => this.request<HourStats[]>('GET', `/api/v1/monitors/${id}/hours?days=${days}`);
   storage = (id: number, days: number) => this.request<Storage>('GET', `/api/v1/monitors/${id}/storage?days=${days}`);
   createMonitor = (m: MonitorChange) => this.request<Monitor>('POST', '/api/v1/monitors', m);
@@ -830,6 +832,9 @@ export class Client {
   retention = () => this.request<{ heartbeat_days: number }>('GET', '/api/v1/settings/retention');
   saveRetention = (days: number) =>
     this.request<{ heartbeat_days: number }>('PUT', '/api/v1/settings/retention', { heartbeat_days: days });
+  uptimeSettings = () => this.request<{ refresh_minutes: number }>('GET', '/api/v1/settings/uptime');
+  saveUptimeSettings = (minutes: number) =>
+    this.request<{ refresh_minutes: number }>('PUT', '/api/v1/settings/uptime', { refresh_minutes: minutes });
 
   audit = (f: { action?: string; user?: string; before?: number; offset?: number; size?: PageSize }) => {
     const q = new URLSearchParams();

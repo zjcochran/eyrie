@@ -40,7 +40,7 @@ func (a *Analyzer) prompt(ctx context.Context, m store.Monitor, b store.Beat) (s
 	if err != nil {
 		return "", err
 	}
-	totals, err := a.Store.HourlyTotals(ctx, now.Add(-24*time.Hour))
+	totals, err := a.Store.MonitorHourlyTotals(ctx, m.ID, now.Add(-24*time.Hour))
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +66,7 @@ func (a *Analyzer) prompt(ctx context.Context, m store.Monitor, b store.Beat) (s
 			where = fmt.Sprintf("the agent %q", ag.Name)
 		}
 	}
-	return render(m, b, group, where, check.Describe(m.Type, m.Config), beats, totals[m.ID]), nil
+	return render(m, b, group, where, check.Describe(m.Type, m.Config), beats, totals), nil
 }
 
 func render(m store.Monitor, b store.Beat, group, where string, facts []check.Fact, beats []store.Beat, t store.Totals) string {

@@ -327,6 +327,14 @@ func (s *Store) importValue(kind string, v any) (any, error) {
 // Every session ends, since the users are replaced. With empty, it refuses
 // (ErrSetupDone) when an account exists: a restore in place of setup.
 func (s *Store) Import(ctx context.Context, snap Snapshot, empty bool) error {
+	if err := s.importSnapshot(ctx, snap, empty); err != nil {
+		return err
+	}
+	s.cache.reset() // the stats are the backup's now
+	return nil
+}
+
+func (s *Store) importSnapshot(ctx context.Context, snap Snapshot, empty bool) error {
 	for t := range snap.Config {
 		if !slices.Contains(ConfigTables, t) {
 			return fmt.Errorf("unknown table %q in the backup", t)
