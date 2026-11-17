@@ -99,7 +99,8 @@ picture. `sso_picture`: single sign-on may set the picture.
 `role_from_group`: the single sign-on admin group decides the role (an
 account without a password while an admin group is set).
 `appearance`: how the web app looks for the user (see
-[Appearance](../user/web-ui.md#appearance)).
+[Appearance](../user/web-ui.md#appearance) and
+[Accessibility](../user/accessibility.md)).
 
 ### Your account
 

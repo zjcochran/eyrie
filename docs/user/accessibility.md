@@ -2,8 +2,7 @@
 
 Eyrie can be used with a screen reader, from the keyboard alone, with low
 vision and with any colour vision. Some of this is always on, for everyone.
-The rest is chosen by each person, in **Settings → Appearance →
-Accessibility**:
+The rest is chosen by each person, in **Settings → Accessibility**:
 
 - the **accessibility mode**, which turns on everything below under
   [The accessibility mode](#the-accessibility-mode);
@@ -22,15 +21,16 @@ The first step of [setup](web-ui.md#first-start-setup), before the admin
 account exists, starts with **Turn on the accessibility mode**. Ticking it
 applies the mode to the setup pages at once, and **Create the admin
 account** keeps it for the new account. The second step, **How Eyrie
-looks**, starts with the whole Accessibility section, so the colour vision
-and text size can be chosen there too.
+looks**, starts with the same choices as **Settings → Accessibility**, so
+the colour vision and text size can be chosen there too.
 
-Later, any account turns any of it on or off in **Settings → Appearance**
-(also in the account menu, under **Appearance**).
+Later, any account turns any of it on or off in **Settings →
+Accessibility** (also in the account menu, under **Accessibility**, and
+in **Search or jump to**).
 
 ![Setup's first step: Turn on the accessibility mode, ticked, above the form for the admin account](../images/accessibility-setup-dark.png)
 
-![Settings → Appearance → Accessibility: the accessibility mode on, Red-green chosen, and the four text sizes](../images/accessibility-dark.png)
+![Settings → Accessibility: the accessibility mode on, Red-green chosen, and the four text sizes](../images/accessibility-dark.png)
 
 ## Before signing in
 
@@ -101,7 +101,7 @@ Screen readers are told, through a live region:
   [Events](monitors.md)), shortened to 200 characters. Announcements come
   while Eyrie is open in a tab, on any page.
 - **Which page you went to**, by its heading, after following a link in
-  the app: "Web" for a monitor, "Settings: Appearance" for a settings tab.
+  the app: "Web" for a monitor, "Settings: Accessibility" for a settings tab.
 - **Where an item went** after it is moved with its buttons (below).
 
 ### Arranging the list without dragging

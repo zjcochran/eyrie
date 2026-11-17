@@ -50,7 +50,8 @@ only way in, the password fields are not shown.
 - A session lasts 7 days from the last time you used Eyrie. **Sign out**,
   in the menu under your name, ends it: at the top right in the Bento
   layout, and at the bottom of the sidebar or rail in Console and Aurora.
-  The menu also has **Your account** and **Appearance**; on a phone it
+  The menu also has **Your account**, **Appearance** and
+  **Accessibility**; on a phone it
   stays at the top right, with the pages in a bar along the bottom.
 
 If you opened a page while signed out, you land on it after signing in.
@@ -102,7 +103,8 @@ and what it covers; admins add, change, turn off and delete them there. See
 ## Settings
 
 **Settings**, in the menu, has tabs in groups. Everyone has **You**:
-**Your account** and **Appearance**. Admins also have:
+**Your account**, **Appearance** and **Accessibility** (see
+[Accessibility](accessibility.md)). Admins also have:
 
 - **Access**: **Users**, **Single sign-on** and **API tokens**.
 - **Monitoring**: **Agents** (see [Agents](agents.md)), **Tags** (see
@@ -250,11 +252,10 @@ daily totals, and a backup with history includes them.
 ### Appearance
 
 How Eyrie looks for you, on every device you sign in on (the account menu
-has it too). Each choice applies at once.
+has it too). Each choice applies at once. The accessibility mode, colour
+vision and text size are on a page of their own, **Accessibility**; see
+[Accessibility](accessibility.md).
 
-- **Accessibility**: the accessibility mode, a colour vision (Typical,
-  Red-green, Blue-yellow or Monochrome) and a text size (100% to 150%).
-  [Accessibility](accessibility.md) says exactly what each does.
 - **Layout**:
   - **Console** (the default): the pages in a sidebar, the monitors in a
     list (each with its type, a line of its recent response times and the
@@ -296,7 +297,7 @@ the last account signed in in that browser
 ([Before signing in](accessibility.md#before-signing-in)). Public status
 pages keep their own theme and accent colour.
 
-![Settings, Appearance: accessibility, colour vision and text size, then the three layouts, the colours and day and night](../images/appearance-dark.png)
+![Settings, Appearance: the three layouts, the colours and day and night](../images/appearance-dark.png)
 
 ![The Bento layout's start page, in Cobalt by day](../images/layout-bento.png)
 

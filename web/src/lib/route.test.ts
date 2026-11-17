@@ -10,6 +10,7 @@ describe('pageFor', () => {
     assert.equal(pageFor('/settings'), 'account');
     assert.equal(pageFor('/settings/account/'), 'account');
     assert.equal(pageFor('/settings/appearance'), 'appearance');
+    assert.equal(pageFor('/settings/accessibility'), 'accessibility');
     assert.equal(pageFor('/settings/users'), 'users');
     assert.equal(pageFor('/settings/sso'), 'sso');
     assert.equal(pageFor('/settings/api-tokens'), 'tokens');
@@ -71,7 +72,7 @@ describe('tabGroups', () => {
     assert.equal(groups.flatMap((g) => g.tabs).length, settingsTabs.length);
     assert.deepEqual(
       tabGroups(settingsTabs.filter((t) => !t.admin)).map((g) => [g.group, g.tabs.map((t) => t.page)]),
-      [['You', ['account', 'appearance']]],
+      [['You', ['account', 'appearance', 'accessibility']]],
     );
   });
 });
