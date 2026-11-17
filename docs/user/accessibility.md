@@ -179,7 +179,7 @@ coloured. The colour scheme's other colours stay as they are.
 
 | Choice | For | Up | Down | Pending | Maintenance | Not checked yet, paused |
 | --- | --- | --- | --- | --- | --- | --- |
-| **Typical** (the default) | | the scheme's green | red | amber | violet | grey |
+| **Typical** (the default) | | the colour scheme's green | its red, orange or pink | its amber | its own (slate, violet, blue or lime) | its grey |
 | **Red-green** | protanopia, deuteranopia (and their milder forms) | blue `#005ba3` | orange `#e66100` | dark gold `#6b5200` | lilac `#8f6fd1` | grey `#7a7a7a` |
 | **Blue-yellow** | tritanopia | teal `#00796b` | crimson `#c2185b` | brown `#a15c00` | violet `#5e35b1` | grey `#767676` |
 | **Monochrome** | achromatopsia (no colour vision) | grey `#5e5e5e` | black `#000000` | dark grey `#3b3b3b` | mid grey `#7a7a7a` | light grey `#959595` |

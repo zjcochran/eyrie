@@ -12,7 +12,7 @@ export type Vision = 'typical' | 'red-green' | 'blue-yellow' | 'monochrome';
  * their day colours for up, down, pending and maintenance, for a swatch.
  */
 export const visions: { id: Vision; label: string; about: string; colours?: [string, string, string, string] }[] = [
-  { id: 'typical', label: 'Typical', about: "The colour scheme's own green, red, amber and violet." },
+  { id: 'typical', label: 'Typical', about: "The colour scheme's own colours for each status." },
   {
     id: 'red-green',
     label: 'Red-green',
