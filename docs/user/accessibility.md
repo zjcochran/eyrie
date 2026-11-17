@@ -28,6 +28,10 @@ and text size can be chosen there too.
 Later, any account turns any of it on or off in **Settings → Appearance**
 (also in the account menu, under **Appearance**).
 
+![Setup's first step: Turn on the accessibility mode, ticked, above the form for the admin account](../images/accessibility-setup-dark.png)
+
+![Settings → Appearance → Accessibility: the accessibility mode on, Red-green chosen, and the four text sizes](../images/accessibility-dark.png)
+
 ## Before signing in
 
 The browser remembers the last signed-in account's accessibility choices
@@ -124,6 +128,8 @@ works too.
 The buttons are not shown while the list is filtered by a tag, since
 nothing can be arranged then.
 
+![The accessibility mode in Console, with Red-green: Checkout's Move buttons open under it ("Now 3 of 4 in Example Shop"), a symbol in every status dot, and the response-time chart's point-by-point control under the chart](../images/accessibility-console-dark.png)
+
 ### Charts point by point, and as tables
 
 Below every chart (a monitor's response time, a NAS's volumes and
@@ -214,6 +220,8 @@ With any choice but Typical, colour is never the only sign:
 - **Dashes** on charts of several lines (a NAS's volumes, its disks'
   temperatures): each line has its own pattern of dashes, the first one
   solid, shown in the legend too.
+
+![Monochrome in Aurora: each status dot with its symbol, and heartbeat bars with down checks hatched, pending ones dotted and maintenance striped](../images/accessibility-aurora-dark.png)
 
 Public status pages keep their own colours, since their visitors are not
 signed in. Their status dots, heartbeat bars and charts are still read in

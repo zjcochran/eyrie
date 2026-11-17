@@ -296,7 +296,7 @@ the last account signed in in that browser
 ([Before signing in](accessibility.md#before-signing-in)). Public status
 pages keep their own theme and accent colour.
 
-![Settings, Appearance: the three layouts, the colours and day and night](../images/appearance-dark.png)
+![Settings, Appearance: accessibility, colour vision and text size, then the three layouts, the colours and day and night](../images/appearance-dark.png)
 
 ![The Bento layout's start page, in Cobalt by day](../images/layout-bento.png)
 
