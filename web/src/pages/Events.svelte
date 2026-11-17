@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
+  import { modal } from '../lib/modal.ts';
   import { onMount } from 'svelte';
   import StatusDot from '../components/StatusDot.svelte';
   import Pager from '../components/Pager.svelte';
@@ -92,7 +93,7 @@
        Escape closes it from the keyboard (svelte:window, above). -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && (chosen = null)}>
-    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="event-title">
+    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="event-title" use:modal>
       <h2 id="event-title"><StatusDot status={chosen.status} /> {monitorName(chosen.monitor_id)} {happened(chosen.status)}</h2>
       <dl>
         <dt>When</dt>

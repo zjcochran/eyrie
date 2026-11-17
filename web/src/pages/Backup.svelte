@@ -147,7 +147,7 @@
   {#if schedule}
     <p class="muted">Eyrie writes a backup file every day to <span class="mono">{schedule.dir}</span>.</p>
     {#if schedule.not_mounted}
-      <p class="notice error">
+      <p class="notice error" role="alert">
         This folder is not a volume of its own: its files are lost when the container is re-created. Mount a folder of
         the host there.
       </p>
@@ -185,7 +185,7 @@
         {#if schedule.last.error && schedule.last.success}Last one that worked: {when(schedule.last.success)}.{/if}
       </p>
     {/if}
-    {#if schedule.error}<p class="notice error">{schedule.error}</p>{/if}
+    {#if schedule.error}<p class="notice error" role="alert">{schedule.error}</p>{/if}
     {#if schedule.files.length}
       <div class="table-wrap">
         <table>

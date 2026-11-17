@@ -7,9 +7,12 @@
   import Palette from './components/Palette.svelte';
   import UpdatePopup from './components/UpdatePopup.svelte';
   import WhatsNew from './components/WhatsNew.svelte';
+  import { announcement } from './lib/access.ts';
+  import { announce, spoken } from './lib/announce.svelte.ts';
   import { isNight, normalize } from './lib/appearance.ts';
+  import { remember, remembered } from './lib/remembered.svelte.ts';
   import { go, link, nav } from './lib/nav.svelte.ts';
-  import { connect, disconnect, loadMonitors } from './lib/live.svelte.ts';
+  import { connect, disconnect, live, loadMonitors, onBeat } from './lib/live.svelte.ts';
   import { routeFor, settingsTabs, tabGroups } from './lib/route.ts';
   import { api, app, refresh } from './lib/session.svelte.ts';
   import Account from './pages/Account.svelte';
@@ -68,24 +71,59 @@
   });
   const tabs = $derived(settingsTabs.filter((t) => !t.admin || user?.role === 'admin'));
 
+  // Accessibility (access.css) is remembered in this browser for the sign-in
+  // page.
+  $effect(() => {
+    if (user?.appearance) remember(normalize(user.appearance));
+  });
+
   // How the app looks (themes.css): the user's choice, or the default before
   // signing in. Public status pages keep their own theme.
-  const look = $derived(normalize(user?.appearance));
+  const look = $derived(normalize(user?.appearance ?? remembered.access));
   $effect(() => {
     const root = document.documentElement.dataset;
     if (page === 'status') {
-      delete root.layout;
-      delete root.scheme;
-      delete root.mode;
+      for (const k of ['layout', 'scheme', 'mode', 'text', 'vision', 'accessible']) delete root[k];
       return;
     }
     root.layout = look.layout;
     root.scheme = look.scheme;
     root.mode = isNight(look.mode, systemDark) ? 'night' : 'day';
+    root.text = String(look.text_size);
+    if (look.vision === 'typical') delete root.vision;
+    else root.vision = look.vision;
+    if (look.accessible) root.accessible = '';
+    else delete root.accessible;
     // The browser's bar (or the phone's status bar, added to the home
     // screen) in the scheme's background.
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
     if (bg) document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg);
+  });
+
+  // The accessibility mode says when a monitor changes status, and the page
+  // gone to (by its heading).
+  $effect(() => {
+    if (!look.accessible || !signedIn) return;
+    return onBeat((b, before) => {
+      const m = live.monitors.find((x) => x.id === b.monitor_id);
+      if (m && before) announce(announcement(m.name, before, b), b.status === 'down');
+    });
+  });
+  const seen = { path: '' };
+  $effect(() => {
+    const path = nav.path;
+    if (!look.accessible || path === seen.path) return;
+    const first = seen.path === '';
+    seen.path = path;
+    if (first) return;
+    // After the page has drawn its heading: the last one, beside the list
+    // of monitors; in Settings, with the tab.
+    setTimeout(() => {
+      const hs = document.querySelectorAll('main h1');
+      const tab = document.querySelector('main .tabs [aria-current="page"]');
+      const words = [hs[hs.length - 1]?.textContent, tab?.textContent].map((t) => t?.trim()).filter(Boolean);
+      if (words.length) announce(words.join(': '));
+    }, 300);
   });
 
   // Jump to anything (⌘K).
@@ -141,13 +179,17 @@
 
 <svelte:window onclick={closeMenu} onkeydown={closeMenu} />
 
+<!-- What screen readers are told (lib/announce.svelte.ts). -->
+<div class="sr-only" role="status" aria-live="polite">{spoken.polite}</div>
+<div class="sr-only" role="alert" aria-live="assertive">{spoken.assertive}</div>
+
 {#if page === 'status'}
   <!-- Public: anyone may see a published status page, signed in or not. -->
   <PublicStatus slug={route.slug ?? ''} />
 {:else if !app.session}
   <main class="narrow">
     {#if app.error}
-      <p class="notice error">Eyrie could not be reached: {app.error}</p>
+      <p class="notice error" role="alert">Eyrie could not be reached: {app.error}</p>
       <button onclick={refresh}>Try again</button>
     {:else}
       <p class="muted">Loading…</p>
@@ -159,6 +201,7 @@
   <Login />
 {:else}
   <div class="shell">
+    <a class="skip" href="#content" onclick={(e) => (e.preventDefault(), document.getElementById('content')?.focus())}>Skip to the page</a>
     <header>
       <a class="brand" href="/" onclick={link}><Logo size={34} /><span class="label">Eyrie</span></a>
       <button class="search" onclick={() => (palette = true)} title="Search or jump to (⌘K)"
@@ -191,7 +234,7 @@
     <WhatsNew ondone={() => (newsDone = true)} />
     {#if newsDone && user.role === 'admin'}<UpdatePopup />{/if}
     <div class="content">
-      <main class:wide={inSettings} class:split={inMonitors}>
+      <main id="content" tabindex="-1" class:wide={inSettings} class:split={inMonitors}>
         {#if inMonitors}
           <Monitors {route} admin={user.role === 'admin'} />
         {:else if page === 'discover' && user.role === 'admin'}

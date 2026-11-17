@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- Jump to anything: ⌘K or Ctrl+K, or the search button, opens it. -->
 <script lang="ts">
+  import { modal } from '../lib/modal.ts';
   import { live } from '../lib/live.svelte.ts';
   import { go } from '../lib/nav.svelte.ts';
 
@@ -90,7 +91,7 @@
   <!-- Escape closes it from the keyboard (key, above). -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="backdrop" role="presentation" onclick={(e) => e.target === e.currentTarget && (open = false)}>
-    <div class="dialog" role="dialog" aria-modal="true" aria-label="Jump to">
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Jump to" use:modal>
       <div class="search">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"
           ><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg

@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
   import { message } from '../lib/api.ts';
+  import { normalize } from '../lib/appearance.ts';
+  import { remember, remembered } from '../lib/remembered.svelte.ts';
   import { go } from '../lib/nav.svelte.ts';
   import { api, app, refresh } from '../lib/session.svelte.ts';
   import { intervals } from '../lib/updates.ts';
@@ -9,6 +11,12 @@
   // The first admin's account, then how Eyrie looks for them, then whether
   // it checks for updates.
   let step = $state<'account' | 'look' | 'updates'>('account');
+  // The accessibility mode can be turned on first, before the account: it
+  // applies at once and is kept for the account.
+  const access = $derived(normalize(remembered.access));
+  function setAccessible(on: boolean) {
+    remember({ ...access, accessible: on });
+  }
   let checkUpdates = $state(false);
   let interval = $state(24);
 
@@ -31,6 +39,11 @@
     busy = true;
     try {
       const session = await api.setup(username, password);
+      const user = session.user;
+      if (user && (access.accessible || access.vision !== 'typical' || access.text_size !== 100)) {
+        const next = { ...normalize(user.appearance), accessible: access.accessible, vision: access.vision, text_size: access.text_size };
+        user.appearance = (await api.setAppearance(next)).appearance;
+      }
       app.welcome = true;
       app.session = session;
       step = 'look';
@@ -129,6 +142,16 @@
     <h1>Set up Eyrie</h1>
     <p class="muted">Step 1 of 3 · Your account</p>
     <div class="card">
+      <label class="check"
+        ><input type="checkbox" checked={access.accessible} onchange={(e) => setAccessible(e.currentTarget.checked)} />
+        Turn on the accessibility mode</label
+      >
+      <p class="muted small">
+        For screen readers, the keyboard and low vision: announcements, more contrast, bigger targets and no motion.
+        The next step has colour vision and text size, and Settings → Appearance changes all of it later.
+      </p>
+    </div>
+    <div class="card">
       <p>Create the first account. It is an admin: it can add other users and change every setting.</p>
       {#if error}<p class="notice error" role="alert">{error}</p>{/if}
       <form onsubmit={submit}>
@@ -175,6 +198,10 @@
     gap: 0.75rem;
     max-width: 28rem;
     margin-bottom: 1rem;
+  }
+  .small {
+    font-size: 0.85rem;
+    margin: 0.4rem 0 0;
   }
   .next {
     display: flex;

@@ -418,8 +418,12 @@ func TestResourcesMonitor(t *testing.T) {
 	var hours []struct {
 		AvgUsage *usageView `json:"avg_usage"`
 	}
-	admin.call("GET", fmt.Sprintf("/api/v1/monitors/%d/hours?days=1", m.ID), nil, &hours)
-	if len(hours) == 0 || hours[len(hours)-1].AvgUsage == nil || hours[len(hours)-1].AvgUsage.Memory != 50 {
+	// The hours come from the figures worked out in the background.
+	eventually(t, "the hours worked out", func() bool {
+		admin.call("GET", fmt.Sprintf("/api/v1/monitors/%d/hours?days=1", m.ID), nil, &hours)
+		return len(hours) > 0
+	})
+	if hours[len(hours)-1].AvgUsage == nil || hours[len(hours)-1].AvgUsage.Memory != 50 {
 		t.Errorf("hours %+v", hours)
 	}
 	_, body := e.client().do("GET", "/metrics", nil, "Authorization", "Bearer m3trics")

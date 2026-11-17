@@ -41,6 +41,10 @@ type appearanceView struct {
 	Layout string `json:"layout"`
 	Scheme string `json:"scheme"`
 	Mode   string `json:"mode"`
+	// The accessibility mode, the colour vision and the text size.
+	Accessible bool   `json:"accessible"`
+	Vision     string `json:"vision"`
+	TextSize   int    `json:"text_size"`
 }
 
 func viewUser(u store.User, sso sso.Settings) userView {

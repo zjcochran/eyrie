@@ -15,7 +15,7 @@ func TestAppearance(t *testing.T) {
 		if alice.Appearance != DefaultAppearance {
 			t.Errorf("new user: %+v", alice.Appearance)
 		}
-		want := Appearance{Layout: "aurora", Scheme: "ember", Mode: "night"}
+		want := Appearance{Layout: "aurora", Scheme: "ember", Mode: "night", Accessible: true, Vision: "red-green", TextSize: 130}
 		if err := s.SetAppearance(ctx, bob.ID, want); err != nil {
 			t.Fatal(err)
 		}
@@ -26,7 +26,9 @@ func TestAppearance(t *testing.T) {
 		for _, a := range []Appearance{
 			{Layout: "grid", Scheme: "ash", Mode: "day"},
 			{Layout: "console", Scheme: "ember", Mode: "day"},
-			{Layout: "bento", Scheme: "ash", Mode: "dusk"},
+			{Layout: "bento", Scheme: "ash", Mode: "dusk", Vision: "typical", TextSize: 100},
+			{Layout: "bento", Scheme: "ash", Mode: "day", Vision: "sepia", TextSize: 100},
+			{Layout: "bento", Scheme: "ash", Mode: "day", Vision: "typical", TextSize: 120},
 		} {
 			if err := s.SetAppearance(ctx, bob.ID, a); !errors.As(err, &bad) {
 				t.Errorf("%+v: %v", a, err)

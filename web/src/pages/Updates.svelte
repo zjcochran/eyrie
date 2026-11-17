@@ -152,7 +152,7 @@
         Not checked yet.
       {/if}
     </p>
-    {#if saved.status.error}<p class="notice error">The last check failed: {saved.status.error}</p>{/if}
+    {#if saved.status.error}<p class="notice error" role="alert">The last check failed: {saved.status.error}</p>{/if}
     {#if saved.available}
       <h3>
         <a href={saved.available.url} target="_blank" rel="noopener noreferrer">{saved.available.name || saved.available.version}</a> is

@@ -21,7 +21,7 @@
   <h1>Status pages</h1>
   {#if admin}<a class="button primary" href="/status-pages/new" onclick={link}>Add a status page</a>{/if}
 </div>
-{#if error}<p class="notice error">{error}</p>{/if}
+{#if error}<p class="notice error" role="alert">{error}</p>{/if}
 
 <section class="card">
   <p class="muted">

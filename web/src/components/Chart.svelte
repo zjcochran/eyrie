@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
+  import { chartSummary } from '../lib/access.ts';
   import { normalize } from '../lib/appearance.ts';
   import { nearest, thin } from '../lib/chart.ts';
   import { millis, type Point } from '../lib/format.ts';
@@ -76,11 +77,29 @@
     hover = nearest(points, t);
   }
   const at = $derived(hover >= 0 ? points[hover] : null);
+
+  // In words for screen readers; in the accessibility mode, the points one
+  // by one from the keyboard, and all of them as a table.
+  const summary = $derived(chartSummary(label, points, from, to, format));
+  const accessible = $derived(normalize(app.session?.user?.appearance).accessible);
+  const time = (t: number) => new Date(t).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const say = (p: (typeof points)[number]) => `${time(p.t)}: ${p.v === null ? 'no answer' : format(p.v)}${p.down ? ', down' : ''}`;
+  function key(e: KeyboardEvent) {
+    const last = points.length - 1;
+    const steps: Record<string, number> = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1, PageDown: -10, PageUp: 10 };
+    let next = hover < 0 ? last : hover;
+    if (e.key in steps) next += steps[e.key];
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = last;
+    else return;
+    e.preventDefault();
+    hover = Math.max(0, Math.min(last, next));
+  }
 </script>
 
 {#if any}
   <div class="wrap">
-    <svg viewBox="0 0 {w} {h}" role="img" aria-label={label} onpointermove={move} onpointerleave={() => (hover = -1)}>
+    <svg viewBox="0 0 {w} {h}" role="img" aria-label={summary} onpointermove={move} onpointerleave={() => (hover = -1)}>
       <defs>
         <linearGradient id="{id}-fill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" class="fill-top" />
@@ -117,6 +136,36 @@
       </div>
     {/if}
   </div>
+  {#if accessible}
+    <div
+      class="stepper"
+      role="slider"
+      tabindex="0"
+      aria-label="{label}, point by point"
+      aria-valuemin={0}
+      aria-valuemax={points.length - 1}
+      aria-valuenow={Math.max(0, hover)}
+      aria-valuetext={say(points[hover < 0 ? points.length - 1 : hover])}
+      onkeydown={key}
+      onfocus={() => hover < 0 && (hover = points.length - 1)}
+      onblur={() => (hover = -1)}
+    >
+      <span>{say(points[hover < 0 ? points.length - 1 : hover])}</span>
+      <span class="muted">← → a point, Page Up and Page Down ten, Home and End the ends</span>
+    </div>
+    <details class="values">
+      <summary>Show the values as a table</summary>
+      <table>
+        <caption class="sr-only">{label}</caption>
+        <thead><tr><th scope="col">Time</th><th scope="col">{label}</th><th scope="col">Down</th></tr></thead>
+        <tbody>
+          {#each points as p (p.t)}
+            <tr><td>{time(p.t)}</td><td>{p.v === null ? 'no answer' : format(p.v)}</td><td>{p.down ? 'down' : ''}</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </details>
+  {/if}
 {:else}<p class="muted">{empty}</p>{/if}
 
 <style>
@@ -182,5 +231,29 @@
   }
   .value {
     font-family: var(--mono, ui-monospace, monospace);
+  }
+  .stepper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+  }
+  .values {
+    margin-top: 0.5rem;
+  }
+  .values table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .values th,
+  .values td {
+    padding: 0.25rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
   }
 </style>

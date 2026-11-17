@@ -16,12 +16,33 @@ describe('appearance', () => {
   });
   it('falls back to the defaults for what it does not know', () => {
     assert.deepEqual(normalize(undefined), defaultAppearance);
-    assert.deepEqual(normalize({ layout: 'bento', scheme: 'dusk', mode: 'night' }), { layout: 'bento', scheme: 'ash', mode: 'night' });
-    assert.deepEqual(normalize({ layout: 'console', scheme: 'glacier', mode: 'day' }), { layout: 'console', scheme: 'glacier', mode: 'day' });
+    assert.deepEqual(normalize({ layout: 'bento', scheme: 'dusk', mode: 'night' }), {
+      ...defaultAppearance,
+      layout: 'bento',
+      scheme: 'ash',
+      mode: 'night',
+    });
+    assert.deepEqual(normalize({ layout: 'console', scheme: 'glacier', mode: 'day' }), {
+      ...defaultAppearance,
+      scheme: 'glacier',
+      mode: 'day',
+    });
+  });
+  it('keeps the accessibility choices it knows', () => {
+    const a = normalize({ accessible: true, vision: 'blue-yellow', text_size: 130 });
+    assert.equal(a.accessible, true);
+    assert.equal(a.vision, 'blue-yellow');
+    assert.equal(a.text_size, 130);
+    const b = normalize({ accessible: 'yes' as unknown as boolean, vision: 'sepia' as never, text_size: 120 });
+    assert.equal(b.accessible, false);
+    assert.equal(b.vision, 'typical');
+    assert.equal(b.text_size, 100);
   });
   it('keeps the scheme across layouts only where it exists', () => {
-    assert.equal(withLayout({ layout: 'console', scheme: 'ash', mode: 'day' }, 'aurora').scheme, 'ash');
-    assert.equal(withLayout({ layout: 'console', scheme: 'dusk', mode: 'day' }, 'bento').scheme, 'ash');
+    assert.equal(withLayout({ ...defaultAppearance, mode: 'day' }, 'aurora').scheme, 'ash');
+    const dusk = withLayout({ ...defaultAppearance, scheme: 'dusk', mode: 'day', vision: 'monochrome' }, 'bento');
+    assert.equal(dusk.scheme, 'ash');
+    assert.equal(dusk.vision, 'monochrome');
   });
   it('resolves the system mode', () => {
     assert.equal(isNight('system', true), true);
