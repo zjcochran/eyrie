@@ -49,14 +49,14 @@ describe('chartSummary', () => {
       { t: day + 3, v: null, down: false },
     ];
     const s = chartSummary('Response time', points, day, day + 3600000, millis);
-    assert.match(s, /^Response time, .+ to .+: lowest 10 ms, average 20 ms, highest 30 ms, latest 30 ms; down at 1 point\.$/);
+    assert.ok(/^Response time, .+ to .+: lowest 10 ms, average 20 ms, highest 30 ms, latest 30 ms; down at 1 point\.$/.test(s));
   });
   it('says when there is nothing to show', () => {
-    assert.match(chartSummary('Use', [], day, day + 1, millis), /^Use, .+: no values\.$/);
+    assert.ok(/^Use, .+: no values\.$/.test(chartSummary('Use', [], day, day + 1, millis)));
   });
   it('shows dates over two days or more', () => {
     assert.equal(when(day, day + 3 * 86400000, day), new Date(day).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }));
-    assert.notEqual(when(day, day + 3600000, day), when(day, day + 3 * 86400000, day));
+    assert.ok(when(day, day + 3600000, day) !== when(day, day + 3 * 86400000, day));
   });
 });
 
