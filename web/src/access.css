@@ -136,6 +136,14 @@
 :root[data-accessible] input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']) {
   min-height: 2.75rem;
 }
+/* A link shown as a button counts its padding outside that height, as a
+   button does not; keep it the same height, its text in the middle. */
+:root[data-accessible] .button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 :root[data-accessible] input[type='checkbox'],
 :root[data-accessible] input[type='radio'] {
   width: 1.25rem;
