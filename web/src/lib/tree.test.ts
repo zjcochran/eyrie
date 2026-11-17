@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Group, Monitor, Status } from './api.ts';
-import { buildTree, canDrop, findGroup, flatten, groupChoices, groupStatus, key, layout, members, move } from './tree.ts';
+import { buildTree, canDrop, findGroup, flatten, groupChoices, groupStatus, key, layout, members, move, step, whereIs } from './tree.ts';
 
 const group = (id: number, name: string, parent: number | null = null, position = 0): Group => ({
   id,
@@ -118,5 +118,31 @@ describe('layout', () => {
       groupChoices(tree, 2).map((c) => c.group.id),
       [1],
     );
+  });
+});
+
+describe('step', () => {
+  const tree = buildTree(groups, monitors);
+  it('moves past a neighbour, and out of a group at its edge', () => {
+    assert.deepEqual(step(tree, 'm12', 'up'), { target: 'g1', where: 'before' });
+    assert.deepEqual(step(tree, 'm10', 'up'), { target: 'g1', where: 'before' });
+    assert.deepEqual(step(tree, 'm10', 'down'), { target: 'g2', where: 'after' });
+    assert.deepEqual(step(tree, 'g2', 'down'), { target: 'g1', where: 'after' });
+    assert.equal(step(tree, 'g1', 'up'), null);
+    assert.equal(step(tree, 'm12', 'down'), null);
+  });
+  it('moves into the group above and out of its group', () => {
+    assert.deepEqual(step(tree, 'm12', 'in'), { target: 'g1', where: 'inside' });
+    assert.equal(step(tree, 'g1', 'in'), null);
+    assert.equal(step(tree, 'm10', 'in'), null);
+    assert.deepEqual(step(tree, 'm11', 'out'), { target: 'g2', where: 'after' });
+    assert.equal(step(tree, 'm12', 'out'), null);
+    assert.equal(step(tree, 'm99', 'up'), null);
+  });
+  it('says where an item is', () => {
+    assert.equal(whereIs(tree, 'm11'), '1 of 1 in Shop');
+    assert.equal(whereIs(tree, 'm12'), '2 of 2 at the top');
+    assert.equal(whereIs(move(tree, 'm12', { target: 'g1', where: 'inside' }), 'm12'), '3 of 3 in Site');
+    assert.equal(whereIs(tree, 'm99'), '');
   });
 });

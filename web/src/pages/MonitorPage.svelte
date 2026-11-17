@@ -215,7 +215,7 @@
   {#if m.tags.length}
     <p class="tags">{#each m.tags as t (t.id)}<TagChip name={t.name} color={t.color} value={t.value} />{/each}</p>
   {/if}
-  {#if m.status.maintenance}<p class="notice maint">In maintenance: {m.status.maintenance}</p>{/if}
+  {#if m.status.maintenance}<p class="notice maint" role="status">In maintenance: {m.status.maintenance}</p>{/if}
 
   <div class="kpis">
     {#if resources}

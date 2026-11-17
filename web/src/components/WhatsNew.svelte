@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
+  import { modal } from '../lib/modal.ts';
   import { onMount } from 'svelte';
   import Markdown from './Markdown.svelte';
   import { type Upgrade } from '../lib/api.ts';
@@ -35,7 +36,7 @@
 
 {#if upgrade}
   <div class="backdrop">
-    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="news-title">
+    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="news-title" use:modal>
       <h2 id="news-title">Eyrie was updated to {upgrade.to}</h2>
       <p class="muted">
         From {upgrade.from || 'an earlier version'}.

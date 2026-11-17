@@ -22,6 +22,7 @@ are updated in the same change as the behaviour they describe.
 | [Checking for updates](user/updates.md) | Checking GitHub for a newer release, the reminder in the web app, notifying channels, a proxy |
 | [Backup and restore](user/backup-and-restore.md) | Encrypted backup files (made, scheduled, restored, into SQLite or PostgreSQL), restoring at setup, copying the database |
 | [Using the web app](user/web-ui.md) | Setup, signing in, your account, two-factor sign-in, users, API tokens |
+| [Accessibility](user/accessibility.md) | The accessibility mode (announcements, arranging without dragging, charts as tables, contrast, no motion), colour vision, text size, and what is always on |
 | [Single sign-on](user/single-sign-on.md) | Signing in with an OpenID Connect provider: setup, groups, linking, SSO only |
 
 ## Technical documentation

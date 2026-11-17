@@ -1,5 +1,6 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <script lang="ts">
+  import { modal } from '../lib/modal.ts';
   import { onMount } from 'svelte';
   import { type Release, message } from '../lib/api.ts';
   import { api } from '../lib/session.svelte.ts';
@@ -41,7 +42,7 @@
 
 {#if release}
   <div class="backdrop">
-    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="update-title">
+    <div class="card dialog" role="dialog" aria-modal="true" aria-labelledby="update-title" use:modal>
       <h2 id="update-title">Eyrie {release.version} is available</h2>
       <p class="muted">
         This is {current}.

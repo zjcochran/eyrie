@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// How the app looks: a layout, one of its colour schemes, and day, night or
-// the system's choice. Pure functions, so the tests can run them; the same
-// lists as the server's (internal/store/appearance.go).
+// How the app looks: a layout, one of its colour schemes, day, night or the
+// system's choice, and accessibility (lib/access.ts). Pure functions, so the
+// tests can run them; the same lists as the server's
+// (internal/store/appearance.go).
+import { type Vision, textSizes, visions } from './access.ts';
 
 export type Layout = 'console' | 'bento' | 'aurora';
 export type Mode = 'system' | 'day' | 'night';
@@ -10,10 +12,23 @@ export interface Appearance {
   layout: Layout;
   scheme: string;
   mode: Mode;
+  /** The accessibility mode. */
+  accessible: boolean;
+  /** The colour vision the status colours are for. */
+  vision: Vision;
+  /** The text size, in percent. */
+  text_size: number;
 }
 
 /** A new user's, and the signed-out pages'. */
-export const defaultAppearance: Appearance = { layout: 'console', scheme: 'ash', mode: 'system' };
+export const defaultAppearance: Appearance = {
+  layout: 'console',
+  scheme: 'ash',
+  mode: 'system',
+  accessible: false,
+  vision: 'typical',
+  text_size: 100,
+};
 
 export interface Scheme {
   id: string;
@@ -75,7 +90,9 @@ export function normalize(a: Partial<Appearance> | undefined): Appearance {
   const schemes = schemesOf(layout);
   const scheme = schemes.find((s) => s.id === a?.scheme)?.id ?? schemes[0].id;
   const mode = modes.find((m) => m.id === a?.mode)?.id ?? defaultAppearance.mode;
-  return { layout, scheme, mode };
+  const vision = visions.find((v) => v.id === a?.vision)?.id ?? defaultAppearance.vision;
+  const size = textSizes.find((t) => t === a?.text_size) ?? defaultAppearance.text_size;
+  return { layout, scheme, mode, accessible: a?.accessible === true, vision, text_size: size };
 }
 
 /** Another layout, keeping the scheme where it has one of that name. */

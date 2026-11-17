@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The monitors, their groups and latest heartbeats, kept up to date by the
 // server's event stream (/api/v1/events).
-import type { Beat, Group, Monitor } from './api.ts';
+import type { Beat, Group, Monitor, Status } from './api.ts';
 import { api } from './session.svelte.ts';
 
 /** How many recent heartbeats each monitor keeps for its bar. */
@@ -14,7 +14,7 @@ export const live = $state<{ monitors: Monitor[]; groups: Group[]; loaded: boole
   error: '',
 });
 
-const listeners = new Set<(b: Beat) => void>();
+const listeners = new Set<(b: Beat, before: Status | null) => void>();
 let source: EventSource | null = null;
 
 /** Loads every monitor with its recent heartbeats, and every group. */
@@ -51,14 +51,18 @@ export function disconnect() {
   live.loaded = false;
 }
 
-/** Calls f with every heartbeat until the returned function is called. */
-export function onBeat(f: (b: Beat) => void): () => void {
+/**
+ * Calls f with every heartbeat, and its monitor's status before it (null
+ * for a monitor not in the list), until the returned function is called.
+ */
+export function onBeat(f: (b: Beat, before: Status | null) => void): () => void {
   listeners.add(f);
   return () => listeners.delete(f);
 }
 
 function apply(b: Beat) {
   const m = live.monitors.find((x) => x.id === b.monitor_id);
+  const before = m ? m.status.status : null;
   if (m) {
     // A maintenance window started or ended: its title comes with the
     // monitor.
@@ -71,5 +75,5 @@ function apply(b: Beat) {
     m.status.latency_ms = b.latency_ms;
     if (b.important) m.status.since = b.at;
   }
-  for (const f of listeners) f(b);
+  for (const f of listeners) f(b, before);
 }

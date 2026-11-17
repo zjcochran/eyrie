@@ -329,13 +329,14 @@ func (s *Server) useSSOPicture(w http.ResponseWriter, r *http.Request) {
 	s.writeUser(w, r, me.ID)
 }
 
-// setAppearance stores how the web app looks for the signed-in user.
+// setAppearance stores how the web app looks for the signed-in user. What
+// the body leaves out stays as it is.
 func (s *Server) setAppearance(w http.ResponseWriter, r *http.Request) {
-	var b appearanceView
+	me := sessionFrom(r).User
+	b := appearanceView(me.Appearance)
 	if !readJSON(w, r, &b) {
 		return
 	}
-	me := sessionFrom(r).User
 	if err := s.Store.SetAppearance(r.Context(), me.ID, store.Appearance(b)); err != nil {
 		s.storeError(w, r, err)
 		return

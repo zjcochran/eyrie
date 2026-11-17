@@ -11,9 +11,14 @@ steps:
 1. **Your account**: enter a username and a password of at least 12
    characters, twice, and click **Create the admin account**. That account
    is an admin and is signed in at once. Do this right after the first
-   start: until then anyone who can reach Eyrie could do it.
-2. **How Eyrie looks**: the [layout, colours and day or night](#appearance)
-   for this account, shown at once as they are chosen.
+   start: until then anyone who can reach Eyrie could do it. Above the
+   form, **Turn on the accessibility mode** applies the
+   [accessibility mode](accessibility.md) at once and keeps it for the
+   account.
+2. **How Eyrie looks**: [accessibility](accessibility.md) (the
+   accessibility mode, colour vision and text size), then the
+   [layout, colours and day or night](#appearance) for this account, shown
+   at once as they are chosen.
 3. **Updates**: whether Eyrie [checks for updates](updates.md) (off unless
    ticked), and how often. Notifying channels about a new release and a
    proxy are set later, in **Settings → Updates**.
@@ -247,6 +252,9 @@ daily totals, and a backup with history includes them.
 How Eyrie looks for you, on every device you sign in on (the account menu
 has it too). Each choice applies at once.
 
+- **Accessibility**: the accessibility mode, a colour vision (Typical,
+  Red-green, Blue-yellow or Monochrome) and a text size (100% to 150%).
+  [Accessibility](accessibility.md) says exactly what each does.
 - **Layout**:
   - **Console** (the default): the pages in a sidebar, the monitors in a
     list (each with its type, a line of its recent response times and the
@@ -283,10 +291,12 @@ layout, finds a monitor, group or page by name, and for admins the
 actions to add a monitor, a status page or a maintenance window, or to
 discover; ↑ and ↓ choose, Enter opens, Escape closes.
 
-The sign-in page uses Console with Ash. Public status pages keep their own
-theme and accent colour.
+The sign-in page uses Console with Ash, with the accessibility choices of
+the last account signed in in that browser
+([Before signing in](accessibility.md#before-signing-in)). Public status
+pages keep their own theme and accent colour.
 
-![Settings, Appearance: the three layouts, the colours and day and night](../images/appearance-dark.png)
+![Settings, Appearance: accessibility, colour vision and text size, then the three layouts, the colours and day and night](../images/appearance-dark.png)
 
 ![The Bento layout's start page, in Cobalt by day](../images/layout-bento.png)
 

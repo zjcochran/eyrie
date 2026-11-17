@@ -10,7 +10,23 @@
   import { live, loadMonitors } from '../lib/live.svelte.ts';
   import { go, link } from '../lib/nav.svelte.ts';
   import { api, app } from '../lib/session.svelte.ts';
-  import { buildTree, canDrop, type Drop, flatten, groupStatus, type Item, key, layout, move, type Row } from '../lib/tree.ts';
+  import { announce } from '../lib/announce.svelte.ts';
+  import { tick } from 'svelte';
+  import {
+    buildTree,
+    canDrop,
+    type Drop,
+    flatten,
+    groupStatus,
+    type Item,
+    key,
+    layout,
+    move,
+    type Row,
+    type Step,
+    step,
+    whereIs,
+  } from '../lib/tree.ts';
 
   /**
    * selected: the key of the monitor (m<id>) or group (g<id>) shown beside
@@ -21,6 +37,8 @@
   // Console shows each monitor's type, a line of its response times and
   // the latest; the others its heartbeats as a bar.
   const lines = $derived(normalize(app.session?.user?.appearance).layout === 'console');
+  // The accessibility mode moves items with buttons, one step at a time.
+  const accessible = $derived(normalize(app.session?.user?.appearance).accessible);
 
   // The tag the list is filtered by; 0 for none.
   let tagFilter = $state(0);
@@ -191,6 +209,33 @@
   }
 
   const href = (it: Item) => (it.kind === 'group' ? `/groups/${it.group.id}` : `/monitors/${it.monitor.id}`);
+  const nameOf = (it: Item) => (it.kind === 'group' ? it.group.name : it.monitor.name);
+
+  // The item whose move buttons are open, in the accessibility mode.
+  let moving = $state('');
+  const steps: { id: Step; label: string }[] = [
+    { id: 'up', label: 'Up' },
+    { id: 'down', label: 'Down' },
+    { id: 'in', label: 'Into the group above' },
+    { id: 'out', label: 'Out of its group' },
+  ];
+  async function stepMove(it: Item, s: Step) {
+    const k = key(it);
+    const d = step(tree, k, s);
+    if (!d) return;
+    await save(k, d);
+    if (error) {
+      announce(error, true);
+      return;
+    }
+    announce(`${nameOf(it)} moved: now ${whereIs(tree, k)}.`);
+    // The row may have moved: back to the same button, or the first that
+    // can still be used.
+    await tick();
+    const box = document.querySelector(`[data-moves="${k}"]`);
+    const same = box?.querySelector<HTMLButtonElement>(`button[data-step="${s}"]:not([disabled])`);
+    (same ?? box?.querySelector<HTMLButtonElement>('button:not([disabled])'))?.focus();
+  }
 </script>
 
 <div class="head">
@@ -212,7 +257,7 @@
   </form>
 {/if}
 
-{#if live.error}<p class="notice error">{live.error}</p>{/if}
+{#if live.error}<p class="notice error" role="alert">{live.error}</p>{/if}
 {#if error}<p class="notice error" role="status">{error}</p>{/if}
 
 {#if !live.loaded}
@@ -239,7 +284,11 @@
       {/each}
     </div>
   {/if}
-  {#if canDrag}<p class="muted hint">Drag to reorder, or onto a group to move into it.</p>{/if}
+  {#if canDrag}
+    <p class="muted hint">
+      {accessible ? 'Move each item with its Move button, one step at a time, or drag it.' : 'Drag to reorder, or onto a group to move into it.'}
+    </p>
+  {/if}
   <div class="card list" use:dnd>
     <div class="item">
       <a class="entry overview" href="/" onclick={link} draggable="false" aria-current={overview ? 'page' : undefined}>
@@ -260,6 +309,7 @@
       {@const k = key(item)}
       <div
         class="item"
+        class:movable={accessible && canDrag}
         class:dragging={dragged === k}
         class:before={drop?.target === k && drop.where === 'before'}
         class:after={drop?.target === k && drop.where === 'after'}
@@ -319,6 +369,31 @@
             {/if}
           {/if}
         </a>
+        {#if accessible && canDrag}
+          <button
+            class="mover"
+            aria-expanded={moving === k}
+            aria-label="Move {nameOf(item)}"
+            onclick={() => (moving = moving === k ? '' : k)}>Move</button
+          >
+          {#if moving === k}
+            <!-- Escape closes the buttons; the keys reach the group from its buttons. -->
+            <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+            <div
+              class="moves"
+              role="group"
+              aria-label="Move {nameOf(item)}"
+              data-moves={k}
+              onkeydown={(e) => e.key === 'Escape' && (moving = '')}
+            >
+              <span class="muted small">Now {whereIs(tree, k)}</span>
+              {#each steps as st (st.id)}
+                <button data-step={st.id} disabled={!step(tree, k, st.id) || moved !== null} onclick={() => stepMove(item, st.id)}>{st.label}</button>
+              {/each}
+              <button class="primary" onclick={() => (moving = '')}>Done</button>
+            </div>
+          {/if}
+        {/if}
       </div>
     {/each}
     {#if dragged && !tagFilter}
@@ -374,6 +449,28 @@
   }
   .item:last-of-type {
     border-bottom: none;
+  }
+  .item.movable {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .item.movable .entry {
+    flex: 1;
+    min-width: 0;
+  }
+  .mover {
+    flex: none;
+    margin-right: 0.5rem;
+  }
+  .moves {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    flex-basis: 100%;
+    padding: 0.5rem 0.65rem;
+    border-top: 1px dashed var(--border);
   }
   .entry {
     display: grid;

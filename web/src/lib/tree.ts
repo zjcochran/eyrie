@@ -191,3 +191,44 @@ export function findGroup(tree: Item[], id: number): (Item & { kind: 'group' }) 
   const it = r?.list[r.index];
   return it?.kind === 'group' ? it : null;
 }
+
+/** A move from the keyboard or the move menu, one step at a time. */
+export type Step = 'up' | 'down' | 'in' | 'out';
+
+function parentOf(tree: Item[], k: string, parent: Item | null = null): { list: Item[]; index: number; parent: Item | null } | null {
+  for (let i = 0; i < tree.length; i++) {
+    const it = tree[i];
+    if (key(it) === k) return { list: tree, index: i, parent };
+    if (it.kind === 'group') {
+      const r = parentOf(it.children, k, it);
+      if (r) return r;
+    }
+  }
+  return null;
+}
+
+/**
+ * Where one step takes an item: up or down past its neighbour (out of its
+ * group past the group's edge), into the group just above it (at the end),
+ * or out of its group (just after it). Null where it cannot go.
+ */
+export function step(tree: Item[], k: string, s: Step): Drop | null {
+  const at = parentOf(tree, k);
+  if (!at) return null;
+  const { list, index, parent } = at;
+  const out = (where: 'before' | 'after'): Drop | null => (parent ? { target: key(parent), where } : null);
+  let d: Drop | null;
+  if (s === 'up') d = index > 0 ? { target: key(list[index - 1]), where: 'before' } : out('before');
+  else if (s === 'down') d = index < list.length - 1 ? { target: key(list[index + 1]), where: 'after' } : out('after');
+  else if (s === 'in') d = index > 0 && list[index - 1].kind === 'group' ? { target: key(list[index - 1]), where: 'inside' } : null;
+  else d = out('after');
+  return d && canDrop(tree, k, d) ? d : null;
+}
+
+/** Where an item is, in words: "2 of 3 in Shop" or "1 of 4 at the top". */
+export function whereIs(tree: Item[], k: string): string {
+  const at = parentOf(tree, k);
+  if (!at) return '';
+  const place = at.parent?.kind === 'group' ? `in ${at.parent.group.name}` : 'at the top';
+  return `${at.index + 1} of ${at.list.length} ${place}`;
+}

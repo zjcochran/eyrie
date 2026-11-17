@@ -1,0 +1,175 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Accessibility (lib/access.ts, docs/user/accessibility.md). App.svelte sets
+   on the root: data-text (the text size), data-vision (a colour vision other
+   than typical) and data-accessible (the accessibility mode). These rules
+   come after themes.css and are more specific than a scheme's, so they win
+   over every scheme. */
+
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The first thing Tab reaches on every page: straight to the page itself. */
+.skip {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1000;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius);
+  background: var(--fg);
+  color: var(--bg);
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.skip:focus {
+  transform: none;
+}
+/* A heading or region given focus to start reading there: no ring. */
+[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* Text size: everything is sized in rem, so it all grows together. */
+:root[data-text='115'] {
+  font-size: 115%;
+}
+:root[data-text='130'] {
+  font-size: 130%;
+}
+:root[data-text='150'] {
+  font-size: 150%;
+}
+
+/* Status colours for a colour vision, checked with simulations of each
+   (Machado et al., 2009): every pair of statuses stays apart by at least 8
+   (ΔE in OKLab × 100) as that vision sees it, and every colour has at least
+   3:1 contrast with the background. Symbols mark the statuses too. */
+:root[data-vision='red-green'][data-mode='day'][data-scheme] {
+  --up: #005ba3;
+  --down: #e66100;
+  --pending: #6b5200;
+  --maintenance: #8f6fd1;
+  --unknown: #7a7a7a;
+}
+:root[data-vision='red-green'][data-mode='night'][data-scheme] {
+  --up: #3d8ff0;
+  --down: #ff9a2e;
+  --pending: #fff599;
+  --maintenance: #d1c4ff;
+  --unknown: #6e6e6e;
+}
+:root[data-vision='blue-yellow'][data-mode='day'][data-scheme] {
+  --up: #00796b;
+  --down: #c2185b;
+  --pending: #a15c00;
+  --maintenance: #5e35b1;
+  --unknown: #767676;
+}
+:root[data-vision='blue-yellow'][data-mode='night'][data-scheme] {
+  --up: #4db6ac;
+  --down: #ff5c8d;
+  --pending: #ffb74d;
+  --maintenance: #b39ddb;
+  --unknown: #8c8c8c;
+}
+:root[data-vision='monochrome'][data-mode='day'][data-scheme] {
+  --up: #5e5e5e;
+  --down: #000000;
+  --pending: #3b3b3b;
+  --maintenance: #7a7a7a;
+  --unknown: #959595;
+}
+:root[data-vision='monochrome'][data-mode='night'][data-scheme] {
+  --up: #aaaaaa;
+  --down: #ffffff;
+  --pending: #d4d4d4;
+  --maintenance: #868686;
+  --unknown: #666666;
+}
+/* Bento's first tile follows them. (Notices keep the scheme's colours: they
+   are words, with more contrast than a status colour needs.) */
+:root[data-vision][data-scheme][data-mode] {
+  --hero-up: var(--up);
+  --hero-down: var(--down);
+}
+
+/* The accessibility mode. */
+
+/* More contrast: quieter text, borders and lines closer to the text. */
+:root[data-accessible][data-scheme][data-mode] {
+  --muted: color-mix(in srgb, var(--fg) 85%, var(--bg));
+  --faint: color-mix(in srgb, var(--fg) 75%, var(--bg));
+  --border: color-mix(in srgb, var(--fg) 50%, var(--bg));
+}
+
+/* A wide focus ring in the text's colour, with a gap in the background's,
+   so it shows on any colour. */
+:root[data-accessible] :focus-visible {
+  outline: 3px solid var(--fg) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 6px var(--bg) !important;
+}
+
+/* Links in the text are underlined, not told apart by colour alone. */
+:root[data-accessible] main a:not([class]),
+:root[data-accessible] main p a,
+:root[data-accessible] main li a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+/* Bigger targets: at least 44 by 44 pixels (WCAG 2.5.5). */
+:root[data-accessible] button:not(.toggle),
+:root[data-accessible] .button,
+:root[data-accessible] select,
+:root[data-accessible] summary,
+:root[data-accessible] input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']) {
+  min-height: 2.75rem;
+}
+/* A link shown as a button counts its padding outside that height, as a
+   button does not; keep it the same height, its text in the middle. */
+:root[data-accessible] .button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+:root[data-accessible] input[type='checkbox'],
+:root[data-accessible] input[type='radio'] {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Nothing moves: no animations, transitions or smooth scrolling. */
+:root[data-accessible] *,
+:root[data-accessible] *::before,
+:root[data-accessible] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* Nothing see-through: solid cards in place of Aurora's frosted glass, and
+   no drifting colour behind them. */
+:root[data-accessible][data-layout='aurora'] .card {
+  background: var(--surface) !important;
+  backdrop-filter: none !important;
+  border-color: var(--border) !important;
+}
+:root[data-accessible][data-layout='aurora'] body::before {
+  display: none;
+}
+:root[data-accessible] .tip {
+  background: var(--surface) !important;
+  backdrop-filter: none !important;
+}
