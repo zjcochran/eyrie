@@ -15,6 +15,7 @@
   import { connect, disconnect, live, loadMonitors, onBeat } from './lib/live.svelte.ts';
   import { routeFor, settingsTabs, tabGroups } from './lib/route.ts';
   import { api, app, refresh } from './lib/session.svelte.ts';
+  import Accessibility from './pages/Accessibility.svelte';
   import Account from './pages/Account.svelte';
   import Agents from './pages/Agents.svelte';
   import Analysis from './pages/Analysis.svelte';
@@ -225,6 +226,7 @@
         <div class="menu">
           <a href="/settings/account" onclick={link}>Your account</a>
           <a href="/settings/appearance" onclick={link}>Appearance</a>
+          <a href="/settings/accessibility" onclick={link}>Accessibility</a>
           <button onclick={signOut}>Sign out</button>
         </div>
       </details>
@@ -268,6 +270,8 @@
                 <Account />
               {:else if page === 'appearance'}
                 <Appearance />
+              {:else if page === 'accessibility'}
+                <Accessibility />
               {:else if page === 'users'}
                 <Users />
               {:else if page === 'sso'}

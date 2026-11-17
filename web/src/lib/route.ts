@@ -10,6 +10,7 @@ export type Page =
   | 'discover'
   | 'account'
   | 'appearance'
+  | 'accessibility'
   | 'users'
   | 'sso'
   | 'tokens'
@@ -40,6 +41,7 @@ export interface Route {
 export const settingsTabs: { page: Page; path: string; label: string; group: string; admin: boolean }[] = [
   { page: 'account', path: '/settings/account', label: 'Your account', group: 'You', admin: false },
   { page: 'appearance', path: '/settings/appearance', label: 'Appearance', group: 'You', admin: false },
+  { page: 'accessibility', path: '/settings/accessibility', label: 'Accessibility', group: 'You', admin: false },
   { page: 'users', path: '/settings/users', label: 'Users', group: 'Access', admin: true },
   { page: 'sso', path: '/settings/sso', label: 'Single sign-on', group: 'Access', admin: true },
   { page: 'tokens', path: '/settings/api-tokens', label: 'API tokens', group: 'Access', admin: true },

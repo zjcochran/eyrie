@@ -6,6 +6,7 @@
   import { go } from '../lib/nav.svelte.ts';
   import { api, app, refresh } from '../lib/session.svelte.ts';
   import { intervals } from '../lib/updates.ts';
+  import Accessibility from './Accessibility.svelte';
   import Appearance from './Appearance.svelte';
 
   // The first admin's account, then how Eyrie looks for them, then whether
@@ -101,7 +102,11 @@
 {#if step === 'look'}
   <main class="wide">
     <h1>Set up Eyrie</h1>
-    <p class="muted">Step 2 of 3 · How Eyrie looks for you. Each choice shows at once; change it any time in Settings → Appearance.</p>
+    <p class="muted">
+      Step 2 of 3 · How Eyrie looks for you. Each choice shows at once; change it any time in Settings → Accessibility
+      and Settings → Appearance.
+    </p>
+    <Accessibility />
     <Appearance />
     <div class="next"><button class="primary" onclick={() => (step = 'updates')}>Next</button></div>
   </main>
@@ -148,7 +153,7 @@
       >
       <p class="muted small">
         For screen readers, the keyboard and low vision: announcements, more contrast, bigger targets and no motion.
-        The next step has colour vision and text size, and Settings → Appearance changes all of it later.
+        The next step has colour vision and text size, and Settings → Accessibility changes all of it later.
       </p>
     </div>
     <div class="card">

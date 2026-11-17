@@ -25,6 +25,7 @@
     { section: 'Pages', label: 'Maintenance', hint: '', href: '/maintenance', tone: 'page' },
     { section: 'Pages', label: 'Status pages', hint: '', href: '/status-pages', tone: 'page' },
     { section: 'Pages', label: 'Settings › Appearance', hint: '', href: '/settings/appearance', tone: 'page' },
+    { section: 'Pages', label: 'Settings › Accessibility', hint: '', href: '/settings/accessibility', tone: 'page' },
   ];
   const actions: Entry[] = [
     { section: 'Actions', label: 'Add a monitor', hint: '', href: '/monitors/new', tone: 'action' },
