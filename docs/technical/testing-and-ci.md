@@ -187,8 +187,9 @@ A pipeline schedule on the default branch runs only `deps` and `deps-fix`:
   each new Alpine release on its own. An npm
   version counts only once it has been published for 14 days; new major
   versions are listed but never taken. Vulnerabilities fail the job,
-  except npm advisories accepted in `ci/security-allowlist.txt`; newer
-  versions exit 3, a warning.
+  except npm advisories with no fixed version yet (there is nothing to
+  update; they stay in the report) or accepted in
+  `ci/security-allowlist.txt`; newer versions exit 3, a warning.
 - `deps-fix` (`ci/deps-fix.sh`) installs Node.js (`ci/install-node.sh`,
   checked against the release's SHA-256 list), has Claude Code make the
   updates (`ci/deps-fix-prompt.md`; for npm it changes only
