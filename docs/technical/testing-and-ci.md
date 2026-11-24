@@ -108,7 +108,11 @@ its CVSS score (9+ Critical, 7+ High, 4+ Medium, above 0 Low, else Unknown).
 To accept a finding: in our code, mark the line (`// nosemgrep` or
 `//nolint:<linter>`, with the reason); for a dependency or image finding
 that does not apply, add `<identifier> <package or file> <reason>` to
-`ci/security-allowlist.txt`.
+`ci/security-allowlist.txt`. For demo credentials in examples, a secret
+detection finding is accepted by its value instead of its file:
+`<identifier> secret:<text> <reason>` accepts it wherever the text it
+matched contains `<text>`, so a real password in the same file still
+fails.
 
 ### Smoke test
 
