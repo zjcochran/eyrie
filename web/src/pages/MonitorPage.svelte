@@ -60,8 +60,16 @@
   };
   const down30 = $derived(outages(changes30));
   const downTime = $derived(down30.reduce((sum, o) => sum + outageLength(o, now), 0));
-  const hasValue = $derived(valuePoints.some((p) => p.v !== null));
+  const hasValue = $derived(!!page.value && valuePoints.some((p) => p.v !== null));
   const showCert = $derived(!!monitor && (page.cert || !!monitor.status.cert_expires));
+  // A push has a response time only when its job reports one.
+  const showLatency = $derived(page.latency && (monitor?.type !== 'push' || points.some((p) => p.v !== null)));
+  const push = $derived(monitor?.type === 'push');
+  // The figures that fit beside the other tiles, four in all.
+  const others = $derived((showLatency ? 1 : 0) + (resources ? 2 : 1) + 1 + (showCert ? 1 : 0) + (push ? 1 : 0));
+  const tops = $derived(figures(page, monitor?.status.details ?? []).slice(0, Math.max(0, 4 - others)));
+  // When a push monitor's next push is due: a missing one makes it go down.
+  const dueBy = $derived(monitor && push && monitor.status.last_check ? Date.parse(monitor.status.last_check) + monitor.interval * 1000 : null);
 
   async function load() {
     try {
@@ -212,7 +220,7 @@
       </span>
       <div class="titles">
         <div class="crumbs mono">
-          {typeLabel || m.type} · every {duration(m.interval)}
+          {typeLabel || m.type}{m.type === 'manual' ? '' : ` · every ${duration(m.interval)}`}
           {#if m.agent_id}· on {m.agent_name ? `agent ${m.agent_name}` : 'a removed agent'}{/if}
           {#if group}· in <a href="/groups/{group.id}" onclick={link}>{group.name}</a>{/if}
         </div>
@@ -248,7 +256,17 @@
       <div class="card kpi"><span class="k">CPU</span><span class="v">{m.status.usage ? `${m.status.usage.cpu.toFixed(1)}%` : '–'}</span><span class="s muted">now</span></div>
       <div class="card kpi"><span class="k">Memory</span><span class="v">{m.status.usage ? `${m.status.usage.memory.toFixed(1)}%` : '–'}</span><span class="s muted">now</span></div>
     {/if}
-    {#each figures(page, found) as f (f.name)}
+    {#if push}
+      <div class="card kpi">
+        <span class="k">Next push due</span>
+        {#if dueBy}
+          <span class="v text">{dueBy > now ? `in ${lasted(dueBy - now)}` : `${lasted(now - dueBy)} late`}</span><span class="s muted">{new Date(dueBy).toLocaleString()}</span>
+        {:else}
+          <span class="v">—</span><span class="s muted">no push yet</span>
+        {/if}
+      </div>
+    {/if}
+    {#each tops as f (f.name)}
       <div class="card kpi">
         <span class="k">{f.name}</span>
         {#if isTimeValue(f.value)}
@@ -258,7 +276,7 @@
         {/if}
       </div>
     {/each}
-    {#if page.latency}
+    {#if showLatency}
       <div class="card kpi">
         <span class="k">Response</span><span class="v">{m.status.status === 'down' ? '—' : millis(m.status.latency_ms)}</span>
         <span class="s muted">24 h average {millis(m.uptime.avg_latency_24h_ms)}</span>
@@ -326,9 +344,9 @@
 
   {#if nas}
     <StoragePanel {id} settings={m.settings} version={checks} ignore={admin && !busy ? ignoreSpace : undefined} />
-  {:else if resources || page.latency || (page.value && hasValue)}<section class="card">
+  {:else if resources || showLatency || hasValue}<section class="card">
     <div class="row between">
-      <h2>{resources ? 'CPU' : page.latency ? 'Response time' : page.value?.title}</h2>
+      <h2>{resources ? 'CPU' : hasValue ? page.value?.title : 'Response time'}</h2>
       <div class="row" role="group" aria-label="Period">
         {#each periods as p (p)}
           <button
@@ -343,10 +361,10 @@
     </div>
     {#if resources}
       <Chart points={cpuPoints} {from} to={now} label="CPU use" format={pct} top={100} empty="No CPU use in this period." />
-    {:else if page.latency}
-      <Chart {points} {from} to={now} />
-    {:else}
+    {:else if hasValue}
       <Chart points={valuePoints} {from} to={now} label={page.value?.title} format={valueFormat} empty="No values in this period." />
+    {:else}
+      <Chart {points} {from} to={now} />
     {/if}
   </section>{/if}
 
@@ -355,10 +373,10 @@
       <h2>Memory</h2>
       <Chart points={memoryPoints} {from} to={now} label="Memory use" format={pct} top={100} empty="No memory use in this period." />
     </section>
-  {:else if page.latency && page.value && hasValue}
+  {:else if hasValue && showLatency}
     <section class="card">
-      <h2>{page.value.title}</h2>
-      <Chart points={valuePoints} {from} to={now} label={page.value.title} format={valueFormat} empty="No values in this period." />
+      <h2>Response time</h2>
+      <Chart {points} {from} to={now} />
     </section>
   {/if}
 
@@ -373,7 +391,7 @@
               >every {duration(m.interval)}</span
             ></span
           >
-          {#if page.latency}<span class="mono">{millis(m.status.latency_ms)}</span>{/if}
+          {#if showLatency}<span class="mono">{millis(m.status.latency_ms)}</span>{/if}
         </div>
       </section>
       <section class="card">
@@ -528,11 +546,12 @@
     gap: 0.75rem;
     margin-bottom: 1rem;
   }
+  /* A figure that is words, such as an ISP's name: smaller, and it wraps. */
   .v.text {
-    font-size: 1.35rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-family: inherit;
+    font-size: 1.15rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
   }
   .found {
     display: grid;

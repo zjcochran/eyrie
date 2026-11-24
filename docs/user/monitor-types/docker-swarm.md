@@ -45,7 +45,7 @@ The message is `3 of 3 tasks running`.
 
 ## Its page
 
-- **At the top**: State and Stack, with the uptime and the last check.
+- **At the top**: its tasks and stack, the uptime and the last check.
 - **Service**: everything the last check found: its tasks, name, stack, and the tasks ready and wanted.
 - **Chart**: tasks running.
 

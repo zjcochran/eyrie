@@ -39,7 +39,7 @@ restarts, 12% CPU, 80 MB`.
 
 ## Its page
 
-- **At the top**: Status, CPU and Restarts, with the uptime and the last check.
+- **At the top**: its CPU use and restarts, the uptime and the last check.
 - **Process**: everything the last check found: its status, restarts, CPU, memory, when it started and its mode.
 - **Chart**: its memory, in MiB.
 

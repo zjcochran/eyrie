@@ -67,7 +67,7 @@ starting`.
 
 ## Its page
 
-- **At the top**: State, Health and Restarts, with the uptime and the last check.
+- **At the top**: its state and health, the uptime and the last check.
 - **Container**: everything the last check found: its state, name, image, when it started (or stopped, with its exit code), whether it was killed for running out of memory, its restarts, and with a health check its health, failed checks in a row and what the last one said.
 - **Chart**: none: how long Docker took to answer says nothing about the container.
 

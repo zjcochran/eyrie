@@ -88,7 +88,7 @@ The message is the OID and its value: `1.3.6.1.2.1.1.5.0 is switch-1`.
 
 ## Its page
 
-- **At the top**: the value and what it must be, with the uptime and the last check.
+- **At the top**: the value and what it must be, the uptime and the last check.
 - **Value**: everything the last check found: the OID, its value and what it must be.
 - **Chart**: the value, when it is a number (a UPS's charge, a port's status), instead of a response time.
 

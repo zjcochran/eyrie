@@ -70,7 +70,7 @@ The message shows the value found: `$.status is ok`.
 
 ## Its page
 
-- **At the top**: Value and Expected, with the uptime and the last check.
+- **At the top**: the response time, the uptime, the last check and the certificate's days left.
 - **Response**: everything the last check found: the value at the path and what it must be, and its status, where redirects ended, the protocol, the content type and size of the body, the server, and for HTTPS the TLS version and whom the certificate is for and from.
 - **Chart**: response time, and the value when it is a number; the certificate's days left.
 

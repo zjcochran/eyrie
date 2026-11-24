@@ -70,7 +70,7 @@ your message.
 
 ## Its page
 
-- **At the top**: the uptime and the last push, with its message.
+- **At the top**: when the next push is due (or how late it is), the uptime and the last push, with its message.
 - **Push URL**: to copy.
 - **Chart**: the response time each push reports in `ping`, when it does.
 

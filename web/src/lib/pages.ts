@@ -18,7 +18,11 @@ export interface Page {
   cert: boolean;
   /** The chart of the measured value; null for none. */
   value: ValueChart | null;
-  /** Details shown as figures at the top, by name, when the check found them. */
+  /**
+   * Details shown as figures at the top, by name, when the check found
+   * them: with the response time, the uptime and the last check, at most
+   * four tiles, so that they fit in one row.
+   */
   figures: string[];
   /** The title of the card with everything the last check found. */
   found: string;
@@ -44,59 +48,61 @@ const base: Page = {
   outage: 'Down',
 };
 
-const web = { ...base, cert: true, found: 'Response', figures: ['Status', 'Protocol'] };
-const sql = { ...base, found: 'Query', value: { title: 'First value', unit: '' }, figures: ['First value', 'Rows'] };
-const game = { ...base, found: 'Server', value: { title: 'Players', unit: '' }, figures: ['Players', 'Map'] };
+// The HTTP(S) types' four tiles are the response time, the uptime, the last
+// check and the certificate; what the response said is in its card.
+const web = { ...base, cert: true, found: 'Response' };
+const sql = { ...base, found: 'Query', value: { title: 'First value', unit: '' }, figures: ['First value'] };
+const game = { ...base, found: 'Server', value: { title: 'Players', unit: '' }, figures: ['Players'] };
 
 /** Every type's page, by type name. */
 export const pages: Record<string, Page> = {
   http: web,
-  keyword: { ...web, figures: ['Status', 'Keyword'] },
-  'json-query': { ...web, value: { title: 'Value', unit: '' }, figures: ['Value', 'Expected'] },
-  'real-browser': { ...web, found: 'Page', figures: ['Status', 'Other requests', 'Failed requests'] },
-  'websocket-upgrade': { ...base, found: 'Connection', figures: ['Status', 'TLS'] },
-  'grpc-keyword': { ...base, found: 'Call', figures: ['gRPC status'] },
-  globalping: { ...base, found: 'Probe', figures: ['Probe', 'Network'] },
+  keyword: web,
+  'json-query': { ...web, value: { title: 'Value', unit: '' } },
+  'real-browser': { ...web, found: 'Page' },
+  'websocket-upgrade': { ...base, found: 'Connection' },
+  'grpc-keyword': { ...base, found: 'Call' },
+  globalping: { ...base, found: 'Probe', figures: ['Probe'] },
   port: { ...base, found: 'Connection', figures: ['Connected to'] },
-  ping: { ...base, found: 'Pings', figures: ['Replies', 'Lost'] },
+  ping: { ...base, found: 'Pings', figures: ['Lost'] },
   dns: { ...base, found: 'Answer', figures: ['Server'] },
-  smtp: { ...base, found: 'Mail server', figures: ['Security', 'TLS'] },
-  ntp: { ...base, latency: false, found: 'Clock', value: { title: 'Clock offset', unit: 'ms' }, figures: ['Offset', 'Stratum', 'Reference'] },
-  radius: { ...base, found: 'Sign-in', figures: ['Answer', 'User'] },
+  smtp: { ...base, found: 'Mail server' },
+  ntp: { ...base, latency: false, found: 'Clock', value: { title: 'Clock offset', unit: 'ms' }, figures: ['Offset', 'Stratum'] },
+  radius: { ...base, found: 'Sign-in', figures: ['Answer'] },
   snmp: { ...base, latency: false, found: 'Value', value: { title: 'Value', unit: '' }, figures: ['Value', 'Expected'] },
   'snmp-storage': { ...base, latency: false, found: 'NAS' },
-  docker: { ...base, latency: false, found: 'Container', figures: ['State', 'Health', 'Restarts'], up: 'Running', down: 'Not running', outages: 'Times not running', outage: 'Not running' },
+  docker: { ...base, latency: false, found: 'Container', figures: ['State', 'Health'], up: 'Running', down: 'Not running', outages: 'Times not running', outage: 'Not running' },
   'docker-swarm': { ...base, latency: false, found: 'Service', value: { title: 'Tasks running', unit: '' }, figures: ['State', 'Stack'] },
   kubernetes: { ...base, latency: false, found: 'Workload', value: { title: 'Ready replicas', unit: '' }, figures: ['State', 'Namespace'] },
-  proxmox: { ...base, latency: false, found: 'Guest', figures: ['State', 'CPU', 'Memory'], up: 'Running', down: 'Not running', outages: 'Times not running', outage: 'Not running' },
-  'sip-options': { ...base, found: 'Answer', figures: ['Status', 'Transport'] },
-  'tailscale-ping': { ...base, found: 'Node', figures: ['Path', 'Address'] },
-  'system-service': { ...base, latency: false, found: 'Service', figures: ['State', 'Running since', 'Memory'], up: 'Running', down: 'Not running', outages: 'Times not running', outage: 'Not running' },
+  proxmox: { ...base, latency: false, found: 'Guest', figures: ['CPU', 'Memory'], up: 'Running', down: 'Not running', outages: 'Times not running', outage: 'Not running' },
+  'sip-options': { ...base, found: 'Answer', figures: ['Transport'] },
+  'tailscale-ping': { ...base, found: 'Node', figures: ['Path'] },
+  'system-service': { ...base, latency: false, found: 'Service', figures: ['Running since', 'Memory'], up: 'Running', down: 'Not running', outages: 'Times not running', outage: 'Not running' },
   'system-resources': { ...base, latency: false, found: 'Host', figures: ['Load, 1 minute'] },
-  pm2: { ...base, latency: false, found: 'Process', value: { title: 'Memory', unit: 'MiB' }, figures: ['Status', 'CPU', 'Restarts'], up: 'Online', down: 'Not online' },
+  pm2: { ...base, latency: false, found: 'Process', value: { title: 'Memory', unit: 'MiB' }, figures: ['CPU', 'Restarts'], up: 'Online', down: 'Not online' },
   drawbridge: {
     ...base,
     latency: false,
     found: 'Internet connection',
-    figures: ['ISP in use', 'Since', 'Public IP'],
+    figures: ['ISP in use', 'Public IP'],
     up: 'On primary',
     down: 'Failed over',
     uptime: 'On primary',
     outages: 'Failovers',
     outage: 'On a backup ISP',
   },
-  sftp: { ...base, found: 'Server', figures: ['Signed in as', 'Host key checked'] },
+  sftp: { ...base, found: 'Server', figures: ['Host key checked'] },
   steam: game,
   gamedig: game,
   postgres: sql,
   mysql: sql,
   sqlserver: sql,
   oracledb: sql,
-  mongodb: { ...base, found: 'Command', value: { title: 'Value', unit: '' }, figures: ['Value', 'Expected'] },
-  redis: { ...base, found: 'Server', figures: ['Reply', 'Database'] },
-  mqtt: { ...base, latency: false, found: 'Message', value: { title: 'Value', unit: '' }, figures: ['Value', 'Topic', 'Waited'] },
-  rabbitmq: { ...base, found: 'Node', figures: ['Alarms', 'Node'] },
-  'kafka-producer': { ...base, found: 'Message sent', figures: ['Partition', 'Offset'] },
+  mongodb: { ...base, found: 'Command', value: { title: 'Value', unit: '' }, figures: ['Value'] },
+  redis: { ...base, found: 'Server', figures: ['Database'] },
+  mqtt: { ...base, latency: false, found: 'Message', value: { title: 'Value', unit: '' }, figures: ['Value', 'Topic'] },
+  rabbitmq: { ...base, found: 'Node', figures: ['Alarms'] },
+  'kafka-producer': { ...base, found: 'Message sent', figures: ['Offset'] },
   // A push's response time is only what its job reports in ping=.
   push: { ...base, found: 'Last push' },
   manual: { ...base, latency: false, found: 'Status' },

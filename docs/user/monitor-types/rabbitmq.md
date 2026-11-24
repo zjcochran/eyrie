@@ -48,7 +48,7 @@ The message is `No alarms on http://rabbit.example.com:15672`.
 
 ## Its page
 
-- **At the top**: Alarms and Node, with the uptime and the last check.
+- **At the top**: the node's alarms, the response time, the uptime and the last check.
 - **Node**: everything the last check found: the node that answered and its alarms.
 - **Chart**: response time.
 

@@ -62,7 +62,7 @@ sends one.
 
 ## Its page
 
-- **At the top**: Answer and User, with the uptime and the last check.
+- **At the top**: the server's answer, the response time, the uptime and the last check.
 - **Sign-in**: everything the last check found: the server's answer, the user, and its Reply-Message.
 - **Chart**: response time.
 

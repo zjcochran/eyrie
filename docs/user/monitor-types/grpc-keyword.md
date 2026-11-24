@@ -73,7 +73,7 @@ start of the answer.
 
 ## Its page
 
-- **At the top**: gRPC status, with the uptime and the last check.
+- **At the top**: the response time, the uptime and the last check, and with TLS the certificate's days left.
 - **Call**: everything the last check found: the method called, the gRPC status, the answer as JSON, and with TLS the TLS version and certificate.
 - **Chart**: response time; the certificate's days left, with TLS.
 

@@ -59,7 +59,7 @@ on the monitor's page. **Check now** on the page checks again at once.
 
 ## Its page
 
-- **At the top**: Status and Protocol, with the uptime and the last check.
+- **At the top**: the response time, the uptime, the last check and the certificate's days left.
 - **Response**: everything the last check found: its status, where redirects ended, the protocol, the content type and size of the body, the server, and for HTTPS the TLS version and whom the certificate is for and from.
 - **Chart**: response time; the certificate's days left.
 

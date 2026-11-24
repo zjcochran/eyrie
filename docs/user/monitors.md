@@ -115,10 +115,11 @@ failovers. Every page has:
   over**; Docker container, Proxmox VE guest and System service:
   **Running** and **Not running**; PM2 process: **Online** and **Not
   online**; in maintenance, the window's title);
-- figures at the top: the most telling things the last check found (a
-  container's state, health and restarts; an NTP server's offset and
-  stratum; the ISP Drawbridge is on), the uptime over 24 hours, 30 days
-  and 1 year, and the last check with its message;
+- at most four figures at the top: the most telling things the last check
+  found (a container's state and health; an NTP server's offset and
+  stratum; the ISP Drawbridge is on and its public IP), the response time
+  where it means something, the uptime over 24 hours, 30 days and 1 year,
+  the last check with its message, and the certificate's days left;
 - **what the last check found**, in a card named for it (Container,
   Internet connection, Clock, Response…): everything the check read, such
   as an HTTP response's status, protocol, redirect, server and
@@ -135,11 +136,11 @@ What else a page shows depends on its type:
 | Shown | Types |
 | --- | --- |
 | The last and 24-hour average response time, and a response time chart | Types whose response time says how the thing answers: the HTTP(S) types, ping, TCP port, DNS, WebSocket, SMTP, RADIUS, SIP, Tailscale, Globalping, SFTP, game servers, gRPC, the databases, Redis, RabbitMQ, Kafka, and push monitors whose jobs send `ping` |
-| A chart of the value it measures | NTP (the clock's offset, in ms), Steam and game servers (players), SNMP, HTTP(S) JSON query, MongoDB and MQTT (the value, when it is a number), the SQL databases (the first value, when it is a number), Docker Swarm services (tasks running), Kubernetes workloads (ready replicas), PM2 processes (memory, in MiB) |
+| A chart of the value it measures, first, above any response time chart | NTP (the clock's offset, in ms), Steam and game servers (players), SNMP, HTTP(S) JSON query, MongoDB and MQTT (the value, when it is a number), the SQL databases (the first value, when it is a number), Docker Swarm services (tasks running), Kubernetes workloads (ready replicas), PM2 processes (memory, in MiB) |
 | How many days the certificate has left | The HTTP(S) types always; others once a check has seen a certificate (`wss://`, SMTP with TLS, gRPC with TLS, `rediss://`…) |
 | CPU and memory charts | System resources |
 | The NAS's volumes, disks and health | [SNMP storage](monitor-types/snmp-storage.md) |
-| The push URL, or the buttons to set the status | Push, Manual |
+| The push URL and when the next push is due, or the buttons to set the status | Push, Manual |
 
 The other types (a Docker container, a Swarm service or Kubernetes
 workload without a value yet, a Proxmox VE guest, a system service, WAN

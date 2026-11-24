@@ -59,7 +59,7 @@ The message is `Sent to eyrie-checks, partition 0, offset 1234`.
 
 ## Its page
 
-- **At the top**: Partition and Offset, with the uptime and the last check.
+- **At the top**: the offset of the message sent, the response time, the uptime and the last check.
 - **Message sent**: everything the last check found: the topic, partition, offset and brokers.
 - **Chart**: the time until the cluster acknowledged the message.
 

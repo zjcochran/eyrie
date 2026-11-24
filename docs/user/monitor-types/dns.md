@@ -49,7 +49,7 @@ The message lists the records: `A 192.0.2.10, 192.0.2.11`, or
 
 ## Its page
 
-- **At the top**: Server, with the uptime and the last check.
+- **At the top**: the server asked, the response time, the uptime and the last check.
 - **Answer**: everything the last check found: the server asked, what it was asked for, every record it answered, and what one must contain.
 - **Chart**: the server's response time.
 

@@ -46,7 +46,7 @@ The message is `Ready, STARTTLS works`, `Ready over TLS` or `Ready`.
 
 ## Its page
 
-- **At the top**: Security and TLS, with the uptime and the last check.
+- **At the top**: the response time, the uptime and the last check, and with TLS the certificate's days left.
 - **Mail server**: everything the last check found: the security, the largest message the server takes, the sign-in methods it offers, and the TLS version and certificate.
 - **Chart**: response time; the certificate's days left, with TLS.
 

@@ -55,7 +55,7 @@ pinging from <city>, <country> (AS<number> <network>)`, or `200 OK from
 
 ## Its page
 
-- **At the top**: Probe and Network, with the uptime and the last check.
+- **At the top**: where the probe is, the response time, the uptime and the last check.
 - **Probe**: everything the last check found: where the probe is, its network, and its replies or HTTP status.
 - **Chart**: Globalping's response time.
 

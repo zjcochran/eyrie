@@ -43,7 +43,7 @@ The message is the state: `Active` on Linux, `Running` on Windows.
 
 ## Its page
 
-- **At the top**: State, Running since and Memory, with the uptime and the last check.
+- **At the top**: since when it runs and its memory, the uptime and the last check.
 - **Service**: everything the last check found: its state and sub-state, its description, since when it runs, its main process, its restarts and its memory (from `systemctl show`; on Windows, its state).
 - **Chart**: none.
 

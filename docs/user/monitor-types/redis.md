@@ -46,7 +46,7 @@ The message is `PONG`.
 
 ## Its page
 
-- **At the top**: Reply and Database, with the uptime and the last check.
+- **At the top**: the database, the response time, the uptime and the last check.
 - **Server**: everything the last check found: the reply, the database, whether TLS is on, and the user.
 - **Chart**: response time.
 

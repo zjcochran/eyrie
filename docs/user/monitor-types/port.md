@@ -38,7 +38,7 @@ The message is `Connected`.
 
 ## Its page
 
-- **At the top**: Connected to, with the uptime and the last check.
+- **At the top**: the address it connected to, the response time, the uptime and the last check.
 - **Connection**: everything the last check found: the address it connected to.
 - **Chart**: the time to connect.
 

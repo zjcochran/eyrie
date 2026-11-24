@@ -50,7 +50,7 @@ The message is what `tailscale` says: `Pong from nas (<its Tailscale IP>) via
 
 ## Its page
 
-- **At the top**: Path and Address, with the uptime and the last check.
+- **At the top**: the path (direct or through DERP), the response time, the uptime and the last check.
 - **Node**: everything the last check found: the node, its Tailscale address, and whether the path is direct (with the address it reached) or relayed through a DERP region.
 - **Chart**: the response time `tailscale` reports.
 

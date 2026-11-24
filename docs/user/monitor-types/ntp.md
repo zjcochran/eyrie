@@ -43,7 +43,7 @@ The message gives the stratum and the offset: `Stratum 2, offset +1.250 ms`.
 
 ## Its page
 
-- **At the top**: Offset, Stratum and Reference, with the uptime and the last check.
+- **At the top**: the offset and the stratum, the uptime and the last check.
 - **Clock**: everything the last check found: the stratum, the offset, the round trip, what the server's clock follows (a source such as GPS at stratum 1, the upstream server's address below), its root delay and dispersion, and the largest offset allowed.
 - **Chart**: the clock's offset, in milliseconds, instead of a response time.
 

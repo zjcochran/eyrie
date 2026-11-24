@@ -54,7 +54,7 @@ The message is `3 of 3 replies from 192.0.2.1, 1.2 ms on average`.
 
 ## Its page
 
-- **At the top**: Replies and Lost, with the uptime and the last check.
+- **At the top**: the share of pings lost, the response time, the uptime and the last check.
 - **Pings**: everything the last check found: the address pinged, the replies, the share lost and, with more than one ping, the fastest and slowest.
 - **Chart**: the average response time.
 

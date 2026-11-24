@@ -50,7 +50,7 @@ protocol tells them: `Shop Server · harbor · 5/24 players`.
 
 ## Its page
 
-- **At the top**: Players and Map, with the uptime and the last check.
+- **At the top**: the players, the response time, the uptime and the last check.
 - **Server**: everything the last check found: the server's name, game and map, as far as the protocol tells them, and its players.
 - **Chart**: players, and the response time.
 
