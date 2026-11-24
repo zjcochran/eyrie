@@ -51,6 +51,8 @@ primary, on <primary ISP> since 2026-10-14 15:17 UTC`.
 
 ## Its page
 
+![A WAN Drawbridge monitor's page](../../images/monitor-types/drawbridge-page-dark.png)
+
 - **At the top**: the ISP in use, the public IP, the share of time **On primary** (its uptime) and the last check.
 - **Internet connection**: everything the last check found: Drawbridge's state, the ISP in use, the primary ISP, since when, when a pending change completes, a running failover test, the public IP, whether automation is paused, the containers Drawbridge has stopped, its last WAN check and its version.
 - **Chart**: none: its **Failovers, 30 days** card lists each failover, when it began and ended and how long the connection was on a backup ISP.

@@ -65,6 +65,8 @@ came back (counted up to 1000): `Query OK: 1`, `Query OK: a (3 rows)`,
 
 ## Its page
 
+![A PostgreSQL monitor's page](../../images/monitor-types/postgres-page-dark.png)
+
 - **At the top**: the first value, the response time, the uptime and the last check.
 - **Query**: everything the last check found: the query, how many rows came back and the first value.
 - **Chart**: the query's time, and the first value when it is a number (a `SELECT count(*)` charts the count).

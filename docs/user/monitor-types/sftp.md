@@ -65,6 +65,8 @@ key SHA256:…` while no fingerprint is set.
 
 ## Its page
 
+![An SFTP monitor's page](../../images/monitor-types/sftp-page-dark.png)
+
 - **At the top**: whether the host key is checked, the response time, the uptime and the last check.
 - **Server**: everything the last check found: the server's SSH version, the user, the host key's fingerprint, whether it is checked, and the path.
 - **Chart**: the time to sign in.

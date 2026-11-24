@@ -62,6 +62,8 @@ sends one.
 
 ## Its page
 
+![A RADIUS monitor's page](../../images/monitor-types/radius-page-dark.png)
+
 - **At the top**: the server's answer, the response time, the uptime and the last check.
 - **Sign-in**: everything the last check found: the server's answer, the user, and its Reply-Message.
 - **Chart**: response time.

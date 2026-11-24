@@ -43,6 +43,8 @@ The message is the state: `Active` on Linux, `Running` on Windows.
 
 ## Its page
 
+![A System service monitor's page](../../images/monitor-types/system-service-page-dark.png)
+
 - **At the top**: since when it runs and its memory, the uptime and the last check.
 - **Service**: everything the last check found: its state and sub-state, its description, since when it runs, its main process, its restarts and its memory (from `systemctl show`; on Windows, its state).
 - **Chart**: none.

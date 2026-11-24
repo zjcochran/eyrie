@@ -45,6 +45,8 @@ The message is the status, such as `200 OK`.
 
 ## Its page
 
+![A SIP OPTIONS monitor's page](../../images/monitor-types/sip-options-page-dark.png)
+
 - **At the top**: the transport, the response time, the uptime and the last check.
 - **Answer**: everything the last check found: the server's status, the transport, and the address that answered.
 - **Chart**: response time; the certificate's days left, for `tls`.

@@ -66,6 +66,8 @@ The message is `Message: online`, or with a JSON query,
 
 ## Its page
 
+![An MQTT monitor's page](../../images/monitor-types/mqtt-page-dark.png)
+
 - **At the top**: the value and the topic, the uptime and the last check.
 - **Message**: everything the last check found: the topic, the message, how long Eyrie waited for it, and with a JSON query the value and what it must be.
 - **Chart**: the value, when it is a number, instead of a response time: the wait for a message says nothing about the broker.

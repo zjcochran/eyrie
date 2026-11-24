@@ -50,6 +50,8 @@ The message is what `tailscale` says: `Pong from nas (<its Tailscale IP>) via
 
 ## Its page
 
+![A Tailscale ping monitor's page](../../images/monitor-types/tailscale-ping-page-dark.png)
+
 - **At the top**: the path (direct or through DERP), the response time, the uptime and the last check.
 - **Node**: everything the last check found: the node, its Tailscale address, and whether the path is direct (with the address it reached) or relayed through a DERP region.
 - **Chart**: the response time `tailscale` reports.

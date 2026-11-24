@@ -48,6 +48,8 @@ The message is `No alarms on http://rabbit.example.com:15672`.
 
 ## Its page
 
+![A RabbitMQ monitor's page](../../images/monitor-types/rabbitmq-page-dark.png)
+
 - **At the top**: the node's alarms, the response time, the uptime and the last check.
 - **Node**: everything the last check found: the node that answered and its alarms.
 - **Chart**: response time.

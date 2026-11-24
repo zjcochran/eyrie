@@ -157,9 +157,9 @@ not read as 0 ms.
 Admins also get **Check now**, **Pause** or **Resume**, **Edit** and
 **Delete** (which also deletes the monitor's history).
 
-![A monitor's page: its status, response times, uptime, response time chart and status changes](../images/monitor.png)
+![An HTTP(S) monitor's page: its response time, uptime, last check and certificate, what the response said, its response time chart and outages](../images/monitor.png)
 
-![A monitor that is down, with the down period marked in red on its chart](../images/monitor-down-dark.png)
+![A Docker container that is not running: its state, what Docker says of it, and the times it was not running in the last 30 days](../images/monitor-down-dark.png)
 
 ## Adding a monitor
 

@@ -39,6 +39,8 @@ restarts, 12% CPU, 80 MB`.
 
 ## Its page
 
+![A PM2 process monitor's page](../../images/monitor-types/pm2-page-dark.png)
+
 - **At the top**: its CPU use and restarts, the uptime and the last check.
 - **Process**: everything the last check found: its status, restarts, CPU, memory, when it started and its mode.
 - **Chart**: its memory, in MiB.

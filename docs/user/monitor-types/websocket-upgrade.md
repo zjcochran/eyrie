@@ -43,6 +43,8 @@ The message is `101 Switching Protocols`.
 
 ## Its page
 
+![A WebSocket upgrade monitor's page](../../images/monitor-types/websocket-upgrade-page-dark.png)
+
 - **At the top**: the response time, the uptime and the last check, and for `wss://` the certificate's days left.
 - **Connection**: everything the last check found: the server's answer, and for `wss://` the TLS version and certificate.
 - **Chart**: response time; the certificate's days left, for `wss://`.

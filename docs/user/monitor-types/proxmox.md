@@ -57,6 +57,8 @@ The message is `Running`.
 
 ## Its page
 
+![A Proxmox VE guest monitor's page](../../images/monitor-types/proxmox-page-dark.png)
+
 - **At the top**: its CPU and memory use, the uptime and the last check.
 - **Guest**: everything the last check found: its state, name, node, whether it is an LXC container or a VM, how long it has been up, its CPU use of its cores, and its memory and disk used of their size.
 - **Chart**: none.

@@ -48,6 +48,8 @@ The message is `3 of 3 ready`.
 
 ## Its page
 
+![A Kubernetes workload monitor's page](../../images/monitor-types/kubernetes-page-dark.png)
+
 - **At the top**: its replicas and namespace, the uptime and the last check.
 - **Workload**: everything the last check found: its replicas, name, namespace, and the replicas ready and wanted.
 - **Chart**: ready replicas.

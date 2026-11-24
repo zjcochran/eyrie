@@ -41,6 +41,8 @@ Example Game · harbor · 5/24 players`.
 
 ## Its page
 
+![A Steam game server monitor's page](../../images/monitor-types/steam-page-dark.png)
+
 - **At the top**: the players, the response time, the uptime and the last check.
 - **Server**: everything the last check found: the server's name, game, map and players.
 - **Chart**: players, and the response time.

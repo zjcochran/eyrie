@@ -24,6 +24,8 @@ on status pages, and counts in the uptime.
 
 ## Its page
 
+![A Manual monitor's page](../../images/monitor-types/manual-page-dark.png)
+
 - **At the top**: the uptime and when it was last set, with its message.
 - **Set the status**: **Up** or **Down**, with a message.
 - **Chart**: none.

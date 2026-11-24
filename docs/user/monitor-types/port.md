@@ -38,6 +38,8 @@ The message is `Connected`.
 
 ## Its page
 
+![A TCP port monitor's page](../../images/monitor-types/port-page-dark.png)
+
 - **At the top**: the address it connected to, the response time, the uptime and the last check.
 - **Connection**: everything the last check found: the address it connected to.
 - **Chart**: the time to connect.
