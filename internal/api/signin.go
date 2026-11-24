@@ -45,6 +45,8 @@ type appearanceView struct {
 	Accessible bool   `json:"accessible"`
 	Vision     string `json:"vision"`
 	TextSize   int    `json:"text_size"`
+	// Sparklines: a line of each monitor's response times in the list.
+	Sparklines bool `json:"sparklines"`
 }
 
 func viewUser(u store.User, sso sso.Settings) userView {

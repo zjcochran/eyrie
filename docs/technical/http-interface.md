@@ -88,7 +88,7 @@ it and to the licence on every page, signed in or not.
   "role_from_group": false,
   "appearance": {
     "layout": "console", "scheme": "ash", "mode": "system",
-    "accessible": false, "vision": "typical", "text_size": 100
+    "accessible": false, "vision": "typical", "text_size": 100, "sparklines": true
   }
 }
 ```
@@ -114,7 +114,7 @@ All session routes.
 | `POST /api/v1/account/two-factor/enable` | `{"sealed","code","password"}` | `200` `{"codes":[…]}`: 10 recovery codes, shown once. `422` wrong password, wrong code, or a `sealed` value that does not open. |
 | `POST /api/v1/account/two-factor/recovery-codes` | `{"password"}` | `200` `{"codes":[…]}`, replacing all earlier codes. `422` when off or wrong password. |
 | `POST /api/v1/account/two-factor/disable` | `{"password"}` | `204`. `422` wrong password. |
-| `PUT /api/v1/account/appearance` | `{"layout","scheme","mode","accessible","vision","text_size"}`, any of them; what is left out stays as it is. `layout` is `console`, `bento` or `aurora`; `scheme` one of the layout's (`console`: `ash`, `dusk`, `glacier`; `bento`: `ash`, `cobalt`, `lagoon`; `aurora`: `ash`, `borealis`, `ember`); `mode` is `system`, `day` or `night`; `accessible` (the [accessibility mode](../user/accessibility.md#the-accessibility-mode)) `true` or `false`; `vision` is `typical`, `red-green`, `blue-yellow` or `monochrome`; `text_size` is `100`, `115`, `130` or `150` (percent) | `200` user. `422` for anything else. Not in the audit log. |
+| `PUT /api/v1/account/appearance` | `{"layout","scheme","mode","accessible","vision","text_size","sparklines"}`, any of them; what is left out stays as it is. `layout` is `console`, `bento` or `aurora`; `scheme` one of the layout's (`console`: `ash`, `dusk`, `glacier`; `bento`: `ash`, `cobalt`, `lagoon`; `aurora`: `ash`, `borealis`, `ember`); `mode` is `system`, `day` or `night`; `accessible` (the [accessibility mode](../user/accessibility.md#the-accessibility-mode)) `true` or `false`; `vision` is `typical`, `red-green`, `blue-yellow` or `monochrome`; `text_size` is `100`, `115`, `130` or `150` (percent); `sparklines` (a line of each monitor's response times in Console's list) `true` or `false` | `200` user. `422` for anything else. Not in the audit log. |
 | `PUT /api/v1/account/picture` | the image itself | `200` user. PNG, JPEG, GIF or WebP by content, at most 1 MiB; otherwise `422`. |
 | `DELETE /api/v1/account/picture` | | `200` user. Removing a picture from single sign-on also stops single sign-on from setting one. |
 | `POST /api/v1/account/picture/sso` | | `200` user: single sign-on may set the picture again, from the next sign-in. |

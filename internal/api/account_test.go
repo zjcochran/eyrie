@@ -37,11 +37,11 @@ func TestAppearance(t *testing.T) {
 	c := e.setup()
 	var u userView
 	if code := c.call("PUT", "/api/v1/account/appearance", map[string]string{"layout": "bento", "scheme": "lagoon", "mode": "day"}, &u); code != http.StatusOK ||
-		u.Appearance != (appearanceView{Layout: "bento", Scheme: "lagoon", Mode: "day", Vision: "typical", TextSize: 100}) {
+		u.Appearance != (appearanceView{Layout: "bento", Scheme: "lagoon", Mode: "day", Vision: "typical", TextSize: 100, Sparklines: true}) {
 		t.Fatalf("set: %d %+v", code, u.Appearance)
 	}
 	// Accessibility, and what a body leaves out stays as it is.
-	access := map[string]any{"accessible": true, "vision": "monochrome", "text_size": 150}
+	access := map[string]any{"accessible": true, "vision": "monochrome", "text_size": 150, "sparklines": false}
 	if code := c.call("PUT", "/api/v1/account/appearance", access, &u); code != http.StatusOK ||
 		u.Appearance != (appearanceView{Layout: "bento", Scheme: "lagoon", Mode: "day", Accessible: true, Vision: "monochrome", TextSize: 150}) {
 		t.Fatalf("accessibility: %d %+v", code, u.Appearance)

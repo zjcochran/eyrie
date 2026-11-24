@@ -37,6 +37,8 @@
   // Console shows each monitor's type, a line of its response times and
   // the latest; the others its heartbeats as a bar.
   const lines = $derived(normalize(app.session?.user?.appearance).layout === 'console');
+  // Whose line of response times can be turned off in Settings → Appearance.
+  const sparklines = $derived(normalize(app.session?.user?.appearance).sparklines);
   // The accessibility mode moves items with buttons, one step at a time.
   const accessible = $derived(normalize(app.session?.user?.appearance).accessible);
 
@@ -354,7 +356,7 @@
                 <span class="name two"
                   >{m.name}<span class="muted small meta">{m.type} · every {duration(m.interval)}</span></span
                 >
-                <span class="trend"><Sparkline beats={m.beats} /></span>
+                {#if sparklines}<span class="trend"><Sparkline beats={m.beats} /></span>{/if}
                 <span class="ms"
                   >{!m.active ? 'paused' : m.status.status === 'down' ? 'down' : millis(m.status.latency_ms)}</span
                 >

@@ -119,6 +119,7 @@ Accounts (migration `00002_users`).
 | `accessible` | `BOOLEAN` | The [accessibility mode](../user/accessibility.md) (migration `00017_accessibility`); default false |
 | `vision` | `TEXT` | The colour vision the status colours are for: `typical` (the default), `red-green`, `blue-yellow` or `monochrome` (`00017_accessibility`) |
 | `text_size` | `INTEGER` | The web app's text size in percent: 100 (the default), 115, 130 or 150 (`00017_accessibility`) |
+| `sparklines` | `BOOLEAN` | The list of monitors shows a line of each one's response times (the Console layout); default true (`00019_sparklines`) |
 
 ### sessions
 
