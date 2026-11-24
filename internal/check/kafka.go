@@ -139,5 +139,7 @@ func (c *kafkaChecker) Check(ctx context.Context) Result {
 		return failErr(sqlError(ctx, err))
 	}
 	return Result{OK: true, Latency: time.Since(start),
-		Message: fmt.Sprintf("Sent to %s, partition %d, offset %d", k.Topic, rec.Partition, rec.Offset)}
+		Message: fmt.Sprintf("Sent to %s, partition %d, offset %d", k.Topic, rec.Partition, rec.Offset),
+		Details: []Fact{{"Topic", k.Topic}, {"Partition", fmt.Sprint(rec.Partition)}, {"Offset", fmt.Sprint(rec.Offset)},
+			{"Brokers", strings.Join(k.Brokers, ", ")}}}
 }

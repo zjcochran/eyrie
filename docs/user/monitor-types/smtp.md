@@ -44,6 +44,14 @@ errors** is ticked, and its expiry is recorded.
 
 The message is `Ready, STARTTLS works`, `Ready over TLS` or `Ready`.
 
+## Its page
+
+- **At the top**: Security and TLS, with the uptime and the last check.
+- **Mail server**: everything the last check found: the security, the largest message the server takes, the sign-in methods it offers, and the TLS version and certificate.
+- **Chart**: response time; the certificate's days left, with TLS.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

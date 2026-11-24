@@ -242,6 +242,16 @@ export interface Beat {
   important: boolean;
   /** A host's use, from a system-resources check. */
   usage?: Usage;
+  /** The number the check measured, for its chart. */
+  value?: number;
+  /** In the live event: what the monitor's last check found. */
+  details?: Detail[];
+}
+
+/** One thing a check found, such as {name: 'Players', value: '5 of 24'}. */
+export interface Detail {
+  name: string;
+  value: string;
 }
 
 /** How busy a host is, in percent. */
@@ -355,6 +365,8 @@ export interface Monitor extends Omit<MonitorChange, 'type' | 'channels' | 'tags
     cert_expires: string | null;
     /** Of the last check, for system-resources monitors. */
     usage?: Usage;
+    /** What the last check found, by name, in order. */
+    details: Detail[];
     checking: boolean;
     /** The maintenance window it is in; '' for none. */
     maintenance: string;
@@ -510,6 +522,8 @@ export interface HourStats {
   down: number;
   avg_latency_ms: number | null;
   avg_usage?: Usage;
+  /** The mean of the hour's measured values. */
+  avg_value?: number;
 }
 
 /** A day's or an hour's checks. */
@@ -736,6 +750,9 @@ export class Client {
   monitor = (id: number) => this.request<Monitor>('GET', `/api/v1/monitors/${id}`);
   heartbeats = (id: number, since: Date) =>
     this.request<Beat[]>('GET', `/api/v1/monitors/${id}/heartbeats?since=${encodeURIComponent(since.toISOString())}`);
+  /** A monitor's status changes since a time, newest first. */
+  changes = (id: number, since: Date) =>
+    this.request<Beat[]>('GET', `/api/v1/monitors/${id}/heartbeats?changes=true&since=${encodeURIComponent(since.toISOString())}`);
   /** Every monitor's status changes, newest first: 100, older than before when set. */
   statusChanges = (before?: number) =>
     this.request<StatusChange[]>('GET', '/api/v1/status-changes' + (before ? `?before=${before}` : ''));

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"time"
@@ -208,6 +209,9 @@ func (m *Manager) Deliver(agent int64, results []agentauth.Result) error {
 			continue
 		}
 		r.Message = clip(r.Message, 1000)
+		if len(r.Details) > maxDetails {
+			r.Details = r.Details[:maxDetails]
+		}
 		w.result <- r
 	}
 	return nil
@@ -230,6 +234,10 @@ func toCheck(r agentauth.Result) check.Result {
 		if json.Unmarshal(r.Storage, &d) == nil {
 			res.Storage = &d
 		}
+	}
+	res.Details = Details(r.Details)
+	if r.Value != nil && !math.IsNaN(*r.Value) && !math.IsInf(*r.Value, 0) {
+		res.Value = r.Value
 	}
 	return res
 }
@@ -256,3 +264,16 @@ func Matcher(agent int64, keys []string) func(store.Monitor) bool {
 
 // percent keeps an agent's figure from 0 to 100.
 func percent(v float64) float64 { return min(max(v, 0), 100) }
+
+// maxDetails is the most details kept of an agent's result.
+const maxDetails = 20
+
+// Details turns an agent's details into a check's, each name and value cut
+// to 300 bytes.
+func Details(ds []agentauth.Detail) []check.Fact {
+	var out []check.Fact
+	for _, d := range ds {
+		out = append(out, check.Fact{Name: clip(d.Name, 300), Value: clip(d.Value, 300)})
+	}
+	return out
+}

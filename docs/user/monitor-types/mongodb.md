@@ -56,6 +56,14 @@ replica set member's health, a server's state.
 The message is `OK:` and the start of the answer, or with a path, the
 value found: `members[0].health is 1`.
 
+## Its page
+
+- **At the top**: Value and Expected, with the uptime and the last check.
+- **Command**: everything the last check found: the command, and the answer or the value at the path.
+- **Chart**: the command's time, and the value when it is a number.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

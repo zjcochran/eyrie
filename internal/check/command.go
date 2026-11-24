@@ -79,8 +79,23 @@ func (c *tailscaleChecker) Check(ctx context.Context) Result {
 		ms, _ := strconv.ParseFloat(m[1], 64)
 		r.Latency = time.Duration(ms * float64(time.Millisecond))
 	}
+	r.Details = []Fact{{"Node", c.t.Host}}
+	if m := pongPath.FindStringSubmatch(line); m != nil {
+		if m[1] != "" {
+			r.Details = append(r.Details, Fact{"Address", m[1]})
+		}
+		path := "Direct, to " + m[2]
+		if strings.HasPrefix(m[2], "DERP(") {
+			path = "Relayed through DERP " + strings.TrimSuffix(strings.TrimPrefix(m[2], "DERP("), ")")
+		}
+		r.Details = append(r.Details, Fact{"Path", path})
+	}
 	return r
 }
+
+// pongPath reads a pong's node address and path: "pong from nas
+// (<address>) via <ip:port or DERP(region)> in 12ms".
+var pongPath = regexp.MustCompile(`^pong from \S+ \(([^)]*)\) via (\S+)`)
 
 // Service is the settings of the system-service type: a service of
 // Eyrie's host must be running (systemd on Linux, the service manager on
@@ -109,7 +124,6 @@ type serviceChecker struct {
 }
 
 func (c *serviceChecker) Check(ctx context.Context) Result {
-	start := time.Now()
 	switch c.env.OS {
 	case "linux":
 		out, err := c.env.Run(ctx, "systemctl", "is-active", "--", c.s.Service)
@@ -117,7 +131,11 @@ func (c *serviceChecker) Check(ctx context.Context) Result {
 		if err != nil && state == "" {
 			return fail("%s", runError(ctx, "systemctl", out, err))
 		}
-		return Result{OK: err == nil && state == "active", Message: sentence(state), Latency: time.Since(start)}
+		r := Result{OK: err == nil && state == "active", Message: sentence(state), Latency: -1}
+		show, _ := c.env.Run(ctx, "systemctl", "show", "--no-pager",
+			"--property=Description,ActiveState,SubState,ActiveEnterTimestamp,MainPID,NRestarts,MemoryCurrent", "--", c.s.Service)
+		r.Details = unitDetails(state, show)
+		return r
 	case "windows":
 		out, err := c.env.Run(ctx, "sc.exe", "query", c.s.Service)
 		if err != nil {
@@ -127,7 +145,8 @@ func (c *serviceChecker) Check(ctx context.Context) Result {
 			if k, v, ok := strings.Cut(line, ":"); ok && strings.TrimSpace(k) == "STATE" {
 				fields := strings.Fields(v)
 				state := fields[len(fields)-1]
-				return Result{OK: state == "RUNNING", Message: sentence(strings.ToLower(state)), Latency: time.Since(start)}
+				return Result{OK: state == "RUNNING", Message: sentence(strings.ToLower(state)), Latency: -1,
+					Details: []Fact{{"State", sentence(strings.ToLower(state))}}}
 			}
 		}
 		return fail("sc.exe did not say the service's state")
@@ -159,7 +178,6 @@ type pm2Checker struct {
 }
 
 func (c *pm2Checker) Check(ctx context.Context) Result {
-	start := time.Now()
 	out, err := c.env.Run(ctx, "pm2", "jlist")
 	if err != nil {
 		return fail("%s", runError(ctx, "pm2", out, err))
@@ -178,6 +196,8 @@ func (c *pm2Checker) Check(ctx context.Context) Result {
 		Env  struct {
 			Status   string `json:"status"`
 			Restarts int    `json:"restart_time"`
+			Uptime   int64  `json:"pm_uptime"` // when it started, in Unix milliseconds
+			Mode     string `json:"exec_mode"`
 		} `json:"pm2_env"`
 		Monit struct {
 			Memory int64   `json:"memory"`
@@ -192,10 +212,52 @@ func (c *pm2Checker) Check(ctx context.Context) Result {
 			continue
 		}
 		msg := fmt.Sprintf("%s, %d restarts", sentence(p.Env.Status), p.Env.Restarts)
+		f := []Fact{{"Status", sentence(p.Env.Status)}, {"Restarts", strconv.Itoa(p.Env.Restarts)}}
+		r := Result{OK: p.Env.Status == "online", Latency: -1}
 		if p.Env.Status == "online" {
 			msg += fmt.Sprintf(", %.0f%% CPU, %d MB", p.Monit.CPU, p.Monit.Memory>>20)
+			mb := float64(p.Monit.Memory) / (1 << 20)
+			r.Value = &mb
+			f = append(f, Fact{"CPU", fmt.Sprintf("%.0f%%", p.Monit.CPU)}, Fact{"Memory", byteSize64(p.Monit.Memory)})
+			if p.Env.Uptime > 0 {
+				f = append(f, Fact{"Started", time.UnixMilli(p.Env.Uptime).UTC().Format(time.RFC3339)})
+			}
 		}
-		return Result{OK: p.Env.Status == "online", Message: msg, Latency: time.Since(start)}
+		if p.Env.Mode != "" {
+			f = append(f, Fact{"Mode", strings.TrimSuffix(p.Env.Mode, "_mode")})
+		}
+		r.Message, r.Details = msg, f
+		return r
 	}
 	return fail("PM2 has no process %s", c.p.Process)
+}
+
+// unitDetails are what systemctl show says of a unit, for its page.
+func unitDetails(state string, show []byte) []Fact {
+	p := map[string]string{}
+	for _, line := range strings.Split(string(show), "\n") {
+		if k, v, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
+			p[k] = v
+		}
+	}
+	f := []Fact{{"State", sentence(state)}}
+	if v := p["SubState"]; v != "" {
+		f = append(f, Fact{"Sub-state", v})
+	}
+	if v := p["Description"]; v != "" {
+		f = append(f, Fact{"Description", clipText(v, 200)})
+	}
+	if t, err := time.Parse("Mon 2006-01-02 15:04:05 MST", p["ActiveEnterTimestamp"]); err == nil && state == "active" {
+		f = append(f, Fact{"Running since", t.UTC().Format(time.RFC3339)})
+	}
+	if v := p["MainPID"]; v != "" && v != "0" {
+		f = append(f, Fact{"Main process", v})
+	}
+	if v := p["NRestarts"]; v != "" {
+		f = append(f, Fact{"Restarts", v})
+	}
+	if n, err := strconv.ParseInt(p["MemoryCurrent"], 10, 64); err == nil && n > 0 {
+		f = append(f, Fact{"Memory", byteSize64(n)})
+	}
+	return f
 }

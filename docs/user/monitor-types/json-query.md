@@ -68,6 +68,14 @@ JSONata's functions and filters.
 
 The message shows the value found: `$.status is ok`.
 
+## Its page
+
+- **At the top**: Value and Expected, with the uptime and the last check.
+- **Response**: everything the last check found: the value at the path and what it must be, and its status, where redirects ended, the protocol, the content type and size of the body, the server, and for HTTPS the TLS version and whom the certificate is for and from.
+- **Chart**: response time, and the value when it is a number; the certificate's days left.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

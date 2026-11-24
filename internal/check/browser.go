@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -180,17 +181,28 @@ type cdpResponse struct {
 	Type     string `json:"type"`
 	Loader   string `json:"loaderId"`
 	Response struct {
+		URL        string `json:"url"`
 		Status     int    `json:"status"`
 		StatusText string `json:"statusText"`
+		MimeType   string `json:"mimeType"`
+		Protocol   string `json:"protocol"`
+		RemoteIP   string `json:"remoteIPAddress"`
 		Security   *struct {
-			ValidTo float64 `json:"validTo"`
+			Protocol string  `json:"protocol"`
+			Subject  string  `json:"subjectName"`
+			Issuer   string  `json:"issuer"`
+			ValidTo  float64 `json:"validTo"`
 		} `json:"securityDetails"`
 	} `json:"response"`
 }
 
+// pageLoad counts what a page loaded besides its document.
+type pageLoad struct{ requests, failed int }
+
 // wait waits for the page's load event and returns its document's status.
 func (c *browserChecker) wait(s *cdpSession, session, loader string, start time.Time) (Result, error) {
 	var doc *cdpResponse
+	var load pageLoad
 	for {
 		ev, err := s.event(session)
 		if err != nil {
@@ -201,6 +213,8 @@ func (c *browserChecker) wait(s *cdpSession, session, loader string, start time.
 			var rr cdpResponse
 			if json.Unmarshal(ev.Params, &rr) == nil && rr.Type == "Document" && rr.Loader == loader {
 				doc = &rr
+			} else {
+				load.requests++
 			}
 		case "Network.loadingFailed":
 			var lf struct {
@@ -211,16 +225,17 @@ func (c *browserChecker) wait(s *cdpSession, session, loader string, start time.
 			if json.Unmarshal(ev.Params, &lf) == nil && lf.Type == "Document" && lf.Loader == loader {
 				return Result{Latency: -1, Message: "The page did not load: " + lf.Error}, nil
 			}
+			load.failed++
 		case "Page.loadEventFired":
 			if doc == nil {
 				continue
 			}
-			return c.result(doc, time.Since(start)), nil
+			return c.result(doc, time.Since(start), load), nil
 		}
 	}
 }
 
-func (c *browserChecker) result(doc *cdpResponse, took time.Duration) Result {
+func (c *browserChecker) result(doc *cdpResponse, took time.Duration, load pageLoad) Result {
 	resp := doc.Response
 	r := Result{Latency: took}
 	if resp.Security != nil && resp.Security.ValidTo > 0 {
@@ -228,6 +243,24 @@ func (c *browserChecker) result(doc *cdpResponse, took time.Duration) Result {
 		r.CertExpires = time.Unix(int64(sec), int64(frac*1e9)).UTC()
 	}
 	status := strings.TrimSpace(fmt.Sprintf("%d %s", resp.Status, cmp.Or(resp.StatusText, http.StatusText(resp.Status))))
+	r.Details = []Fact{{"Status", status}}
+	add := func(name, v string) {
+		if v != "" {
+			r.Details = append(r.Details, Fact{name, clipText(v, 300)})
+		}
+	}
+	if resp.URL != c.b.URL {
+		add("Ended at", publicURL(resp.URL))
+	}
+	add("Protocol", resp.Protocol)
+	add("Content type", resp.MimeType)
+	add("Server address", resp.RemoteIP)
+	r.Details = append(r.Details, Fact{"Other requests", strconv.Itoa(load.requests)}, Fact{"Failed requests", strconv.Itoa(load.failed)})
+	if sd := resp.Security; sd != nil {
+		add("TLS", sd.Protocol)
+		add("Certificate for", sd.Subject)
+		add("Issued by", sd.Issuer)
+	}
 	for _, a := range c.b.Accepted {
 		if lo, hi, _ := statusRange(a); resp.Status >= lo && resp.Status <= hi {
 			r.OK = true

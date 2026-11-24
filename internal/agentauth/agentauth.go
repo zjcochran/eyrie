@@ -275,6 +275,16 @@ type Result struct {
 	// Storage is what an SNMP storage check read of the whole device (a
 	// check.StorageDevice); nil for other checks.
 	Storage json.RawMessage `json:"storage,omitempty"`
+	// Details are what a check found, by name (check.Result's); nil: none.
+	Details []Detail `json:"details,omitempty"`
+	// Value is the number a check measured; nil: none.
+	Value *float64 `json:"value,omitempty"`
+}
+
+// Detail is one thing a check found.
+type Detail struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // Usage is how busy a host is, in percent.

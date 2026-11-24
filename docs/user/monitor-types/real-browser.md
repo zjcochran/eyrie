@@ -63,6 +63,14 @@ afterwards. The expiry of the page's certificate is recorded.
 
 The message is `Loaded: 200 OK`.
 
+## Its page
+
+- **At the top**: Status, Other requests and Failed requests, with the uptime and the last check.
+- **Page**: everything the last check found: the document's status, where it ended, its protocol, content type and server address, how many other requests the page made and how many failed, and the TLS version and certificate.
+- **Chart**: the time until the load event; the certificate's days left.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

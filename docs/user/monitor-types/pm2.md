@@ -37,6 +37,14 @@ sees the processes of the user it runs as:
 The message gives its status, restarts, CPU and memory: `Online, 2
 restarts, 12% CPU, 80 MB`.
 
+## Its page
+
+- **At the top**: Status, CPU and Restarts, with the uptime and the last check.
+- **Process**: everything the last check found: its status, restarts, CPU, memory, when it started and its mode.
+- **Chart**: its memory, in MiB.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

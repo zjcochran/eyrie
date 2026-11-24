@@ -38,9 +38,13 @@
   const points = $derived(thin(all, 200));
   // At least 1 ms, so sub-millisecond checks still fill the chart.
   const top = $derived(fixedTop ?? Math.max(1, ...points.map((p) => p.v ?? 0)) * 1.1);
+  // Below 0 only for values that go there, such as a clock's offset.
+  const bottom = $derived(Math.min(0, ...points.map((p) => p.v ?? 0)) * 1.1);
   const x = (t: number) => pad.l + ((t - from) / Math.max(1, to - from)) * (w - pad.l - pad.r);
-  const y = (v: number) => pad.t + (1 - v / top) * (h - pad.t - pad.b);
-  const base = h - pad.b;
+  const y = (v: number) => pad.t + (1 - (v - bottom) / (top - bottom)) * (h - pad.t - pad.b);
+  // Areas fill to 0; markers run to the foot of the plot.
+  const base = $derived(y(0));
+  const floor = h - pad.b;
 
   // Lines break where there is no response time; each has an area under it.
   const runs = $derived.by(() => {
@@ -60,7 +64,7 @@
     return out;
   });
   const downs = $derived(points.filter((p) => p.down));
-  const ticks = $derived([0, 0.5, 1].map((f) => ({ v: top * f, label: format(top * f) })));
+  const ticks = $derived([0, 0.5, 1].map((f) => bottom + (top - bottom) * f).map((v) => ({ v, label: format(v) })));
   // Two days or more: dates. Less: date and time, as both ends of 24 hours
   // have the same time of day.
   const fmt = (t: number) =>
@@ -116,14 +120,14 @@
         <text class="axis" x={pad.l - 6} y={y(tk.v) + 4} text-anchor="end">{tk.label}</text>
       {/each}
       {#each downs as p (p.t)}
-        <line class="down" x1={x(p.t)} x2={x(p.t)} y1={pad.t} y2={base} />
+        <line class="down" x1={x(p.t)} x2={x(p.t)} y1={pad.t} y2={floor} />
       {/each}
       {#each runs as r, i (i)}
         <polygon class="area" points={r.area} fill="url(#{id}-fill)" />
         <polyline class="line" points={r.line} style:stroke={glow ? `url(#${id}-line)` : undefined} />
       {/each}
       {#if at && at.v !== null}
-        <line class="cursor" x1={x(at.t)} x2={x(at.t)} y1={pad.t} y2={base} />
+        <line class="cursor" x1={x(at.t)} x2={x(at.t)} y1={pad.t} y2={floor} />
         <circle class="mark" cx={x(at.t)} cy={y(at.v)} r="4" />
       {/if}
       <text class="axis" x={pad.l} y={h - 6}>{fmt(from)}</text>

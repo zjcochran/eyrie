@@ -134,9 +134,10 @@ func (c *mongoChecker) Check(ctx context.Context) Result {
 	if err != nil {
 		return failErr(sqlError(ctx, err))
 	}
-	r := Result{Latency: time.Since(start)}
+	r := Result{Latency: time.Since(start), Details: []Fact{{"Command", clipText(c.m.Command, 300)}}}
 	if c.m.JSONPath == "" {
 		r.OK, r.Message = true, "OK: "+snippet(answer)
+		r.Details = append(r.Details, Fact{"Answer", clipText(string(answer), 1000)})
 		return r
 	}
 	got, err := Query(answer, c.m.JSONPath)
@@ -144,6 +145,8 @@ func (c *mongoChecker) Check(ctx context.Context) Result {
 		r.Message = sentence(err.Error())
 		return r
 	}
+	r.Details = append(r.Details, Fact{"Value", clipText(got, 300)}, Fact{"Expected", c.m.Operator + " " + c.m.Expected})
+	r.Value = number(got)
 	r.Message = fmt.Sprintf("%s is %s", c.m.JSONPath, got)
 	r.OK = compare(got, c.m.Operator, c.m.Expected)
 	if !r.OK {

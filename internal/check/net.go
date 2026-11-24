@@ -43,8 +43,10 @@ func (c *portChecker) Check(ctx context.Context) Result {
 	if err != nil {
 		return fail("%s", dialError(err))
 	}
+	latency := time.Since(start)
+	f := []Fact{{"Connected to", conn.RemoteAddr().String()}}
 	conn.Close()
-	return Result{OK: true, Message: "Connected", Latency: time.Since(start)}
+	return Result{OK: true, Message: "Connected", Latency: latency, Details: f}
 }
 
 // dialError says what went wrong, without Go's "dial tcp …:" prefix.
@@ -103,7 +105,7 @@ func (c *pingChecker) Check(ctx context.Context) Result {
 	if err != nil {
 		return fail("%s", err)
 	}
-	var total time.Duration
+	var total, low, high time.Duration
 	replies := 0
 	var lastErr error
 	for i := range c.p.Count {
@@ -115,17 +117,28 @@ func (c *pingChecker) Check(ctx context.Context) Result {
 			lastErr = err
 			continue
 		}
+		if replies == 0 || rtt < low {
+			low = rtt
+		}
+		high = max(high, rtt)
 		replies++
 		total += rtt
 	}
+	f := []Fact{{"Address", addr.String()}, {"Replies", fmt.Sprintf("%d of %d", replies, c.p.Count)},
+		{"Lost", fmt.Sprintf("%.0f%%", 100*float64(c.p.Count-replies)/float64(c.p.Count))}}
 	if replies == 0 {
-		if errors.Is(lastErr, context.DeadlineExceeded) {
-			return fail("No reply from %s", addr)
+		r := fail("No reply from %s", addr)
+		if !errors.Is(lastErr, context.DeadlineExceeded) {
+			r = fail("No reply from %s: %v", addr, lastErr)
 		}
-		return fail("No reply from %s: %v", addr, lastErr)
+		r.Details = f
+		return r
 	}
 	avg := total / time.Duration(replies)
-	return Result{OK: true, Latency: avg,
+	if replies > 1 {
+		f = append(f, Fact{"Fastest", ms(low)}, Fact{"Slowest", ms(high)})
+	}
+	return Result{OK: true, Latency: avg, Details: f,
 		Message: fmt.Sprintf("%d of %d replies from %s, %.1f ms on average", replies, c.p.Count, addr, float64(avg)/1e6)}
 }
 
@@ -154,4 +167,9 @@ func deadline(ctx context.Context) time.Time {
 		return d
 	}
 	return time.Now().Add(10 * time.Second)
+}
+
+// ms is a duration in milliseconds, as people read it.
+func ms(d time.Duration) string {
+	return strconv.FormatFloat(float64(d)/1e6, 'f', 1, 64) + " ms"
 }

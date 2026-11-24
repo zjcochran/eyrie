@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // MaxBody is the most of a response body read, for keywords and JSON.
@@ -126,8 +127,9 @@ func newTransport(d *net.Dialer, insecure bool) http.RoundTripper {
 type httpChecker struct {
 	h   *HTTP
 	env *Env
-	// inspect looks at the body of an accepted response; nil accepts it.
-	inspect func(body []byte) (ok bool, msg string)
+	// inspect looks at the body of an accepted response, and says what it
+	// found; nil accepts it.
+	inspect func(body []byte) (ok bool, msg string, found []Fact)
 }
 
 func (c *httpChecker) Check(ctx context.Context) Result {
@@ -161,7 +163,7 @@ func (c *httpChecker) Check(ctx context.Context) Result {
 	defer resp.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, MaxBody))
 	latency := time.Since(start)
-	r := Result{Latency: latency}
+	r := Result{Latency: latency, Details: responseDetails(h.URL, resp, len(data))}
 	if resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
 		r.CertExpires = resp.TLS.PeerCertificates[0].NotAfter
 	}
@@ -178,8 +180,78 @@ func (c *httpChecker) Check(ctx context.Context) Result {
 		r.OK, r.Message = true, status
 		return r
 	}
-	r.OK, r.Message = c.inspect(data)
+	var found []Fact
+	r.OK, r.Message, found = c.inspect(data)
+	r.Details = append(found, r.Details...)
 	return r
+}
+
+// responseDetails are what an HTTP response says about the server: its
+// status, where redirects ended, the protocol, the body's type and size,
+// and the certificate.
+func responseDetails(asked string, resp *http.Response, size int) []Fact {
+	f := []Fact{{"Status", resp.Status}}
+	if resp.Request != nil && resp.Request.URL.String() != asked {
+		f = append(f, Fact{"Redirected to", publicURL(resp.Request.URL.String())})
+	}
+	f = append(f, Fact{"Protocol", resp.Proto})
+	if ct := resp.Header.Get("Content-Type"); ct != "" {
+		f = append(f, Fact{"Content type", ct})
+	}
+	f = append(f, Fact{"Body", byteSize(size)})
+	if srv := resp.Header.Get("Server"); srv != "" {
+		f = append(f, Fact{"Server", srv})
+	}
+	return append(f, tlsDetails(resp.TLS)...)
+}
+
+// tlsDetails are a TLS connection's version and its certificate's subject
+// and issuer; nil without TLS.
+func tlsDetails(st *tls.ConnectionState) []Fact {
+	if st == nil {
+		return nil
+	}
+	f := []Fact{{"TLS", tls.VersionName(st.Version)}}
+	if len(st.PeerCertificates) > 0 {
+		c := st.PeerCertificates[0]
+		subject := c.Subject.CommonName
+		if len(c.DNSNames) > 0 {
+			subject = strings.Join(c.DNSNames, ", ")
+		}
+		if subject != "" {
+			f = append(f, Fact{"Certificate for", clipText(subject, 200)})
+		}
+		issuer := c.Issuer.CommonName
+		if len(c.Issuer.Organization) > 0 {
+			issuer = strings.TrimSpace(c.Issuer.Organization[0] + " " + c.Issuer.CommonName)
+		}
+		if issuer != "" {
+			f = append(f, Fact{"Issued by", issuer})
+		}
+	}
+	return f
+}
+
+// byteSize is a size in bytes as people read it.
+func byteSize(n int) string {
+	switch {
+	case n >= 1<<20:
+		return fmt.Sprintf("%.1f MiB", float64(n)/(1<<20))
+	case n >= 1<<10:
+		return fmt.Sprintf("%.1f KiB", float64(n)/(1<<10))
+	}
+	return fmt.Sprintf("%d bytes", n)
+}
+
+// clipText cuts s to at most n bytes, on a character's boundary.
+func clipText(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n] + "…"
 }
 
 // requestError says what went wrong with a request, without Go's
@@ -211,17 +283,17 @@ func (k *Keyword) normalize() error {
 }
 
 func (k *Keyword) checker(env *Env) Checker {
-	return &httpChecker{h: &k.HTTP, env: env, inspect: func(body []byte) (bool, string) {
+	return &httpChecker{h: &k.HTTP, env: env, inspect: func(body []byte) (bool, string, []Fact) {
 		found := strings.Contains(string(body), k.Keyword)
 		switch {
 		case found && !k.InvertKeyword:
-			return true, fmt.Sprintf("Keyword %q found", k.Keyword)
+			return true, fmt.Sprintf("Keyword %q found", k.Keyword), []Fact{{"Keyword", "Found"}}
 		case !found && k.InvertKeyword:
-			return true, fmt.Sprintf("Keyword %q not found, as wanted", k.Keyword)
+			return true, fmt.Sprintf("Keyword %q not found, as wanted", k.Keyword), []Fact{{"Keyword", "Not found, as wanted"}}
 		case found:
-			return false, fmt.Sprintf("Keyword %q found, but it must not be", k.Keyword)
+			return false, fmt.Sprintf("Keyword %q found, but it must not be", k.Keyword), []Fact{{"Keyword", "Found, but it must not be"}}
 		}
-		return false, fmt.Sprintf("Keyword %q not found in %q", k.Keyword, snippet(body))
+		return false, fmt.Sprintf("Keyword %q not found in %q", k.Keyword, snippet(body)), []Fact{{"Keyword", "Not found"}}
 	}}
 }
 
@@ -258,14 +330,15 @@ func (j *JSONQuery) normalize() error {
 }
 
 func (j *JSONQuery) checker(env *Env) Checker {
-	return &httpChecker{h: &j.HTTP, env: env, inspect: func(body []byte) (bool, string) {
+	return &httpChecker{h: &j.HTTP, env: env, inspect: func(body []byte) (bool, string, []Fact) {
 		got, err := Query(body, j.JSONPath)
 		if err != nil {
-			return false, err.Error()
+			return false, err.Error(), nil
 		}
+		found := []Fact{{"Value", clipText(got, 300)}, {"Expected", j.JSONOperator + " " + j.ExpectedValue}}
 		if compare(got, j.JSONOperator, j.ExpectedValue) {
-			return true, fmt.Sprintf("%s is %s", j.JSONPath, got)
+			return true, fmt.Sprintf("%s is %s", j.JSONPath, got), found
 		}
-		return false, fmt.Sprintf("%s is %s, not %s %s", j.JSONPath, got, j.JSONOperator, j.ExpectedValue)
+		return false, fmt.Sprintf("%s is %s, not %s %s", j.JSONPath, got, j.JSONOperator, j.ExpectedValue), found
 	}}
 }

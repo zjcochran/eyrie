@@ -223,9 +223,11 @@ func (c *globalpingChecker) result(res gpResult) Result {
 	if rr.Status != "finished" {
 		return fail("Failed from %s: %s", where, lastLine([]byte(rr.RawOutput)))
 	}
+	probe := []Fact{{"Probe", fmt.Sprintf("%s, %s", p.City, p.Country)}, {"Network", fmt.Sprintf("AS%d %s", p.ASN, p.Network)}}
 	if c.g.Kind == "ping" {
 		r := Result{Latency: -1, OK: rr.Stats.Rcv > 0,
-			Message: fmt.Sprintf("%d of %d replies from %s, pinging from %s", rr.Stats.Rcv, rr.Stats.Total, c.g.Target, where)}
+			Message: fmt.Sprintf("%d of %d replies from %s, pinging from %s", rr.Stats.Rcv, rr.Stats.Total, c.g.Target, where),
+			Details: append(probe, Fact{"Replies", fmt.Sprintf("%d of %d", rr.Stats.Rcv, rr.Stats.Total)})}
 		if rr.Stats.Avg != nil {
 			r.Latency = time.Duration(*rr.Stats.Avg * float64(time.Millisecond))
 		}
@@ -235,7 +237,8 @@ func (c *globalpingChecker) result(res gpResult) Result {
 		Total float64 `json:"total"`
 	}
 	json.Unmarshal(rr.Timings, &t) //nolint:errcheck,gosec // no timing: no latency
-	r := Result{Latency: time.Duration(t.Total * float64(time.Millisecond))}
+	r := Result{Latency: time.Duration(t.Total * float64(time.Millisecond)),
+		Details: append(probe, Fact{"Status", fmt.Sprintf("%d %s", rr.StatusCode, rr.StatusCodeName)})}
 	if rr.TLS != nil {
 		r.CertExpires = rr.TLS.ExpiresAt
 	}

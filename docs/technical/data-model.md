@@ -247,6 +247,7 @@ Written with every heartbeat.
 | `cert_notified` | `INTEGER` | The certificate warning last sent for `cert_expires`, as its threshold in days; `0` for none. Migration `00004_notifications`. |
 | `before_status`, `before_since` | `TEXT`, `BIGINT` | In maintenance, the status the monitor had before it began and since when, which come back when it ends; `''` and `0` otherwise. Migration `00005_tags_maintenance`. |
 | `cpu_bp`, `memory_bp` | `BIGINT` | The host's CPU and memory use at the last system-resources check, in hundredths of a percent (`5025`: 50.25%); `-1` for none. Migration `00013_usage`. |
+| `details` | `TEXT` | What the last check found, as a JSON array of `{"name","value"}` in the order the monitor's page shows them; `''` for none. Migration `00018_details`. |
 
 ### heartbeats
 
@@ -267,6 +268,7 @@ setting are deleted daily.
 | `message` | `TEXT` | |
 | `important` | `BOOLEAN` | The status changed |
 | `cpu_bp`, `memory_bp` | `BIGINT` | System resources: the host's CPU and memory use, in hundredths of a percent; `-1` for none. Migration `00013_usage`. |
+| `value` | `REAL` (PostgreSQL `DOUBLE PRECISION`) | The number the check measured, for its chart (a clock's offset, a game server's players, an SNMP value); `NULL` for none. Migration `00018_details`. |
 
 Heartbeats are written in batches about once a second (at most 500 per
 transaction), with the state and the stats below in the same transaction.
@@ -304,6 +306,7 @@ Hourly rows are kept 35 days, daily rows 400 days.
 | `latency_count` | `INTEGER` | Checks with a response time |
 | `cpu_bp_sum`, `memory_bp_sum` | `BIGINT` | Hundredths of a percent, over checks with a host's use (system resources); default `0`. Migration `00013_usage`. |
 | `usage_count` | `BIGINT` | Checks with a host's use; default `0` |
+| `value_sum`, `value_count` | `REAL` (PostgreSQL `DOUBLE PRECISION`), `BIGINT` | The sum of the checks' measured `value`s and how many checks had one, for their average; default `0`. Migration `00018_details`. |
 
 Response times were kept in whole milliseconds until migration
 `00007_latency_micros`, which made a 0.5 ms ping 0 ms. The migration fills

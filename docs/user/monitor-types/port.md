@@ -36,6 +36,14 @@ response time is the time to connect.
 
 The message is `Connected`.
 
+## Its page
+
+- **At the top**: Connected to, with the uptime and the last check.
+- **Connection**: everything the last check found: the address it connected to.
+- **Chart**: the time to connect.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

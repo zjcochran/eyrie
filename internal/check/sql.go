@@ -195,7 +195,11 @@ func (c *sqlChecker) Check(ctx context.Context) Result {
 	if err != nil {
 		return failErr(sqlError(ctx, err))
 	}
-	r := Result{OK: true, Latency: time.Since(start)}
+	r := Result{OK: true, Latency: time.Since(start), Details: []Fact{{"Query", clipText(c.s.Query, 500)}, {"Rows", rowCount(n)}}}
+	if n > 0 {
+		r.Details = append(r.Details, Fact{"First value", clipText(first, 300)})
+		r.Value = number(first)
+	}
 	switch n {
 	case 0:
 		r.Message = "Query OK, no rows"
@@ -258,4 +262,12 @@ func sqlError(ctx context.Context, err error) error {
 		return errTimeout
 	}
 	return err
+}
+
+// rowCount says how many rows a query returned, counted up to maxRows.
+func rowCount(n int) string {
+	if n >= maxRows {
+		return fmt.Sprintf("%d or more", maxRows)
+	}
+	return fmt.Sprint(n)
 }

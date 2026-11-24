@@ -117,5 +117,5 @@ func (s *Store) cachedTotals(ctx context.Context, table string, size, from int64
 func (t Totals) add(o Totals) Totals {
 	return Totals{Up: t.Up + o.Up, Down: t.Down + o.Down, LatencySum: t.LatencySum + o.LatencySum,
 		LatencyCount: t.LatencyCount + o.LatencyCount, CPUSum: t.CPUSum + o.CPUSum, MemorySum: t.MemorySum + o.MemorySum,
-		UsageCount: t.UsageCount + o.UsageCount}
+		UsageCount: t.UsageCount + o.UsageCount, ValueSum: t.ValueSum + o.ValueSum, ValueCount: t.ValueCount + o.ValueCount}
 }

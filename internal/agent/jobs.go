@@ -108,6 +108,10 @@ func (a *Agent) send1(ctx context.Context, id string, res check.Result) {
 	if res.Storage != nil {
 		r.Storage, _ = json.Marshal(res.Storage) //nolint:errchkjson // a struct of strings and numbers
 	}
+	r.Value = res.Value
+	for _, d := range res.Details {
+		r.Details = append(r.Details, agentauth.Detail{Name: d.Name, Value: d.Value})
+	}
 	a.post(ctx, r)
 }
 

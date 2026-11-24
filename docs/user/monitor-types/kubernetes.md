@@ -46,6 +46,14 @@ workload checks it at once.
 
 The message is `3 of 3 ready`.
 
+## Its page
+
+- **At the top**: State and Namespace, with the uptime and the last check.
+- **Workload**: everything the last check found: its replicas, name, namespace, and the replicas ready and wanted.
+- **Chart**: ready replicas.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

@@ -283,10 +283,10 @@ The keys themselves are never returned. `claude_code` is `null` unless
 | `GET /api/v1/monitor-types` | read | | `200` `[{"name":"dns","label":"DNS","agents":true,"agent_only":false},…]`, by label, whatever the case: `agents` when it can be checked on an agent, `agent_only` when only there |
 | `GET /api/v1/monitors?beats=<n>` | read | | `200` list of [monitors](#monitor), by `position`, then name. With `beats` (1 to 100), each has its last `n` heartbeats, oldest first. |
 | `GET /api/v1/monitors/{id}` | read | | `200` monitor |
-| `GET /api/v1/monitors/{id}/heartbeats?since=<time>&limit=<n>` | read | | `200` [heartbeats](#heartbeat), newest first, from `since` (RFC 3339; default 24 hours ago), at most `limit` (default and most 10000). `400` for a bad `since`. |
+| `GET /api/v1/monitors/{id}/heartbeats?since=<time>&limit=<n>&changes=true` | read | | `200` [heartbeats](#heartbeat), newest first, from `since` (RFC 3339; default 24 hours ago), at most `limit` (default and most 10000); with `changes=true`, only those that changed its status (`important`). `400` for a bad `since`. |
 | `GET /api/v1/status-changes?before=<id>&offset=<n>&limit=<n>` | read | | `200` every monitor's status changes, newest first: [heartbeats](#heartbeat) with `important` true, each with its `"id"`, `limit` of them (default 100, at most 1000, or `all`) after skipping `offset`, only those with an id below `before` when set. The `X-Total-Count` header is how many status changes there are. `400` when `before` or `limit` is not a positive number, or `offset` is below 0 |
 | `GET /api/v1/overview?days=<n>&monitor=<id>` | read | | `200` `{"days":[{"monitor_id","days":[{"start","up","down"}]}],"hours":[{"start","up","down","avg_latency_ms"}]}`: each monitor's daily counts for the last `n` days (default 30, most 90; days in UTC, days without checks left out), only the monitor `id`'s with `monitor`, and every monitor's checks added together for each of the last 24 hours, with their mean response time; as last worked out in the background (empty before the first time). For the dashboards of the Bento and Aurora layouts and the 90-day uptime of a monitor's page. `400` for a `monitor` that is not an ID. |
-| `GET /api/v1/monitors/{id}/hours?days=<n>` | read | | `200` `[{"start","up","down","avg_latency_ms","avg_usage"}]`: hourly counts for the last `n` days (default 7, most 35), oldest first; hours without checks are left out; as last worked out in the background (empty before the first time). `avg_usage` (`{"cpu","memory"}`, the mean use) only for hours with system-resources checks |
+| `GET /api/v1/monitors/{id}/hours?days=<n>` | read | | `200` `[{"start","up","down","avg_latency_ms","avg_usage","avg_value"}]`: hourly counts for the last `n` days (default 7, most 35), oldest first; hours without checks are left out; as last worked out in the background (empty before the first time). `avg_usage` (`{"cpu","memory"}`, the mean use) only for hours with system-resources checks; `avg_value`, the mean of the heartbeats' `value`, only for hours with one |
 | `GET /api/v1/monitors/{id}/storage?days=<n>` | read | | `200` `{"at","device","history":[{"at","volumes":{"<mount point>":<percent used>},"temps":{"<disk>":<°C>}}]}`: what an `snmp-storage` monitor's last check read of its NAS (`device`, as in the [agent protocol](agent-protocol.md#discovery); `at` and `device` are `null` before the first check), and its samples in the last `n` days (default 1, most 35), at most 300 spread over them, oldest first |
 | `POST /api/v1/monitors` | admin | [monitor settings](#monitor-settings) | `201` monitor. `422` with the reason for a bad setting. |
 | `PUT /api/v1/monitors/{id}` | admin | monitor settings; `type` may be left out but not changed | `200` monitor |
@@ -335,6 +335,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
     "latency_ms": 123.45,
     "cert_expires": "2027-03-01T00:00:00Z",
     "usage": { "cpu": 12.34, "memory": 43.1 },
+    "details": [{ "name": "Status", "value": "200 OK" }, { "name": "Protocol", "value": "HTTP/2.0" }],
     "checking": false,
     "maintenance": ""
   },
@@ -358,7 +359,10 @@ Eyrie), with `agent_name` when that agent exists. `push_url` is only on push mon
 `null` without checks in the period. `beats` is only there with `?beats=`.
 `status.usage` is the host's CPU and memory use, in percent, at the last
 check of a [system resources](../user/monitor-types/system-resources.md)
-monitor; it is left out for other types.
+monitor; it is left out for other types. `status.details` are what the last
+check found, by name, in the order its page shows them (a container's
+state and image, a game server's players, WAN Drawbridge's ISP; `[]` for
+none). Times in them are RFC 3339; they never hold secret settings.
 
 #### Monitor settings
 
@@ -486,7 +490,13 @@ for no limit).
 when the status changed. `latency_ms` is `null` when
 there was none (a failed connection, a push without `ping`). System
 resources checks add `"usage": {"cpu": 12.34, "memory": 43.1}`, the
-host's use in percent; other heartbeats have no `usage`.
+host's use in percent; other heartbeats have no `usage`. `value` is the
+number the check measured, for its chart (an NTP server's clock offset in
+milliseconds, a game server's players, the value of an SNMP, JSON query,
+MQTT, MongoDB or SQL check when it is a number, a service's or
+workload's ready replicas, a PM2 process's memory in MiB); it is left out
+when there is none. In the `beat` event, a heartbeat also has its
+monitor's `details`, as in `status.details`.
 
 #### Events
 

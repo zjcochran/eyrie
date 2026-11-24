@@ -30,6 +30,23 @@ type Workload struct {
 	// Status says how it is, as a sentence: "Running, healthy", "2 of 3
 	// ready".
 	Status string `json:"status"`
+	// Ready and Wanted count the replicas or tasks of a service or a
+	// workload: those ready, and those it wants; nil for others.
+	Ready  *int64 `json:"ready,omitempty"`
+	Wanted *int64 `json:"wanted,omitempty"`
+	// Guest is a Proxmox VE guest's use of its resources; nil for others.
+	Guest *Guest `json:"guest,omitempty"`
+}
+
+// Guest is a Proxmox VE guest's use, as Proxmox reports it.
+type Guest struct {
+	CPU     float64 `json:"cpu"`      // share of its cores busy, 0 to 1
+	Cores   float64 `json:"cores"`    // its cores
+	Memory  int64   `json:"memory"`   // bytes used
+	MaxMem  int64   `json:"max_mem"`  // bytes it may use
+	Disk    int64   `json:"disk"`     // bytes of its disk used; 0 when Proxmox does not know
+	MaxDisk int64   `json:"max_disk"` // its disk's size
+	Uptime  int64   `json:"uptime"`   // seconds since it started; 0 when stopped
 }
 
 // Lister lists a platform's workloads.
@@ -56,6 +73,11 @@ func ready(have, want int64, noun string) (bool, string) {
 		return false, "Scaled to 0"
 	}
 	return have >= want, fmt.Sprintf("%d of %d %s", have, want, noun)
+}
+
+// counted sets a workload's ready and wanted counts.
+func (w *Workload) counted(have, want int64) {
+	w.Ready, w.Wanted = &have, &want
 }
 
 // apiError reads an API's error answer: its JSON message, or its text.

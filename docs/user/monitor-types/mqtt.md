@@ -64,6 +64,14 @@ Eyrie speaks MQTT 3.1.1 over TCP; MQTT over WebSockets is not supported.
 The message is `Message: online`, or with a JSON query,
 `$.temperature is -18.5`.
 
+## Its page
+
+- **At the top**: Value, Topic and Waited, with the uptime and the last check.
+- **Message**: everything the last check found: the topic, the message, how long Eyrie waited for it, and with a JSON query the value and what it must be.
+- **Chart**: the value, when it is a number, instead of a response time: the wait for a message says nothing about the broker.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

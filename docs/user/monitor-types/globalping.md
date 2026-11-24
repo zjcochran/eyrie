@@ -53,6 +53,14 @@ The message names the probe: `3 of 3 replies from shop.example.com,
 pinging from <city>, <country> (AS<number> <network>)`, or `200 OK from
 <city>, …`.
 
+## Its page
+
+- **At the top**: Probe and Network, with the uptime and the last check.
+- **Probe**: everything the last check found: where the probe is, its network, and its replies or HTTP status.
+- **Chart**: Globalping's response time.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

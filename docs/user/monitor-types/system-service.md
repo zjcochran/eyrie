@@ -41,6 +41,14 @@ privileges. Other systems than Linux and Windows are not supported.
 
 The message is the state: `Active` on Linux, `Running` on Windows.
 
+## Its page
+
+- **At the top**: State, Running since and Memory, with the uptime and the last check.
+- **Service**: everything the last check found: its state and sub-state, its description, since when it runs, its main process, its restarts and its memory (from `systemctl show`; on Windows, its state).
+- **Chart**: none.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

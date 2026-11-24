@@ -65,6 +65,14 @@ are down.
 The message is `Running`, `Running, healthy` or `Running, health check
 starting`.
 
+## Its page
+
+- **At the top**: State, Health and Restarts, with the uptime and the last check.
+- **Container**: everything the last check found: its state, name, image, when it started (or stopped, with its exit code), whether it was killed for running out of memory, its restarts, and with a health check its health, failed checks in a row and what the last one said.
+- **Chart**: none: how long Docker took to answer says nothing about the container.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

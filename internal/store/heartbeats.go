@@ -17,8 +17,9 @@ type Beat struct {
 	Status    string
 	Latency   time.Duration // negative: none
 	Message   string
-	Important bool   // the status changed
-	Usage     *Usage // a host's CPU and memory use; nil: none
+	Important bool     // the status changed
+	Usage     *Usage   // a host's CPU and memory use; nil: none
+	Value     *float64 // the number the check measured; nil: none
 }
 
 // Usage is how busy a host is, in percent.
@@ -60,6 +61,9 @@ type MonitorState struct {
 	// monitor had before it began; "" outside maintenance.
 	BeforeStatus string
 	BeforeSince  time.Time
+	// Details are what the last check found, as a JSON array of
+	// {"name", "value"}; nil: none.
+	Details json.RawMessage
 }
 
 // Record is a heartbeat with the state it left the monitor in.
@@ -153,9 +157,9 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 	// Parameterized: every value is a bound argument, not SQL text.
 	// nosemgrep
 	if _, err := tx.ExecContext(ctx, s.q(`
-		INSERT INTO heartbeats (monitor_id, at, status, latency_ms, latency_us, message, important, cpu_bp, memory_bp)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-		b.MonitorID, at, b.Status, latencyMS(b.Latency), latencyUS(b.Latency), b.Message, b.Important, cpu, memory); err != nil {
+		INSERT INTO heartbeats (monitor_id, at, status, latency_ms, latency_us, message, important, cpu_bp, memory_bp, value)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+		b.MonitorID, at, b.Status, latencyMS(b.Latency), latencyUS(b.Latency), b.Message, b.Important, cpu, memory, b.Value); err != nil {
 		return err
 	}
 	stCPU, stMemory := usageBP(st.Usage)
@@ -167,15 +171,15 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 	// nosemgrep
 	if _, err := tx.ExecContext(ctx, s.q(`
 		INSERT INTO monitor_state (monitor_id, status, since, message, last_check, latency_ms, latency_us, cert_expires, failures,
-			down_checks, cert_notified, before_status, before_since, cpu_bp, memory_bp)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			down_checks, cert_notified, before_status, before_since, cpu_bp, memory_bp, details)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (monitor_id) DO UPDATE SET status = excluded.status, since = excluded.since, message = excluded.message,
 			last_check = excluded.last_check, latency_ms = excluded.latency_ms, latency_us = excluded.latency_us, cert_expires = excluded.cert_expires,
 			failures = excluded.failures, down_checks = excluded.down_checks, cert_notified = excluded.cert_notified,
 			before_status = excluded.before_status, before_since = excluded.before_since, cpu_bp = excluded.cpu_bp,
-			memory_bp = excluded.memory_bp`),
+			memory_bp = excluded.memory_bp, details = excluded.details`),
 		st.MonitorID, st.Status, st.Since.UnixMilli(), st.Message, st.LastCheck.UnixMilli(), latencyMS(st.Latency), latencyUS(st.Latency), cert,
-		st.Failures, st.DownChecks, st.CertNotified, st.BeforeStatus, millisOrZero(st.BeforeSince), stCPU, stMemory); err != nil {
+		st.Failures, st.DownChecks, st.CertNotified, st.BeforeStatus, millisOrZero(st.BeforeSince), stCPU, stMemory, string(st.Details)); err != nil {
 		return err
 	}
 	if len(r.Storage) > 0 {
@@ -199,9 +203,13 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 	if b.Latency >= 0 {
 		sum, us, count = b.Latency.Milliseconds(), b.Latency.Microseconds(), 1
 	}
-	var cpuSum, memorySum, usages int64
+	var cpuSum, memorySum, usages, values int64
 	if b.Usage != nil {
 		cpuSum, memorySum, usages = cpu, memory, 1
+	}
+	var valueSum float64
+	if b.Value != nil {
+		valueSum, values = *b.Value, 1
 	}
 	for _, t := range []struct {
 		table string
@@ -212,16 +220,18 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 		// nosemgrep
 		if _, err := tx.ExecContext(ctx, s.q(`
 			INSERT INTO `+t.table+` (monitor_id, bucket, up, down, latency_sum, latency_us_sum, latency_count,
-				cpu_bp_sum, memory_bp_sum, usage_count)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+				cpu_bp_sum, memory_bp_sum, usage_count, value_sum, value_count)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (monitor_id, bucket) DO UPDATE SET up = `+t.table+`.up + excluded.up,
 				down = `+t.table+`.down + excluded.down, latency_sum = `+t.table+`.latency_sum + excluded.latency_sum,
 				latency_us_sum = `+t.table+`.latency_us_sum + excluded.latency_us_sum,
 				latency_count = `+t.table+`.latency_count + excluded.latency_count,
 				cpu_bp_sum = `+t.table+`.cpu_bp_sum + excluded.cpu_bp_sum,
 				memory_bp_sum = `+t.table+`.memory_bp_sum + excluded.memory_bp_sum,
-				usage_count = `+t.table+`.usage_count + excluded.usage_count`),
-			b.MonitorID, at-at%t.size, up, down, sum, us, count, cpuSum, memorySum, usages); err != nil {
+				usage_count = `+t.table+`.usage_count + excluded.usage_count,
+				value_sum = `+t.table+`.value_sum + excluded.value_sum,
+				value_count = `+t.table+`.value_count + excluded.value_count`),
+			b.MonitorID, at-at%t.size, up, down, sum, us, count, cpuSum, memorySum, usages, valueSum, values); err != nil {
 			return err
 		}
 	}
@@ -231,7 +241,7 @@ func (s *Store) saveOne(ctx context.Context, tx *sql.Tx, r Record) error {
 // States returns every monitor's saved state, by monitor ID.
 func (s *Store) States(ctx context.Context) (map[int64]MonitorState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT monitor_id, status, since, message, last_check, latency_us, cert_expires,
-		failures, down_checks, cert_notified, before_status, before_since, cpu_bp, memory_bp FROM monitor_state`)
+		failures, down_checks, cert_notified, before_status, before_since, cpu_bp, memory_bp, details FROM monitor_state`)
 	if err != nil {
 		return nil, err
 	}
@@ -240,9 +250,13 @@ func (s *Store) States(ctx context.Context) (map[int64]MonitorState, error) {
 	for rows.Next() {
 		var st MonitorState
 		var since, last, latency, cert, before, cpu, memory int64
+		var details string
 		if err := rows.Scan(&st.MonitorID, &st.Status, &since, &st.Message, &last, &latency, &cert, &st.Failures, &st.DownChecks,
-			&st.CertNotified, &st.BeforeStatus, &before, &cpu, &memory); err != nil {
+			&st.CertNotified, &st.BeforeStatus, &before, &cpu, &memory, &details); err != nil {
 			return nil, err
+		}
+		if details != "" {
+			st.Details = json.RawMessage(details)
 		}
 		st.Usage = fromUsageBP(cpu, memory)
 		st.Since, st.LastCheck, st.Latency, st.CertExpires = fromMillis(since), fromMillis(last), fromLatency(latency), fromMillis(cert)
@@ -258,10 +272,14 @@ func scanBeats(rows *sql.Rows) ([]Beat, error) {
 	for rows.Next() {
 		var b Beat
 		var at, latency, cpu, memory int64
-		if err := rows.Scan(&b.MonitorID, &at, &b.Status, &latency, &b.Message, &b.Important, &cpu, &memory); err != nil {
+		var value sql.NullFloat64
+		if err := rows.Scan(&b.MonitorID, &at, &b.Status, &latency, &b.Message, &b.Important, &cpu, &memory, &value); err != nil {
 			return nil, err
 		}
 		b.At, b.Latency, b.Usage = fromMillis(at), fromLatency(latency), fromUsageBP(cpu, memory)
+		if value.Valid {
+			b.Value = &value.Float64
+		}
 		out = append(out, b)
 	}
 	return out, rows.Err()
@@ -271,8 +289,20 @@ func scanBeats(rows *sql.Rows) ([]Beat, error) {
 // most limit of them.
 func (s *Store) Heartbeats(ctx context.Context, id int64, since time.Time, limit int) ([]Beat, error) {
 	rows, err := s.db.QueryContext(ctx, s.q(`
-		SELECT monitor_id, at, status, latency_us, message, important, cpu_bp, memory_bp FROM heartbeats
+		SELECT monitor_id, at, status, latency_us, message, important, cpu_bp, memory_bp, value FROM heartbeats
 		WHERE monitor_id = ? AND at >= ? ORDER BY at DESC, id DESC LIMIT ?`), id, since.UnixMilli(), limit)
+	if err != nil {
+		return nil, err
+	}
+	return scanBeats(rows)
+}
+
+// MonitorChanges returns a monitor's status changes from since on, newest
+// first, at most limit of them.
+func (s *Store) MonitorChanges(ctx context.Context, id int64, since time.Time, limit int) ([]Beat, error) {
+	rows, err := s.db.QueryContext(ctx, s.q(`
+		SELECT monitor_id, at, status, latency_us, message, important, cpu_bp, memory_bp, value FROM heartbeats
+		WHERE monitor_id = ? AND at >= ? AND important = ? ORDER BY at DESC, id DESC LIMIT ?`), id, since.UnixMilli(), true, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +354,7 @@ func (s *Store) CountChanges(ctx context.Context) (int, error) {
 // does not grow with the heartbeats kept.
 func (s *Store) RecentBeats(ctx context.Context, n int) (map[int64][]Beat, error) {
 	rows, err := s.db.QueryContext(ctx, s.q(`
-		SELECT h.monitor_id, h.at, h.status, h.latency_us, h.message, h.important, h.cpu_bp, h.memory_bp
+		SELECT h.monitor_id, h.at, h.status, h.latency_us, h.message, h.important, h.cpu_bp, h.memory_bp, h.value
 		FROM monitors m JOIN heartbeats h ON h.id IN (
 			SELECT id FROM heartbeats WHERE monitor_id = m.id ORDER BY at DESC, id DESC LIMIT ?)
 		ORDER BY h.monitor_id, h.at, h.id`), n)
@@ -347,6 +377,10 @@ type Totals struct {
 	// CPUSum and MemorySum add up the checks' use in hundredths of a
 	// percent; UsageCount is how many checks had it.
 	CPUSum, MemorySum, UsageCount int64
+	// ValueSum adds up the numbers the checks measured; ValueCount is how
+	// many checks had one.
+	ValueSum   float64
+	ValueCount int64
 }
 
 // Uptime is the share of checks that were up, from 0 to 1; -1 without checks.
@@ -371,6 +405,15 @@ func (t Totals) AvgUsage() *Usage {
 		return nil
 	}
 	return &Usage{CPU: float64(t.CPUSum) / float64(t.UsageCount) / 100, Memory: float64(t.MemorySum) / float64(t.UsageCount) / 100}
+}
+
+// AvgValue is the mean of the numbers the checks measured; nil without any.
+func (t Totals) AvgValue() *float64 {
+	if t.ValueCount == 0 {
+		return nil
+	}
+	v := t.ValueSum / float64(t.ValueCount)
+	return &v
 }
 
 // HourlyTotals adds up every monitor's hourly stats from the hour that
@@ -422,7 +465,7 @@ func (s *Store) totals(ctx context.Context, table string, from, to, monitor int6
 	// nosemgrep
 	rows, err := s.db.QueryContext(ctx, s.q(`SELECT `+id+`, CAST(SUM(up) AS BIGINT), CAST(SUM(down) AS BIGINT),
 		CAST(SUM(latency_us_sum) AS BIGINT), CAST(SUM(latency_count) AS BIGINT), CAST(SUM(cpu_bp_sum) AS BIGINT),
-		CAST(SUM(memory_bp_sum) AS BIGINT), CAST(SUM(usage_count) AS BIGINT)
+		CAST(SUM(memory_bp_sum) AS BIGINT), CAST(SUM(usage_count) AS BIGINT), SUM(value_sum), CAST(SUM(value_count) AS BIGINT)
 		FROM `+table+` WHERE `+where+` GROUP BY `+id), args...)
 	if err != nil {
 		return nil, err
@@ -433,7 +476,7 @@ func (s *Store) totals(ctx context.Context, table string, from, to, monitor int6
 		var id int64
 		var t Totals
 		if err := rows.Scan(&id, &t.Up, &t.Down, &t.LatencySum, &t.LatencyCount, &t.CPUSum, &t.MemorySum,
-			&t.UsageCount); err != nil {
+			&t.UsageCount, &t.ValueSum, &t.ValueCount); err != nil {
 			return nil, err
 		}
 		out[id] = t
@@ -451,7 +494,8 @@ type HourBucket struct {
 // oldest first.
 func (s *Store) Hours(ctx context.Context, id int64, since time.Time) ([]HourBucket, error) {
 	rows, err := s.db.QueryContext(ctx, s.q(`SELECT bucket, up, down, latency_us_sum, latency_count, cpu_bp_sum, memory_bp_sum,
-		usage_count FROM stats_hourly WHERE monitor_id = ? AND bucket >= ? ORDER BY bucket`), id, since.UnixMilli()-since.UnixMilli()%hour)
+		usage_count, value_sum, value_count FROM stats_hourly WHERE monitor_id = ? AND bucket >= ? ORDER BY bucket`),
+		id, since.UnixMilli()-since.UnixMilli()%hour)
 	if err != nil {
 		return nil, err
 	}
@@ -460,7 +504,8 @@ func (s *Store) Hours(ctx context.Context, id int64, since time.Time) ([]HourBuc
 	for rows.Next() {
 		var b HourBucket
 		var start int64
-		if err := rows.Scan(&start, &b.Up, &b.Down, &b.LatencySum, &b.LatencyCount, &b.CPUSum, &b.MemorySum, &b.UsageCount); err != nil {
+		if err := rows.Scan(&start, &b.Up, &b.Down, &b.LatencySum, &b.LatencyCount, &b.CPUSum, &b.MemorySum, &b.UsageCount,
+			&b.ValueSum, &b.ValueCount); err != nil {
 			return nil, err
 		}
 		b.Start = fromMillis(start)
@@ -473,7 +518,8 @@ func (s *Store) Hours(ctx context.Context, id int64, since time.Time) ([]HourBuc
 // since, oldest first, by monitor ID.
 func (s *Store) AllHours(ctx context.Context, since time.Time) (map[int64][]HourBucket, error) {
 	rows, err := s.db.QueryContext(ctx, s.q(`SELECT monitor_id, bucket, up, down, latency_us_sum, latency_count, cpu_bp_sum,
-		memory_bp_sum, usage_count FROM stats_hourly WHERE bucket >= ? ORDER BY monitor_id, bucket`), since.UnixMilli()-since.UnixMilli()%hour)
+		memory_bp_sum, usage_count, value_sum, value_count FROM stats_hourly WHERE bucket >= ? ORDER BY monitor_id, bucket`),
+		since.UnixMilli()-since.UnixMilli()%hour)
 	if err != nil {
 		return nil, err
 	}
@@ -483,7 +529,7 @@ func (s *Store) AllHours(ctx context.Context, since time.Time) (map[int64][]Hour
 		var b HourBucket
 		var id, start int64
 		if err := rows.Scan(&id, &start, &b.Up, &b.Down, &b.LatencySum, &b.LatencyCount, &b.CPUSum, &b.MemorySum,
-			&b.UsageCount); err != nil {
+			&b.UsageCount, &b.ValueSum, &b.ValueCount); err != nil {
 			return nil, err
 		}
 		b.Start = fromMillis(start)

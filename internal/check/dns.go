@@ -88,17 +88,22 @@ func (c *dnsChecker) Check(ctx context.Context) Result {
 	start := time.Now()
 	records, err := lookup(ctx, c.env, server, name, recordTypes[d.RecordType])
 	latency := time.Since(start)
+	f := []Fact{{"Server", server}, {"Asked for", d.RecordType + " " + name}}
 	if err != nil {
-		return Result{Message: err.Error(), Latency: -1}
+		return Result{Message: err.Error(), Latency: -1, Details: f}
 	}
 	if len(records) == 0 {
-		return Result{Message: fmt.Sprintf("No %s record for %s", d.RecordType, d.Host), Latency: latency}
+		return Result{Message: fmt.Sprintf("No %s record for %s", d.RecordType, d.Host), Latency: latency, Details: f}
+	}
+	f = append(f, Fact{"Records", clipText(strings.Join(records, "\n"), 2000)})
+	if d.Expected != "" {
+		f = append(f, Fact{"Must contain", d.Expected})
 	}
 	list := strings.Join(records, ", ")
 	if d.Expected != "" && !slices.ContainsFunc(records, func(r string) bool { return strings.Contains(r, d.Expected) }) {
-		return Result{Message: fmt.Sprintf("No %s record contains %q: %s", d.RecordType, d.Expected, list), Latency: latency}
+		return Result{Message: fmt.Sprintf("No %s record contains %q: %s", d.RecordType, d.Expected, list), Latency: latency, Details: f}
 	}
-	return Result{OK: true, Message: d.RecordType + " " + list, Latency: latency}
+	return Result{OK: true, Message: d.RecordType + " " + list, Latency: latency, Details: f}
 }
 
 func reverseName(a netip.Addr) string {
