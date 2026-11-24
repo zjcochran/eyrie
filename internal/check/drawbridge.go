@@ -49,9 +49,9 @@ type drawbridgeChecker struct {
 
 // drawbridgeStatus is the part of Drawbridge's /api/status read here.
 type drawbridgeStatus struct {
-	State      string     `json:"state"`
-	StateLabel string     `json:"state_label"`
-	Since      time.Time  `json:"since"`
+	State      string    `json:"state"`
+	StateLabel string    `json:"state_label"`
+	Since      time.Time `json:"since"`
 	CurrentISP *struct {
 		Name string `json:"name"`
 	} `json:"current_isp"`
