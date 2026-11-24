@@ -6,7 +6,7 @@ import { fields } from './settings.ts';
 
 describe('pages', () => {
   it('has a page for every type with settings, and push and manual', () => {
-    for (const t of [...Object.keys(fields), 'push', 'manual']) assert.ok(pages[t], t);
+    for (const t of [...Object.keys(fields), 'push', 'manual']) assert.equal(t in pages, true, t);
   });
   it('shows response times only where they mean something', () => {
     for (const t of ['docker', 'docker-swarm', 'kubernetes', 'proxmox', 'system-service', 'pm2', 'drawbridge', 'mqtt', 'ntp', 'manual']) {
