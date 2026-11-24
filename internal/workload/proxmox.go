@@ -103,12 +103,19 @@ func (p *Proxmox) List(ctx context.Context) ([]Workload, error) {
 	}
 	var body struct {
 		Data []struct {
-			Type     string `json:"type"` // lxc or qemu
-			Node     string `json:"node"`
-			VMID     int    `json:"vmid"`
-			Name     string `json:"name"`
-			Status   string `json:"status"`
-			Template int    `json:"template"`
+			Type     string  `json:"type"` // lxc or qemu
+			Node     string  `json:"node"`
+			VMID     int     `json:"vmid"`
+			Name     string  `json:"name"`
+			Status   string  `json:"status"`
+			Template int     `json:"template"`
+			CPU      float64 `json:"cpu"`
+			MaxCPU   float64 `json:"maxcpu"`
+			Mem      int64   `json:"mem"`
+			MaxMem   int64   `json:"maxmem"`
+			Disk     int64   `json:"disk"`
+			MaxDisk  int64   `json:"maxdisk"`
+			Uptime   int64   `json:"uptime"`
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, MaxBody)).Decode(&body); err != nil {
@@ -121,7 +128,8 @@ func (p *Proxmox) List(ctx context.Context) ([]Workload, error) {
 		}
 		kind := map[string]string{"lxc": "lxc", "qemu": "vm"}[g.Type]
 		id := strconv.Itoa(g.VMID)
-		w := Workload{Key: g.Type + "/" + id, Name: g.Name, Kind: kind, Group: g.Node, Up: g.Status == "running"}
+		w := Workload{Key: g.Type + "/" + id, Name: g.Name, Kind: kind, Group: g.Node, Up: g.Status == "running",
+			Guest: &Guest{CPU: g.CPU, Cores: g.MaxCPU, Memory: g.Mem, MaxMem: g.MaxMem, Disk: g.Disk, MaxDisk: g.MaxDisk, Uptime: g.Uptime}}
 		if w.Name == "" {
 			w.Name = id
 		}

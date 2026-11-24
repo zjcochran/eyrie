@@ -132,7 +132,8 @@ func (c *sipChecker) Check(ctx context.Context) Result {
 	if err != nil {
 		return failErr(connError(ctx, err))
 	}
-	r := Result{Latency: time.Since(start), CertExpires: certExpires, Message: status}
+	r := Result{Latency: time.Since(start), CertExpires: certExpires, Message: status,
+		Details: []Fact{{"Status", status}, {"Transport", strings.ToUpper(s.Transport)}, {"Server", conn.RemoteAddr().String()}}}
 	for _, a := range s.Accepted {
 		if lo, hi, _ := statusRange(a); code >= lo && code <= hi {
 			r.OK = true

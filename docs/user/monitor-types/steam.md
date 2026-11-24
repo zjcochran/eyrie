@@ -39,6 +39,16 @@ Eyrie answers the server's challenge if it sends one, as Steam does.
 The message gives the server's name, game, map and players: `Shop Server ·
 Example Game · harbor · 5/24 players`.
 
+## Its page
+
+![A Steam game server monitor's page](../../images/monitor-types/steam-page-dark.png)
+
+- **At the top**: the players, the response time, the uptime and the last check.
+- **Server**: everything the last check found: the server's name, game, map and players.
+- **Chart**: players, and the response time.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

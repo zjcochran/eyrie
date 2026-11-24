@@ -94,6 +94,7 @@ func (c *wsChecker) Check(ctx context.Context) Result {
 	}
 	ws.Close()
 	r.OK, r.Message = true, status
+	r.Details = append([]Fact{{"Status", status}}, tlsDetails(state)...)
 	return r
 }
 

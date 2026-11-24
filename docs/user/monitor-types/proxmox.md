@@ -55,6 +55,16 @@ an [HTTP(S)](http.md), [Ping](ping.md) or other monitor for that too.
 
 The message is `Running`.
 
+## Its page
+
+![A Proxmox VE guest monitor's page](../../images/monitor-types/proxmox-page-dark.png)
+
+- **At the top**: its CPU and memory use, the uptime and the last check.
+- **Guest**: everything the last check found: its state, name, node, whether it is an LXC container or a VM, how long it has been up, its CPU use of its cores, and its memory and disk used of their size.
+- **Chart**: none.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

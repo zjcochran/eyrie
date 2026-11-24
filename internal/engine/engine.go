@@ -52,6 +52,8 @@ func (realClock) At(t time.Time) <-chan time.Time { return time.After(time.Until
 // Event is a heartbeat, sent to Publish as it happens.
 type Event struct {
 	Beat store.Beat
+	// Details are what the monitor's last check found.
+	Details []check.Fact
 }
 
 // Status is a monitor's current status, as Statuses reports it.
@@ -65,6 +67,7 @@ type Status struct {
 	Latency     time.Duration // negative: none
 	CertExpires time.Time
 	Usage       *store.Usage // a host's use at the last check; nil: none
+	Details     []check.Fact // what the last check found; nil: none
 	Up, Down    int64        // checks counted up and down since Eyrie started
 	Running     bool         // a check is in progress
 	// Maintenance is the title of the maintenance window the monitor is in;
@@ -241,7 +244,7 @@ func (e *Engine) load(ctx context.Context) error {
 		if s, ok := saved[m.ID]; ok {
 			en.st = state.State{Status: state.Status(s.Status), Since: s.Since, Failures: s.Failures, DownChecks: s.DownChecks}
 			en.status = Status{MonitorID: m.ID, Status: en.st.Status, Since: s.Since, Message: s.Message,
-				LastCheck: s.LastCheck, Latency: s.Latency, CertExpires: s.CertExpires, Usage: s.Usage}
+				LastCheck: s.LastCheck, Latency: s.Latency, CertExpires: s.CertExpires, Usage: s.Usage, Details: readDetails(s.Details)}
 			en.certNotified = s.CertNotified
 			if en.st.Status == state.Maintenance {
 				// Which window it is in is known once they are read.
@@ -380,7 +383,7 @@ func (e *Engine) record(en *entry, started time.Time, res check.Result) {
 		if !res.CertExpires.IsZero() {
 			e.checkCert(en, res.CertExpires)
 		}
-		e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: res.Message}, res.Latency, usage(res), storage(res))
+		e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: res.Message}, res.Latency, usage(res), storage(res), found(res), res.Value)
 		return
 	}
 	o := state.Next(en.rules, en.st, state.Result{OK: res.OK, Message: res.Message}, e.Clock.Now())
@@ -394,7 +397,26 @@ func (e *Engine) record(en *entry, started time.Time, res check.Result) {
 	if !res.CertExpires.IsZero() {
 		e.checkCert(en, res.CertExpires)
 	}
-	e.beat(en, o, res.Latency, usage(res), storage(res))
+	e.beat(en, o, res.Latency, usage(res), storage(res), found(res), res.Value)
+}
+
+// found is what a check found, never nil: a check with none clears what
+// the one before found.
+func found(res check.Result) []check.Fact {
+	if res.Details == nil {
+		return []check.Fact{}
+	}
+	return res.Details
+}
+
+// readDetails reads saved details; nil when there are none or they cannot
+// be read.
+func readDetails(raw json.RawMessage) []check.Fact {
+	var out []check.Fact
+	if len(raw) == 0 || json.Unmarshal(raw, &out) != nil {
+		return nil
+	}
+	return out
 }
 
 // storage is what an SNMP storage check read of its device, as saved.
@@ -437,13 +459,21 @@ func (e *Engine) checkCert(en *entry, expires time.Time) {
 	}
 }
 
-// beat records a heartbeat for an outcome.
-func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration, use *store.Usage, stor json.RawMessage) {
+// beat records a heartbeat for an outcome. details are what its check
+// found; nil, for a heartbeat without a check, keeps the last check's.
+func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration, use *store.Usage, stor json.RawMessage, details []check.Fact,
+	value *float64) {
 	now := e.Clock.Now()
 	old := en.st
 	en.st = o.State
 	s := &en.status
 	s.Status, s.Since, s.Message, s.LastCheck, s.Latency, s.Usage = o.Status, o.State.Since, o.Message, now, latency, use
+	if details != nil {
+		s.Details = details
+		if len(details) == 0 {
+			s.Details = nil
+		}
+	}
 	switch o.Status {
 	case state.Maintenance:
 	case state.Down:
@@ -452,10 +482,10 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration, use *st
 		s.Up++
 	}
 	b := store.Beat{MonitorID: en.m.ID, At: now, Status: string(o.Status), Latency: latency, Message: o.Message,
-		Important: o.Important, Usage: use}
+		Important: o.Important, Usage: use, Value: value}
 	rec := store.Record{Beat: b, State: store.MonitorState{MonitorID: en.m.ID, Status: string(o.Status), Since: o.State.Since,
 		Message: o.Message, LastCheck: now, Latency: latency, CertExpires: s.CertExpires, Usage: use, Failures: o.State.Failures,
-		DownChecks: o.State.DownChecks, CertNotified: en.certNotified}, Storage: stor}
+		DownChecks: o.State.DownChecks, CertNotified: en.certNotified, Details: saveDetails(s.Details)}, Storage: stor}
 	if o.Status == state.Maintenance {
 		rec.State.BeforeStatus, rec.State.BeforeSince = string(en.before.Status), en.before.Since
 	}
@@ -484,7 +514,7 @@ func (e *Engine) beat(en *entry, o state.Outcome, latency time.Duration, use *st
 	}
 	e.setSnap(en)
 	if e.Publish != nil {
-		e.Publish(Event{Beat: b})
+		e.Publish(Event{Beat: b, Details: s.Details})
 	}
 	// A member's change can change its groups. They alert with the
 	// member's own alerts, not when maintenance starts or ends.
@@ -712,12 +742,21 @@ func (e *Engine) SetManual(ctx context.Context, id int64, status state.Status, m
 		if en.status.Maintenance != "" {
 			// It takes this status when the maintenance ends.
 			en.before = state.Set(en.before, status, e.Clock.Now()).State
-			e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: msg + " (after the maintenance)"}, -1, nil, nil)
+			e.beat(en, state.Outcome{State: en.st, Status: state.Maintenance, Message: msg + " (after the maintenance)"}, -1, nil, nil, nil, nil)
 			return nil
 		}
 		o := state.Set(en.st, status, e.Clock.Now())
 		o.Message = msg
-		e.beat(en, o, -1, nil, nil)
+		e.beat(en, o, -1, nil, nil, nil, nil)
 		return nil
 	})
+}
+
+// saveDetails is details as saved; nil for none.
+func saveDetails(ds []check.Fact) json.RawMessage {
+	if len(ds) == 0 {
+		return nil
+	}
+	b, _ := json.Marshal(ds) //nolint:errchkjson // strings
+	return b
 }

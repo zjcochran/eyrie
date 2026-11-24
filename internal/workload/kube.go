@@ -149,6 +149,7 @@ func (o object) workload(kind string) Workload {
 			return w
 		}
 		w.Up, w.Status = ready(o.Status.NumberReady, o.Status.DesiredNumberScheduled, "ready")
+		w.counted(o.Status.NumberReady, o.Status.DesiredNumberScheduled)
 		return w
 	}
 	want := int64(1) // the API's default
@@ -156,5 +157,6 @@ func (o object) workload(kind string) Workload {
 		want = *o.Spec.Replicas
 	}
 	w.Up, w.Status = ready(o.Status.ReadyReplicas, want, "ready")
+	w.counted(o.Status.ReadyReplicas, want)
 	return w
 }

@@ -86,6 +86,16 @@ with the agent's time if its clock is outside the time window.
 
 The message is the OID and its value: `1.3.6.1.2.1.1.5.0 is switch-1`.
 
+## Its page
+
+![An SNMP monitor's page](../../images/monitor-types/snmp-page-dark.png)
+
+- **At the top**: the value and what it must be, the uptime and the last check.
+- **Value**: everything the last check found: the OID, its value and what it must be.
+- **Chart**: the value, when it is a number (a UPS's charge, a port's status), instead of a response time.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

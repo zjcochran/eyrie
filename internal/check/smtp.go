@@ -111,8 +111,20 @@ func (c *smtpChecker) talk(ctx context.Context) (Result, error) {
 	case "tls":
 		r.Message = "Ready over TLS"
 	}
-	if st, ok := client.TLSConnectionState(); ok && len(st.PeerCertificates) > 0 {
-		r.CertExpires = st.PeerCertificates[0].NotAfter
+	r.Details = []Fact{{"Security", map[string]string{"starttls": "STARTTLS", "tls": "TLS from the start", "none": "None"}[c.s.Security]}}
+	if ok, size := client.Extension("SIZE"); ok && size != "" && size != "0" {
+		if n, err := strconv.Atoi(size); err == nil {
+			r.Details = append(r.Details, Fact{"Largest message", byteSize(n)})
+		}
+	}
+	if ok, auth := client.Extension("AUTH"); ok && auth != "" {
+		r.Details = append(r.Details, Fact{"Sign-in methods", auth})
+	}
+	if st, ok := client.TLSConnectionState(); ok {
+		r.Details = append(r.Details, tlsDetails(&st)...)
+		if len(st.PeerCertificates) > 0 {
+			r.CertExpires = st.PeerCertificates[0].NotAfter
+		}
 	}
 	client.Quit() //nolint:errcheck,gosec // the check is done
 	return r, nil

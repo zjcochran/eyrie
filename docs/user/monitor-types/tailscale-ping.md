@@ -48,6 +48,16 @@ Eyrie runs `tailscale ping --c 1 <node>`; the response time is the one
 The message is what `tailscale` says: `Pong from nas (<its Tailscale IP>) via
 192.0.2.30:41641 in 12ms`.
 
+## Its page
+
+![A Tailscale ping monitor's page](../../images/monitor-types/tailscale-ping-page-dark.png)
+
+- **At the top**: the path (direct or through DERP), the response time, the uptime and the last check.
+- **Node**: everything the last check found: the node, its Tailscale address, and whether the path is direct (with the address it reached) or relayed through a DERP region.
+- **Chart**: the response time `tailscale` reports.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

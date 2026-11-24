@@ -21,3 +21,13 @@ It has no interval, timeout or retries.
 On the monitor's page, type a message (optional) and click **Up** or
 **Down**. The change is a heartbeat like any other: it is notified, shown
 on status pages, and counts in the uptime.
+
+## Its page
+
+![A Manual monitor's page](../../images/monitor-types/manual-page-dark.png)
+
+- **At the top**: the uptime and when it was last set, with its message.
+- **Set the status**: **Up** or **Down**, with a message.
+- **Chart**: none.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).

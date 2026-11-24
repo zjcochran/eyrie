@@ -43,6 +43,16 @@ still followed.
 
 The message is `3 of 3 tasks running`.
 
+## Its page
+
+![A Docker Swarm service monitor's page](../../images/monitor-types/docker-swarm-page-dark.png)
+
+- **At the top**: its tasks and stack, the uptime and the last check.
+- **Service**: everything the last check found: its tasks, name, stack, and the tasks ready and wanted.
+- **Chart**: tasks running.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

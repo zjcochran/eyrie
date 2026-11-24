@@ -137,10 +137,17 @@ func (c *sftpChecker) Check(ctx context.Context) Result {
 	if err != nil {
 		return failErr(connError(ctx, err))
 	}
+	f := []Fact{{"Server", clipText(string(sc.ServerVersion()), 200)}, {"Signed in as", c.s.Username}, {"Host key", *seen}}
 	if c.s.HostKey == "" {
 		msg += "; host key " + *seen
+		f = append(f, Fact{"Host key checked", "No: any key is accepted"})
+	} else {
+		f = append(f, Fact{"Host key checked", "Yes"})
 	}
-	return Result{OK: true, Message: msg, Latency: time.Since(start)}
+	if c.s.Path != "" {
+		f = append(f, Fact{"Path", c.s.Path + " exists"})
+	}
+	return Result{OK: true, Message: msg, Latency: time.Since(start), Details: f}
 }
 
 // SFTP packets (draft-ietf-secsh-filexfer-02, version 3).

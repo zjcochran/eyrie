@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"net/netip"
@@ -17,6 +18,7 @@ import (
 	"os/exec"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -35,6 +37,13 @@ type Result struct {
 	// Storage is what an SNMP storage check read of the whole device:
 	// its volumes, pools, disks and system; nil: none.
 	Storage *StorageDevice
+	// Details are what the check found, by name, for the monitor's page:
+	// a container's state, a game server's players, WAN Drawbridge's ISP.
+	// Never credentials.
+	Details []Fact
+	// Value is the number the check measured, for its chart: a clock's
+	// offset, a game server's players, an SNMP or JSON value; nil: none.
+	Value *float64
 }
 
 func fail(format string, args ...any) Result {
@@ -265,4 +274,13 @@ func host(h string) (string, error) {
 func isIPv6(h string) bool {
 	a, err := netip.ParseAddr(strings.Trim(h, "[]"))
 	return err == nil && a.Is6()
+}
+
+// number is a value read as a number, for a chart; nil when it is not one.
+func number(s string) *float64 {
+	f, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	if err != nil || math.IsNaN(f) || math.IsInf(f, 0) {
+		return nil
+	}
+	return &f
 }

@@ -57,6 +57,16 @@ server's certificate is recorded and shown.
 The message is the status, such as `200 OK`, and the response time shows
 on the monitor's page. **Check now** on the page checks again at once.
 
+## Its page
+
+![An HTTP(S) monitor's page](../../images/monitor-types/http-page-dark.png)
+
+- **At the top**: the response time, the uptime, the last check and the certificate's days left.
+- **Response**: everything the last check found: its status, where redirects ended, the protocol, the content type and size of the body, the server, and for HTTPS the TLS version and whom the certificate is for and from.
+- **Chart**: response time; the certificate's days left.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

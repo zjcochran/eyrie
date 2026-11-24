@@ -41,6 +41,16 @@ Eyrie asks with NTP version 4 over UDP. The response time is the round trip.
 
 The message gives the stratum and the offset: `Stratum 2, offset +1.250 ms`.
 
+## Its page
+
+![An NTP monitor's page](../../images/monitor-types/ntp-page-dark.png)
+
+- **At the top**: the offset and the stratum, the uptime and the last check.
+- **Clock**: everything the last check found: the stratum, the offset, the round trip, what the server's clock follows (a source such as GPS at stratum 1, the upstream server's address below), its root delay and dispersion, and the largest offset allowed.
+- **Chart**: the clock's offset, in milliseconds, instead of a response time.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

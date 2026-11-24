@@ -71,7 +71,7 @@ cleared.
 | `POST /api/agent/v1/report` | `{"version", "platform", "hostname", "error", "workloads": [...]}` | `204`; `400` for more than 10,000 workloads, or a workload with an empty, repeated or over-300-byte key |
 | `POST /api/agent/v1/rotate` | `{"new_key", "ts", "proof"}` | `204`; `400` for a malformed key or a proof that does not verify; `401` if signed with the previous key for a key other than the current one |
 | `POST /api/agent/v1/jobs` | `{}` | `200 {"jobs": [{"id", "monitor", "type", "settings", "timeout_ms", "discover"}]}`: the checks to run, and [discoveries](#discovery) (`"discover": true`), at once when there are some, else after up to 15 seconds with none |
-| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires", "usage", "storage", "found"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped. `usage` (`{"cpu", "memory"}`, in percent, kept from 0 to 100) only from system-resources checks; `storage` (what the check read of its NAS, as in [Discovery](#discovery)) only from snmp-storage checks; `found` only from discoveries |
+| `POST /api/agent/v1/results` | `{"results": [{"id", "ok", "message", "latency_us", "cert_expires", "usage", "storage", "details", "value", "found"}]}` | `204`; `400` for more than 10,000 results. Results for jobs that are not the agent's, or no longer awaited, are dropped. `usage` (`{"cpu", "memory"}`, in percent, kept from 0 to 100) only from system-resources checks; `storage` (what the check read of its NAS, as in [Discovery](#discovery)) only from snmp-storage checks; `details` (`[{"name", "value"}]`, what the check found, the first 20 kept, each name and value cut to 300 bytes) and `value` (the number it measured; dropped when not finite) from checks that have them; `found` only from discoveries |
 
 A workload is `{"key", "name", "kind", "group", "up", "status"}`: `kind`
 is `container`, `service`, `deployment`, `statefulset`, `daemonset`,
@@ -79,7 +79,11 @@ is `container`, `service`, `deployment`, `statefulset`, `daemonset`,
 node; `up` and `status` what the agent decided (see [Docker Swarm
 service](../user/monitor-types/docker-swarm.md), [Kubernetes
 workload](../user/monitor-types/kubernetes.md) and [Proxmox VE
-guest](../user/monitor-types/proxmox.md)). Names, groups and
+guest](../user/monitor-types/proxmox.md)). Swarm services and Kubernetes
+workloads add `ready` and `wanted`, their ready and wanted replicas or
+tasks; Proxmox VE guests add `guest`, `{"cpu", "cores", "memory",
+"max_mem", "disk", "max_disk", "uptime"}` as Proxmox reports them (CPU as
+a share of the cores, sizes in bytes, uptime in seconds). Names, groups and
 statuses are cut to 300 bytes, `error` to 1,000.
 
 ## Enrollment

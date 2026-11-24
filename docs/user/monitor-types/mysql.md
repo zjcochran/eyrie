@@ -51,6 +51,16 @@ it runs without an error.
 
 The message is `Query OK: 1`, `Query OK: a (3 rows)` or `Query OK, no rows`.
 
+## Its page
+
+![A MySQL / MariaDB monitor's page](../../images/monitor-types/mysql-page-dark.png)
+
+- **At the top**: the first value, the response time, the uptime and the last check.
+- **Query**: everything the last check found: the query, how many rows came back and the first value.
+- **Chart**: the query's time, and the first value when it is a number (a `SELECT count(*)` charts the count).
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

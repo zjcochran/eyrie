@@ -167,19 +167,23 @@ func (c *grpcChecker) Check(ctx context.Context) Result {
 		r.Message = "Status " + resp.Status
 		return r
 	}
+	r.Details = append([]Fact{{"Method", c.g.Service + "/" + c.g.Method}}, tlsDetails(resp.TLS)...)
 	if code, text := grpcStatus(resp); code != 0 {
 		name := strconv.Itoa(code)
 		if code < len(grpcCodes) {
 			name = grpcCodes[code]
 		}
 		r.Message = strings.TrimSuffix(name+": "+text, ": ")
+		r.Details = append(r.Details, Fact{"gRPC status", name})
 		return r
 	}
+	r.Details = append(r.Details, Fact{"gRPC status", "OK"})
 	answer, err := c.answer(body)
 	if err != nil {
 		r.Message = sentence(err.Error())
 		return r
 	}
+	r.Details = append(r.Details, Fact{"Answer", clipText(answer, 1000)})
 	r.OK, r.Message = c.keyword(answer)
 	return r
 }

@@ -259,7 +259,8 @@ vision and text size are on a page of their own, **Accessibility**; see
 - **Layout**:
   - **Console** (the default): the pages in a sidebar, the monitors in a
     list (each with its type, a line of its recent response times and the
-    latest) with the chosen one beside it.
+    latest) with the chosen one beside it. Untick **Show a line of each
+    monitor's response times in the list** to leave the lines out.
   - **Bento**: the pages in a bar along the top, and a start page of tiles:
     the fleet's health (a ring of up, down and the rest, the 30-day uptime
     and the checks of each of the last 24 hours), what is down, the agents
@@ -272,9 +273,10 @@ vision and text size are on a page of their own, **Accessibility**; see
     colours, every monitor's response time by the hour for the last 24
     hours, what needs attention and the latest changes.
 
-  A monitor's page, in every layout, has its status, four figures
-  (response time, uptime, last check, certificate), the response-time
-  chart (point at it for the time and value) and its last 24 hours of
+  A monitor's page, in every layout, is made for its type ([A monitor's
+  page](monitors.md#a-monitors-page)): its status, up to four figures,
+  what its last check found, its chart (point at it for the time and
+  value), its outages of the last 30 days and its last 24 hours of
   changes; with its uptime for each of the last 90 days in Console and
   Bento, and where it is checked from and what else is down in Aurora.
 - **Colours**: three schemes for each layout. Every layout has **Ash**

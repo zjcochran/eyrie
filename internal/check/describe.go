@@ -14,7 +14,8 @@ import (
 // Fact is one setting of a monitor, named for people: {"URL",
 // "https://shop.example.com/health"}.
 type Fact struct {
-	Name, Value string
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // Describe lists the settings of a monitor that may be shown outside

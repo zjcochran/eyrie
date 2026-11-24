@@ -209,13 +209,17 @@ func (c *radiusChecker) answer(pkt, auth []byte) Result {
 	if len(reply) > 0 {
 		msg = ": " + strings.Join(reply, " ")
 	}
+	f := []Fact{{"Answer", radiusCodes[pkt[0]]}, {"User", c.r.Username}}
+	if len(reply) > 0 {
+		f = append(f, Fact{"Reply-Message", clipText(strings.Join(reply, " "), 300)})
+	}
 	switch pkt[0] {
 	case radAccessAccept:
-		return Result{OK: true, Message: "Access-Accept" + msg}
+		return Result{OK: true, Message: "Access-Accept" + msg, Details: f}
 	case radAccessReject:
-		return Result{Message: "Access-Reject" + msg}
+		return Result{Message: "Access-Reject" + msg, Details: f}
 	case radAccessChallenge:
-		return Result{Message: "Access-Challenge: the server asks for more than a password" + msg}
+		return Result{Message: "Access-Challenge: the server asks for more than a password" + msg, Details: f}
 	}
 	return Result{Message: fmt.Sprintf("Unexpected RADIUS code %d", pkt[0])}
 }
@@ -233,3 +237,6 @@ func (c *radiusChecker) messageAuthOK(pkt, auth []byte, off int) bool {
 	mac.Write(cp)
 	return hmac.Equal(mac.Sum(nil), got)
 }
+
+// radiusCodes name the answers to an Access-Request.
+var radiusCodes = map[byte]string{radAccessAccept: "Access-Accept", radAccessReject: "Access-Reject", radAccessChallenge: "Access-Challenge"}

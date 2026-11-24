@@ -38,6 +38,10 @@ describe('appearance', () => {
     assert.equal(b.vision, 'typical');
     assert.equal(b.text_size, 100);
   });
+  it('shows the lines in the list unless they were turned off', () => {
+    assert.equal(normalize({}).sparklines, true);
+    assert.equal(normalize({ sparklines: false }).sparklines, false);
+  });
   it('keeps the scheme across layouts only where it exists', () => {
     assert.equal(withLayout({ ...defaultAppearance, mode: 'day' }, 'aurora').scheme, 'ash');
     const dusk = withLayout({ ...defaultAppearance, scheme: 'dusk', mode: 'day', vision: 'monochrome' }, 'bento');

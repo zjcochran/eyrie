@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -219,5 +220,17 @@ func TestDiscover(t *testing.T) {
 		case c.err != "" && (got.err == nil || got.err.Error() != c.err):
 			t.Errorf("%+v: %v", c.result, got.err)
 		}
+	}
+}
+
+func TestToCheckDetails(t *testing.T) {
+	v, nan := 3.5, math.NaN()
+	res := toCheck(agentauth.Result{OK: true, LatencyUS: -1, Value: &v,
+		Details: []agentauth.Detail{{Name: "Players", Value: strings.Repeat("x", 400)}}})
+	if res.Value == nil || *res.Value != 3.5 || len(res.Details) != 1 || len(res.Details[0].Value) > 304 {
+		t.Errorf("result %+v", res)
+	}
+	if res := toCheck(agentauth.Result{Value: &nan}); res.Value != nil {
+		t.Errorf("NaN kept: %+v", res)
 	}
 }

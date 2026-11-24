@@ -99,11 +99,14 @@ func (c *rabbitChecker) node(ctx context.Context, base string) (Result, error) {
 		Reason string `json:"reason"`
 	}
 	json.Unmarshal(body, &health) //nolint:errcheck,gosec // the status code says enough without it
+	r.Details = []Fact{{"Node", publicURL(base)}}
 	switch {
 	case resp.StatusCode == http.StatusOK:
 		r.OK, r.Message = true, "No alarms on "+publicURL(base)
+		r.Details = append(r.Details, Fact{"Alarms", "None"})
 	case resp.StatusCode == http.StatusServiceUnavailable && health.Reason != "":
 		r.Message = sentence(health.Reason)
+		r.Details = append(r.Details, Fact{"Alarms", clipText(sentence(health.Reason), 300)})
 	case resp.StatusCode == http.StatusUnauthorized:
 		r.Message = "Wrong user name or password"
 	default:

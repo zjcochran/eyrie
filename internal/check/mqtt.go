@@ -189,7 +189,11 @@ func (c *mqttChecker) Check(ctx context.Context) Result {
 	}
 	conn.Write(mqttPacket(mqttDisconnect, 0, nil)) //nolint:errcheck,gosec // leaving anyway
 	res := c.evaluate(payload)
-	res.Latency, res.CertExpires = time.Since(start), certExpires
+	res.CertExpires = certExpires
+	// The time is how long the message took to come: not a response time.
+	res.Latency = -1
+	res.Details = append([]Fact{{"Topic", m.Topic}, {"Message", clipText(string(payload), 1000)},
+		{"Waited", ms(time.Since(start))}}, res.Details...)
 	return res
 }
 
@@ -272,10 +276,11 @@ func (c *mqttChecker) evaluate(payload []byte) Result {
 			return Result{Message: sentence(err.Error())}
 		}
 		msg := fmt.Sprintf("%s is %s", m.JSONPath, got)
+		f := []Fact{{"Value", clipText(got, 300)}, {"Expected", m.Operator + " " + m.Expected}}
 		if !compare(got, m.Operator, m.Expected) {
-			return Result{Message: msg + ", not " + m.Operator + " " + m.Expected}
+			return Result{Message: msg + ", not " + m.Operator + " " + m.Expected, Details: f, Value: number(got)}
 		}
-		return Result{OK: true, Message: msg}
+		return Result{OK: true, Message: msg, Details: f, Value: number(got)}
 	}
 	if m.Keyword == "" || strings.Contains(string(payload), m.Keyword) {
 		return Result{OK: true, Message: "Message: " + snippet(payload)}

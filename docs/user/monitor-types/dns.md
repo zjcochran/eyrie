@@ -47,6 +47,16 @@ The query goes over UDP, and again over TCP when the answer is truncated.
 The message lists the records: `A 192.0.2.10, 192.0.2.11`, or
 `MX 10 mail.example.com`.
 
+## Its page
+
+![A DNS monitor's page](../../images/monitor-types/dns-page-dark.png)
+
+- **At the top**: the server asked, the response time, the uptime and the last check.
+- **Answer**: everything the last check found: the server asked, what it was asked for, every record it answered, and what one must contain.
+- **Chart**: the server's response time.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

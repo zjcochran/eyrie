@@ -63,6 +63,16 @@ A password, a private key or both are required.
 The message is `Signed in, SFTP version 3; /upload exists`, with `; host
 key SHA256:…` while no fingerprint is set.
 
+## Its page
+
+![An SFTP monitor's page](../../images/monitor-types/sftp-page-dark.png)
+
+- **At the top**: whether the host key is checked, the response time, the uptime and the last check.
+- **Server**: everything the last check found: the server's SSH version, the user, the host key's fingerprint, whether it is checked, and the path.
+- **Chart**: the time to sign in.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

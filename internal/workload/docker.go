@@ -233,6 +233,7 @@ func (s Swarm) List(ctx context.Context) ([]Workload, error) {
 		w := Workload{Key: "service/" + v.Spec.Name, Name: v.Spec.Name, Kind: "service", Group: v.Spec.Labels[labelStack]}
 		if st := v.ServiceStatus; st != nil {
 			w.Up, w.Status = ready(st.RunningTasks, st.DesiredTasks, "tasks running")
+			w.counted(st.RunningTasks, st.DesiredTasks)
 		} else {
 			w.Status = "Unknown: Docker gave no task counts"
 		}

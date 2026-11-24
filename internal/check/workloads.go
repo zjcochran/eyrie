@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/zjcochran/eyrie/internal/workload"
 	"regexp"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // The types of a platform's workloads (Swarm services, Kubernetes
@@ -127,7 +129,7 @@ func (c *workloadChecker) Check(ctx context.Context) Result {
 	}
 	for _, w := range ws {
 		if slices.Contains(c.keys, w.Key) {
-			return Result{OK: w.Up, Message: w.Status, Latency: -1}
+			return Result{OK: w.Up, Message: w.Status, Latency: -1, Details: workloadDetails(w), Value: readyValue(w)}
 		}
 	}
 	return fail("%s", c.missing)
@@ -149,4 +151,62 @@ func WorkloadKeys(typ string, saved json.RawMessage) []string {
 		return v.keys()
 	}
 	return nil
+}
+
+// workloadDetails are what the agent reported of a workload.
+func workloadDetails(w workload.Workload) []Fact {
+	f := []Fact{{"State", w.Status}, {"Name", w.Name}}
+	if w.Group != "" {
+		group := "Namespace"
+		switch w.Kind {
+		case "service":
+			group = "Stack"
+		case "lxc", "vm":
+			group = "Node"
+		case "container":
+			group = "Compose project"
+		}
+		f = append(f, Fact{group, w.Group})
+	}
+	if w.Ready != nil && w.Wanted != nil {
+		f = append(f, Fact{"Ready", strconv.FormatInt(*w.Ready, 10)}, Fact{"Wanted", strconv.FormatInt(*w.Wanted, 10)})
+	}
+	if g := w.Guest; g != nil {
+		f = append(f, Fact{"Kind", map[string]string{"lxc": "LXC container", "vm": "VM"}[w.Kind]})
+		if g.Uptime > 0 {
+			f = append(f, Fact{"Up for", (time.Duration(g.Uptime) * time.Second).String()},
+				Fact{"CPU", fmt.Sprintf("%.1f%% of %g cores", g.CPU*100, g.Cores)})
+		}
+		if g.MaxMem > 0 {
+			f = append(f, Fact{"Memory", fmt.Sprintf("%s of %s", byteSize64(g.Memory), byteSize64(g.MaxMem))})
+		}
+		if g.MaxDisk > 0 && g.Disk > 0 {
+			f = append(f, Fact{"Disk", fmt.Sprintf("%s of %s", byteSize64(g.Disk), byteSize64(g.MaxDisk))})
+		}
+	}
+	return f
+}
+
+// readyValue is how many replicas or tasks are ready, for the chart; nil
+// for a guest.
+func readyValue(w workload.Workload) *float64 {
+	if w.Ready == nil {
+		return nil
+	}
+	v := float64(*w.Ready)
+	return &v
+}
+
+// byteSize64 is a size in bytes as people read it, in binary units.
+func byteSize64(n int64) string {
+	const unit = 1 << 10
+	if n < unit {
+		return fmt.Sprintf("%d bytes", n)
+	}
+	v, i := float64(n), -1
+	for v >= unit && i < 4 {
+		v /= unit
+		i++
+	}
+	return fmt.Sprintf("%.1f %ciB", v, "KMGTP"[i])
 }

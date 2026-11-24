@@ -281,6 +281,11 @@ func (c *snmpChecker) Check(ctx context.Context) Result {
 		return r
 	}
 	r.Message = fmt.Sprintf("%s is %s", c.s.OID, value)
+	r.Details = []Fact{{"OID", c.s.OID}, {"Value", clipText(value, 300)}}
+	if c.s.Expected != "" {
+		r.Details = append(r.Details, Fact{"Expected", c.s.Operator + " " + c.s.Expected})
+	}
+	r.Value = number(value)
 	r.OK = c.s.Expected == "" || compare(value, c.s.Operator, c.s.Expected)
 	if !r.OK {
 		r.Message += fmt.Sprintf(", not %s %s", c.s.Operator, c.s.Expected)

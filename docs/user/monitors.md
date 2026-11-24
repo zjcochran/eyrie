@@ -105,19 +105,50 @@ place. Its own history, tags and badges go.
 
 ## A monitor's page
 
-Click a monitor for its page:
+Click a monitor for its page. Each type's page is made for what it
+watches: a container's page shows the container, a game server's its
+players, a WAN Drawbridge monitor the internet connection and its
+failovers. Every page has:
 
-- its tags, and the group it is in;
-- its status and since when (in maintenance, the window's title), the last
-  check and its message;
-- the last and the 24-hour average response time (for [system
-  resources](monitor-types/system-resources.md), the last CPU and memory use instead);
-- uptime over 24 hours, 30 days and 1 year;
-- for HTTPS monitors, how many days the server's certificate has left;
-- a response time chart for 24 hours (every check), 7 or 30 days (hourly
-  averages), with down periods marked in red (for system resources, a CPU
-  and a memory chart instead);
-- the status changes of the last 24 hours.
+- its type, interval, agent, tags and group, and its status and since
+  when, in the type's words (WAN Drawbridge: **On primary** and **Failed
+  over**; Docker container, Proxmox VE guest and System service:
+  **Running** and **Not running**; PM2 process: **Online** and **Not
+  online**; in maintenance, the window's title);
+- at most four figures at the top: the most telling things the last check
+  found (a container's state and health; an NTP server's offset and
+  stratum; the ISP Drawbridge is on and its public IP), the response time
+  where it means something, the uptime over 24 hours, 30 days and 1 year,
+  the last check with its message, and the certificate's days left;
+- **what the last check found**, in a card named for it (Container,
+  Internet connection, Clock, Response…): everything the check read, such
+  as an HTTP response's status, protocol, redirect, server and
+  certificate, or a DNS server's records. Each type's guide under [Monitor
+  types](monitor-types/README.md) says what its check finds;
+- the **outages of the last 30 days** (for WAN Drawbridge, its failovers),
+  each with when it began and ended and how long it lasted, and their
+  number and total time;
+- uptime for each of the last 90 days, and the status changes of the last
+  24 hours.
+
+What else a page shows depends on its type:
+
+| Shown | Types |
+| --- | --- |
+| The last and 24-hour average response time, and a response time chart | Types whose response time says how the thing answers: the HTTP(S) types, ping, TCP port, DNS, WebSocket, SMTP, RADIUS, SIP, Tailscale, Globalping, SFTP, game servers, gRPC, the databases, Redis, RabbitMQ, Kafka, and push monitors whose jobs send `ping` |
+| A chart of the value it measures, first, above any response time chart | NTP (the clock's offset, in ms), Steam and game servers (players), SNMP, HTTP(S) JSON query, MongoDB and MQTT (the value, when it is a number), the SQL databases (the first value, when it is a number), Docker Swarm services (tasks running), Kubernetes workloads (ready replicas), PM2 processes (memory, in MiB) |
+| How many days the certificate has left | The HTTP(S) types always; others once a check has seen a certificate (`wss://`, SMTP with TLS, gRPC with TLS, `rediss://`…) |
+| CPU and memory charts | System resources |
+| The NAS's volumes, disks and health | [SNMP storage](monitor-types/snmp-storage.md) |
+| The push URL and when the next push is due, or the buttons to set the status | Push, Manual |
+
+The other types (a Docker container, a Swarm service or Kubernetes
+workload without a value yet, a Proxmox VE guest, a system service, WAN
+Drawbridge) have no response time chart: how long Eyrie took to ask says
+nothing about them.
+
+Charts cover 24 hours (every check), 7 or 30 days (hourly averages), with
+down periods marked in red.
 
 Response times are kept to the microsecond and shown with decimals under
 10 ms (`0.51 ms`, `3.2 ms`), so a fast check on the local network does
@@ -126,9 +157,9 @@ not read as 0 ms.
 Admins also get **Check now**, **Pause** or **Resume**, **Edit** and
 **Delete** (which also deletes the monitor's history).
 
-![A monitor's page: its status, response times, uptime, response time chart and status changes](../images/monitor.png)
+![An HTTP(S) monitor's page: its response time, uptime, last check and certificate, what the response said, its response time chart and outages](../images/monitor.png)
 
-![A monitor that is down, with the down period marked in red on its chart](../images/monitor-down-dark.png)
+![A Docker container that is not running: its state, what Docker says of it, and the times it was not running in the last 30 days](../images/monitor-down-dark.png)
 
 ## Adding a monitor
 

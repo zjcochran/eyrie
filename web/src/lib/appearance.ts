@@ -18,6 +18,8 @@ export interface Appearance {
   vision: Vision;
   /** The text size, in percent. */
   text_size: number;
+  /** A line of each monitor's response times in the list (Console). */
+  sparklines: boolean;
 }
 
 /** A new user's, and the signed-out pages'. */
@@ -28,6 +30,7 @@ export const defaultAppearance: Appearance = {
   accessible: false,
   vision: 'typical',
   text_size: 100,
+  sparklines: true,
 };
 
 export interface Scheme {
@@ -92,7 +95,7 @@ export function normalize(a: Partial<Appearance> | undefined): Appearance {
   const mode = modes.find((m) => m.id === a?.mode)?.id ?? defaultAppearance.mode;
   const vision = visions.find((v) => v.id === a?.vision)?.id ?? defaultAppearance.vision;
   const size = textSizes.find((t) => t === a?.text_size) ?? defaultAppearance.text_size;
-  return { layout, scheme, mode, accessible: a?.accessible === true, vision, text_size: size };
+  return { layout, scheme, mode, accessible: a?.accessible === true, vision, text_size: size, sparklines: a?.sparklines !== false };
 }
 
 /** Another layout, keeping the scheme where it has one of that name. */

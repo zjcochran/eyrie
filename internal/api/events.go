@@ -39,7 +39,11 @@ func (h *hub) publish(kind string, data any) {
 }
 
 // Publish sends a heartbeat from the engine to listeners.
-func (s *Server) Publish(ev engine.Event) { s.hub.publish("beat", viewBeat(ev.Beat)) }
+func (s *Server) Publish(ev engine.Event) {
+	v := viewBeat(ev.Beat)
+	v.Details = ev.Details
+	s.hub.publish("beat", v)
+}
 
 // keepalive is how often an idle stream gets a comment, so proxies keep it
 // open.

@@ -58,7 +58,13 @@ type drawbridgeStatus struct {
 	PrimaryISP *struct {
 		Name string `json:"name"`
 	} `json:"primary_isp"`
+	PublicIP          string     `json:"public_ip"`
+	LastCheck         *time.Time `json:"last_check"`
+	Due               *time.Time `json:"due"`
+	Paused            bool       `json:"paused"`
 	FailoverTestUntil *time.Time `json:"failover_test_until"`
+	Stopped           []string   `json:"stopped"`
+	Version           string     `json:"version"`
 }
 
 func (c *drawbridgeChecker) Check(ctx context.Context) Result {
@@ -109,12 +115,52 @@ func (c *drawbridgeChecker) result(s drawbridgeStatus, latency time.Duration) Re
 		msg += " since " + s.Since.UTC().Format("2006-01-02 15:04 UTC")
 	}
 	failedOver := s.State == "failover" || s.State == "failback_pending"
-	if failedOver && s.FailoverTestUntil != nil {
-		return Result{OK: true, Latency: latency,
-			Message: fmt.Sprintf("%s (a failover test, until %s)", msg, s.FailoverTestUntil.UTC().Format("15:04 UTC"))}
+	r := Result{OK: !failedOver, Latency: latency, Details: s.details(label)}
+	switch {
+	case failedOver && s.FailoverTestUntil != nil:
+		r.OK, r.Message = true, fmt.Sprintf("%s (a failover test, until %s)", msg, s.FailoverTestUntil.UTC().Format("15:04 UTC"))
+	case failedOver && s.PrimaryISP != nil && s.PrimaryISP.Name != "":
+		r.Message = msg + " (primary: " + s.PrimaryISP.Name + ")"
+	default:
+		r.Message = msg
 	}
-	if failedOver && s.PrimaryISP != nil && s.PrimaryISP.Name != "" {
-		msg += " (primary: " + s.PrimaryISP.Name + ")"
+	return r
+}
+
+// details are Drawbridge's status, for the monitor's page. Times are
+// RFC 3339, for the page to show in the reader's time zone.
+func (s drawbridgeStatus) details(label string) []Fact {
+	f := []Fact{{"State", label}}
+	add := func(name, v string) {
+		if v != "" {
+			f = append(f, Fact{name, v})
+		}
 	}
-	return Result{OK: !failedOver, Message: msg, Latency: latency}
+	at := func(t *time.Time) string {
+		if t == nil || t.IsZero() {
+			return ""
+		}
+		return t.UTC().Format(time.RFC3339)
+	}
+	if s.CurrentISP != nil {
+		add("ISP in use", s.CurrentISP.Name)
+	}
+	if s.PrimaryISP != nil {
+		add("Primary ISP", s.PrimaryISP.Name)
+	}
+	if !s.Since.IsZero() {
+		add("Since", s.Since.UTC().Format(time.RFC3339))
+	}
+	add("Due", at(s.Due))
+	add("Failover test until", at(s.FailoverTestUntil))
+	add("Public IP", s.PublicIP)
+	if s.Paused {
+		add("Automation", "Paused")
+	}
+	if len(s.Stopped) > 0 {
+		add("Stopped containers", strings.Join(s.Stopped, ", "))
+	}
+	add("Last WAN check", at(s.LastCheck))
+	add("Drawbridge version", s.Version)
+	return f
 }

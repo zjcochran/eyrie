@@ -4,10 +4,11 @@
   import Notice from '../components/Notice.svelte';
   import StoragePanel from '../components/StoragePanel.svelte';
   import TagChip from '../components/TagChip.svelte';
-  import { type Beat, type Count, type Monitor, message } from '../lib/api.ts';
+  import { type Beat, type Count, type Monitor, type Status, message } from '../lib/api.ts';
   import { normalize } from '../lib/appearance.ts';
   import { band, dayOf, lastDays } from '../lib/bento.ts';
   import { ago, daysUntil, duration, millis, percent, type Point } from '../lib/format.ts';
+  import { detailText, figures, isTimeValue, lasted, outageLength, outages, pageOf, statusWord } from '../lib/pages.ts';
   import { live, onBeat } from '../lib/live.svelte.ts';
   import { go, link } from '../lib/nav.svelte.ts';
   import { api, app } from '../lib/session.svelte.ts';
@@ -22,6 +23,12 @@
   // A system-resources monitor's CPU and memory use, in percent.
   let cpuPoints = $state<Point[]>([]);
   let memoryPoints = $state<Point[]>([]);
+  // The number the type's checks measure, for its chart.
+  let valuePoints = $state<Point[]>([]);
+  // The status changes of the last 30 days, newest first, for the outages.
+  let changes30 = $state<Beat[]>([]);
+  // The type's name as people read it, such as "WAN Drawbridge".
+  let typeLabel = $state('');
   const pct = (v: number) => `${Math.round(v)}%`;
   let notice = $state<{ ok: boolean; text: string } | null>(null);
   let busy = $state(false);
@@ -44,7 +51,25 @@
   const ninety = $derived(lastDays(90, now));
   // Other monitors that are down, for Aurora's "elsewhere".
   const elsewhere = $derived(live.monitors.filter((x) => x.id !== id && x.active && x.status.status === 'down'));
-  const label = (st: string) => st.charAt(0).toUpperCase() + st.slice(1);
+  // What this type's page shows, and its words for the statuses.
+  const page = $derived(pageOf(monitor?.type ?? ''));
+  const label = (st: Status) => statusWord(page, st);
+  const valueFormat = (v: number) => {
+    const unit = page.value?.unit ? ` ${page.value.unit}` : '';
+    return `${Math.abs(v) >= 100 || Number.isInteger(v) ? Math.round(v) : v.toFixed(Math.abs(v) >= 10 ? 1 : 2)}${unit}`;
+  };
+  const down30 = $derived(outages(changes30));
+  const downTime = $derived(down30.reduce((sum, o) => sum + outageLength(o, now), 0));
+  const hasValue = $derived(!!page.value && valuePoints.some((p) => p.v !== null));
+  const showCert = $derived(!!monitor && (page.cert || !!monitor.status.cert_expires));
+  // A push has a response time only when its job reports one.
+  const showLatency = $derived(page.latency && (monitor?.type !== 'push' || points.some((p) => p.v !== null)));
+  const push = $derived(monitor?.type === 'push');
+  // The figures that fit beside the other tiles, four in all.
+  const others = $derived((showLatency ? 1 : 0) + (resources ? 2 : 1) + 1 + (showCert ? 1 : 0) + (push ? 1 : 0));
+  const tops = $derived(figures(page, monitor?.status.details ?? []).slice(0, Math.max(0, 4 - others)));
+  // When a push monitor's next push is due: a missing one makes it go down.
+  const dueBy = $derived(monitor && push && monitor.status.last_check ? Date.parse(monitor.status.last_check) + monitor.interval * 1000 : null);
 
   async function load() {
     try {
@@ -52,6 +77,9 @@
       beats = await api.heartbeats(id, new Date(Date.now() - 86400000));
       await loadChart();
       api.history(90, id).then((h) => (daily = h.days.find((d) => d.monitor_id === id)?.days ?? []), () => {});
+      api.changes(id, new Date(Date.now() - 30 * 86400000)).then((c) => (changes30 = c), () => {});
+      const type = monitor.type;
+      api.monitorTypes().then((ts) => (typeLabel = ts.find((t) => t.name === type)?.label ?? ''), () => {});
     } catch (e) {
       notice = { ok: false, text: message(e) };
     }
@@ -64,12 +92,14 @@
       points = old.map((b) => ({ t: Date.parse(b.at), v: b.latency_ms, down: b.status === 'down' }));
       cpuPoints = old.map((b) => ({ t: Date.parse(b.at), v: b.usage?.cpu ?? null, down: b.status === 'down' }));
       memoryPoints = old.map((b) => ({ t: Date.parse(b.at), v: b.usage?.memory ?? null, down: b.status === 'down' }));
+      valuePoints = old.map((b) => ({ t: Date.parse(b.at), v: b.value ?? null, down: b.status === 'down' }));
       return;
     }
     const hours = await api.hours(id, days[period]);
     points = hours.map((h) => ({ t: Date.parse(h.start), v: h.avg_latency_ms, down: h.down > 0 }));
     cpuPoints = hours.map((h) => ({ t: Date.parse(h.start), v: h.avg_usage?.cpu ?? null, down: h.down > 0 }));
     memoryPoints = hours.map((h) => ({ t: Date.parse(h.start), v: h.avg_usage?.memory ?? null, down: h.down > 0 }));
+    valuePoints = hours.map((h) => ({ t: Date.parse(h.start), v: h.avg_value ?? null, down: h.down > 0 }));
   }
 
   $effect(() => {
@@ -88,6 +118,7 @@
         if (notice?.ok) notice = null;
       }
       beats = [b, ...beats];
+      if (b.important) changes30 = [b, ...changes30];
       checks++;
       if (b.important && (b.status === 'maintenance') !== (monitor.status.status === 'maintenance')) {
         api.monitor(id).then((m) => (monitor = m), () => {});
@@ -99,6 +130,7 @@
         last_check: b.at,
         latency_ms: b.latency_ms,
         usage: b.usage,
+        details: b.details ?? monitor.status.details,
         since: b.important ? b.at : monitor.status.since,
         checking: false,
       };
@@ -109,6 +141,7 @@
         points = [...points, { t, v: b.latency_ms, down }];
         cpuPoints = [...cpuPoints, { t, v: b.usage?.cpu ?? null, down }];
         memoryPoints = [...memoryPoints, { t, v: b.usage?.memory ?? null, down }];
+        valuePoints = [...valuePoints, { t, v: b.value ?? null, down }];
       }
     }),
   );
@@ -177,6 +210,7 @@
 {#if monitor}
   {@const m = monitor}
   {@const group = live.groups.find((g) => g.id === m.group_id)}
+  {@const found = m.status.details ?? []}
   <div class="head">
     <div class="who">
       <span class="badge {m.active ? m.status.status : 'paused'}" aria-hidden="true">
@@ -186,7 +220,7 @@
       </span>
       <div class="titles">
         <div class="crumbs mono">
-          {m.type} · every {duration(m.interval)}
+          {typeLabel || m.type}{m.type === 'manual' ? '' : ` · every ${duration(m.interval)}`}
           {#if m.agent_id}· on {m.agent_name ? `agent ${m.agent_name}` : 'a removed agent'}{/if}
           {#if group}· in <a href="/groups/{group.id}" onclick={link}>{group.name}</a>{/if}
         </div>
@@ -221,18 +255,36 @@
     {#if resources}
       <div class="card kpi"><span class="k">CPU</span><span class="v">{m.status.usage ? `${m.status.usage.cpu.toFixed(1)}%` : '–'}</span><span class="s muted">now</span></div>
       <div class="card kpi"><span class="k">Memory</span><span class="v">{m.status.usage ? `${m.status.usage.memory.toFixed(1)}%` : '–'}</span><span class="s muted">now</span></div>
-    {:else if nas}
+    {/if}
+    {#if push}
       <div class="card kpi">
-        <span class="k">Uptime, 24 hours</span><span class="v">{percent(m.uptime['24h'])}</span>
-        <span class="s muted">30 d {percent(m.uptime['30d'])} · 1 y {percent(m.uptime['1y'])}</span>
+        <span class="k">Next push due</span>
+        {#if dueBy}
+          <span class="v text">{dueBy > now ? `in ${lasted(dueBy - now)}` : `${lasted(now - dueBy)} late`}</span><span class="s muted">{new Date(dueBy).toLocaleString()}</span>
+        {:else}
+          <span class="v">—</span><span class="s muted">no push yet</span>
+        {/if}
       </div>
-    {:else}
+    {/if}
+    {#each tops as f (f.name)}
+      <div class="card kpi">
+        <span class="k">{f.name}</span>
+        {#if isTimeValue(f.value)}
+          <span class="v text">{ago(f.value, now)}</span><span class="s muted">{detailText(f.value)}</span>
+        {:else}
+          <span class="v text" title={f.value}>{f.value}</span>
+        {/if}
+      </div>
+    {/each}
+    {#if showLatency}
       <div class="card kpi">
         <span class="k">Response</span><span class="v">{m.status.status === 'down' ? '—' : millis(m.status.latency_ms)}</span>
         <span class="s muted">24 h average {millis(m.uptime.avg_latency_24h_ms)}</span>
       </div>
+    {/if}
+    {#if !resources}
       <div class="card kpi">
-        <span class="k">Uptime, 24 hours</span><span class="v">{percent(m.uptime['24h'])}</span>
+        <span class="k">{page.uptime}, 24 hours</span><span class="v">{percent(m.uptime['24h'])}</span>
         <span class="s muted">30 d {percent(m.uptime['30d'])} · 1 y {percent(m.uptime['1y'])}</span>
       </div>
     {/if}
@@ -240,7 +292,7 @@
       <span class="k">Last check</span><span class="v">{ago(m.status.last_check, now)}</span>
       <span class="s" class:bad={m.status.status === 'down'} class:muted={m.status.status !== 'down'}>{m.status.message || '–'}</span>
     </div>
-    {#if !nas}<div class="card kpi">
+    {#if showCert}<div class="card kpi">
       <span class="k">Certificate</span>
       {#if m.status.cert_expires}
         {@const d = daysUntil(m.status.cert_expires, now)}
@@ -281,11 +333,20 @@
     </section>
   {/if}
 
+  {#if found.length && !nas}
+    <section class="card">
+      <h2>{page.found}</h2>
+      <dl class="found">
+        {#each found as f, i (i)}<dt>{f.name}</dt><dd class:multi={f.value.includes('\n')}>{detailText(f.value)}</dd>{/each}
+      </dl>
+    </section>
+  {/if}
+
   {#if nas}
     <StoragePanel {id} settings={m.settings} version={checks} ignore={admin && !busy ? ignoreSpace : undefined} />
-  {:else}<section class="card">
+  {:else if resources || showLatency || hasValue}<section class="card">
     <div class="row between">
-      <h2>{resources ? 'CPU' : 'Response time'}</h2>
+      <h2>{resources ? 'CPU' : hasValue ? page.value?.title : 'Response time'}</h2>
       <div class="row" role="group" aria-label="Period">
         {#each periods as p (p)}
           <button
@@ -300,6 +361,8 @@
     </div>
     {#if resources}
       <Chart points={cpuPoints} {from} to={now} label="CPU use" format={pct} top={100} empty="No CPU use in this period." />
+    {:else if hasValue}
+      <Chart points={valuePoints} {from} to={now} label={page.value?.title} format={valueFormat} empty="No values in this period." />
     {:else}
       <Chart {points} {from} to={now} />
     {/if}
@@ -309,6 +372,11 @@
     <section class="card">
       <h2>Memory</h2>
       <Chart points={memoryPoints} {from} to={now} label="Memory use" format={pct} top={100} empty="No memory use in this period." />
+    </section>
+  {:else if hasValue && showLatency}
+    <section class="card">
+      <h2>Response time</h2>
+      <Chart {points} {from} to={now} />
     </section>
   {/if}
 
@@ -323,7 +391,7 @@
               >every {duration(m.interval)}</span
             ></span
           >
-          {#if !nas}<span class="mono">{millis(m.status.latency_ms)}</span>{/if}
+          {#if showLatency}<span class="mono">{millis(m.status.latency_ms)}</span>{/if}
         </div>
       </section>
       <section class="card">
@@ -338,7 +406,7 @@
       </section>
     {:else}
       <section class="card">
-        <div class="row between"><h2>Uptime, 90 days</h2><span class="mono muted">{percent(m.uptime['30d'])} 30 d</span></div>
+        <div class="row between"><h2>{page.uptime}, 90 days</h2><span class="mono muted">{percent(m.uptime['30d'])} 30 d</span></div>
         <div class="days" aria-hidden="true">
           {#each ninety as d (d)}<span class="day {band(dayOf(daily, d))}" title={new Date(d).toLocaleDateString(undefined, { timeZone: 'UTC' })}></span>{/each}
         </div>
@@ -346,21 +414,39 @@
       </section>
     {/if}
     <section class="card">
-      <h2>Timeline, last 24 hours</h2>
-      {#each changes as b (b.at + b.status)}
+      <div class="row between">
+        <h2>{page.outages}, 30 days</h2>
+        <span class="mono muted">{down30.length ? `${down30.length} · ${lasted(downTime)}` : ''}</span>
+      </div>
+      {#each down30.slice(0, 8) as o (o.from)}
         <div class="event">
-          <span class="icon {b.status}">{b.status === 'up' ? '✓' : b.status === 'down' ? '!' : '•'}</span>
+          <span class="icon down">!</span>
           <span class="grow"
-            ><span class="strong">{label(b.status)}{b.message ? `: ${b.message}` : ''}</span><span class="muted block small"
-              >{new Date(b.at).toLocaleString()}</span
+            ><span class="strong">{o.message || page.outage}</span><span class="muted block small"
+              >{new Date(o.from).toLocaleString()} – {o.to ? new Date(o.to).toLocaleString() : 'now'} · {lasted(outageLength(o, now))}</span
             ></span
           >
         </div>
       {:else}
-        <p class="muted">No changes.</p>
+        <p class="muted">None in the last 30 days.</p>
       {/each}
     </section>
   </div>
+  <section class="card">
+    <h2>Timeline, last 24 hours</h2>
+    {#each changes as b (b.at + b.status)}
+      <div class="event">
+        <span class="icon {b.status}">{b.status === 'up' ? '✓' : b.status === 'down' ? '!' : '•'}</span>
+        <span class="grow"
+          ><span class="strong">{label(b.status)}{b.message ? `: ${b.message}` : ''}</span><span class="muted block small"
+            >{new Date(b.at).toLocaleString()}</span
+          ></span
+        >
+      </div>
+    {:else}
+      <p class="muted">No changes.</p>
+    {/each}
+  </section>
 {:else if !notice}
   <p class="muted">Loading…</p>
 {/if}
@@ -459,6 +545,41 @@
     grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
     gap: 0.75rem;
     margin-bottom: 1rem;
+  }
+  /* A figure that is words, such as an ISP's name: smaller, and it wraps. */
+  .v.text {
+    font-family: inherit;
+    font-size: 1.15rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .found {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.45rem 1.25rem;
+    margin: 0;
+  }
+  .found dt {
+    color: var(--muted);
+  }
+  .found dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .found dd.multi {
+    white-space: pre-line;
+    font-family: var(--mono, ui-monospace, monospace);
+    font-size: 0.9rem;
+  }
+  @media (max-width: 560px) {
+    .found {
+      grid-template-columns: 1fr;
+      gap: 0.1rem;
+    }
+    .found dd {
+      margin-bottom: 0.5rem;
+    }
   }
   .kpi {
     display: flex;

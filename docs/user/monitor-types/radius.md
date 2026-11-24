@@ -60,6 +60,16 @@ and the answer's authenticators are checked.
 The message is `Access-Accept`, with the server's Reply-Message if it
 sends one.
 
+## Its page
+
+![A RADIUS monitor's page](../../images/monitor-types/radius-page-dark.png)
+
+- **At the top**: the server's answer, the response time, the uptime and the last check.
+- **Sign-in**: everything the last check found: the server's answer, the user, and its Reply-Message.
+- **Chart**: response time.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

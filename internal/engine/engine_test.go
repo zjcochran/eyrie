@@ -600,19 +600,16 @@ func TestAgentMonitors(t *testing.T) {
 	}
 
 	h = newHarness(t)
+	players := 5.0
 	h.e.Agents = fakeAgents{check.Result{OK: true, Message: "Checked on the agent", Latency: 3 * time.Millisecond,
-		Usage: &check.Usage{CPU: 12.5, Memory: 40}}}
+		Usage: &check.Usage{CPU: 12.5, Memory: 40}, Details: []check.Fact{{Name: "Players", Value: "5 of 24"}}, Value: &players}}
 	h.start()
 	a = h.add(m)
 	if b := h.next(); b.MonitorID != a.ID || b.Status != "up" || b.Message != "Checked on the agent" || b.Latency != 3*time.Millisecond ||
 		b.Usage == nil || *b.Usage != (store.Usage{CPU: 12.5, Memory: 40}) {
 		t.Errorf("on the agent %+v", b)
 	}
-	for _, st := range h.e.Statuses() {
-		if st.MonitorID == a.ID && (st.Usage == nil || st.Usage.CPU != 12.5) {
-			t.Errorf("status %+v", st)
-		}
-	}
+	h.checkSaved(a.ID)
 	bad := monitor("Cache", "port", portConfig)
 	bad.AgentID = 7
 	bad, err := h.st.CreateMonitor(context.Background(), bad, t0)
@@ -621,5 +618,28 @@ func TestAgentMonitors(t *testing.T) {
 	}
 	if err := h.e.Upsert(context.Background(), bad); err == nil || err.Error() != "cannot open the secrets" {
 		t.Errorf("upsert %v", err)
+	}
+}
+
+// checkSaved checks that an agent's details and value were kept and saved.
+func (h *harness) checkSaved(id int64) {
+	t := h.t
+	t.Helper()
+	for _, st := range h.e.Statuses() {
+		if st.MonitorID == id && (st.Usage == nil || st.Usage.CPU != 12.5 || len(st.Details) != 1 || st.Details[0].Value != "5 of 24") {
+			t.Errorf("status %+v", st)
+		}
+	}
+	done := make(chan struct{})
+	h.e.flushes <- done
+	<-done
+	if beats, _ := h.st.Heartbeats(context.Background(), id, t0.Add(-time.Hour), 10); len(beats) == 0 || beats[0].Value == nil || *beats[0].Value != 5 {
+		t.Errorf("saved value %+v", beats)
+	}
+	if saved, _ := h.st.States(context.Background()); string(saved[id].Details) != `[{"name":"Players","value":"5 of 24"}]` {
+		t.Errorf("saved details %s", saved[id].Details)
+	}
+	if readDetails(json.RawMessage(`[`)) != nil || readDetails(nil) != nil || len(readDetails(json.RawMessage(`[{"name":"a","value":"b"}]`))) != 1 {
+		t.Error("readDetails")
 	}
 }

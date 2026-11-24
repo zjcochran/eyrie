@@ -26,6 +26,17 @@ type gameInfo struct {
 	players, max        int
 }
 
+// details are what the server said, for the monitor's page.
+func (g gameInfo) details() []Fact {
+	var f []Fact
+	for _, p := range []Fact{{"Server", g.name}, {"Game", g.game}, {"Map", g.mapName}} {
+		if p.Value = strings.TrimSpace(p.Value); p.Value != "" {
+			f = append(f, Fact{p.Name, clipText(p.Value, 200)})
+		}
+	}
+	return append(f, Fact{"Players", fmt.Sprintf("%d of %d", g.players, g.max)})
+}
+
 func (g gameInfo) String() string {
 	parts := []string{}
 	for _, p := range []string{g.name, g.game, g.mapName} {
@@ -137,7 +148,8 @@ func (c *gameChecker) Check(ctx context.Context) Result {
 	if err != nil {
 		return failErr(connError(ctx, err))
 	}
-	return Result{OK: true, Message: info.String(), Latency: time.Since(start)}
+	players := float64(info.players)
+	return Result{OK: true, Message: info.String(), Latency: time.Since(start), Details: info.details(), Value: &players}
 }
 
 // a2sInfo asks with Valve's A2S_INFO query, answering a challenge if the

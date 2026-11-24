@@ -122,7 +122,11 @@ func (c *redisChecker) Check(ctx context.Context) Result {
 			return failErr(connError(ctx, err))
 		}
 	}
-	return Result{OK: reply == "PONG", Message: reply, Latency: time.Since(start), CertExpires: certExpires}
+	f := []Fact{{"Reply", clipText(reply, 300)}, {"Database", strconv.Itoa(t.db)}, {"TLS", map[bool]string{true: "Yes", false: "No"}[t.tls]}}
+	if t.user != "" {
+		f = append(f, Fact{"Signed in as", t.user})
+	}
+	return Result{OK: reply == "PONG", Message: reply, Latency: time.Since(start), CertExpires: certExpires, Details: f}
 }
 
 // resp speaks RESP2, Redis's protocol.

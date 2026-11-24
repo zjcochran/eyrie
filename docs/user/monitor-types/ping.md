@@ -52,6 +52,16 @@ preferred.
 
 The message is `3 of 3 replies from 192.0.2.1, 1.2 ms on average`.
 
+## Its page
+
+![A Ping monitor's page](../../images/monitor-types/ping-page-dark.png)
+
+- **At the top**: the share of pings lost, the response time, the uptime and the last check.
+- **Pings**: everything the last check found: the address pinged, the replies, the share lost and, with more than one ping, the fastest and slowest.
+- **Chart**: the average response time.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

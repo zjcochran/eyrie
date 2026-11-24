@@ -111,6 +111,13 @@ func (c *ntpChecker) Check(ctx context.Context) Result {
 		offset := (t2.Sub(t1) + t3.Sub(t4)) / 2
 		ms := float64(offset) / 1e6
 		r.Message = fmt.Sprintf("Stratum %d, offset %+.3f ms", stratum, ms)
+		r.Value = &ms
+		r.Details = []Fact{{"Stratum", strconv.Itoa(int(stratum))}, {"Offset", fmt.Sprintf("%+.3f ms", ms)},
+			{"Round trip", fmt.Sprintf("%.3f ms", float64(r.Latency)/1e6)}, {"Reference", ntpReference(stratum, resp[12:16])},
+			{"Root delay", fmt.Sprintf("%.3f ms", ntpShort(resp[4:8]))}, {"Root dispersion", fmt.Sprintf("%.3f ms", ntpShort(resp[8:12]))}}
+		if c.n.MaxOffset > 0 {
+			r.Details = append(r.Details, Fact{"Largest offset", strconv.FormatFloat(c.n.MaxOffset, 'f', -1, 64) + " ms"})
+		}
 		r.OK = c.n.MaxOffset == 0 || math.Abs(ms) <= c.n.MaxOffset
 		if !r.OK {
 			r.Message += fmt.Sprintf(", more than %s ms", strconv.FormatFloat(c.n.MaxOffset, 'f', -1, 64))
@@ -124,4 +131,18 @@ func trimZero(b []byte) string {
 		b = b[:len(b)-1]
 	}
 	return string(b)
+}
+
+// ntpReference is what a server's clock follows: a source's name, such as
+// GPS, at stratum 1; the upstream server's IPv4 address below that.
+func ntpReference(stratum byte, id []byte) string {
+	if stratum == 1 {
+		return trimZero(id)
+	}
+	return fmt.Sprintf("%d.%d.%d.%d", id[0], id[1], id[2], id[3])
+}
+
+// ntpShort reads NTP's 16.16 fixed-point seconds, in milliseconds.
+func ntpShort(b []byte) float64 {
+	return float64(binary.BigEndian.Uint32(b)) / 65536 * 1000
 }

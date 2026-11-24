@@ -46,6 +46,16 @@ Eyrie asks `GET /api/health/checks/alarms`.
 
 The message is `No alarms on http://rabbit.example.com:15672`.
 
+## Its page
+
+![A RabbitMQ monitor's page](../../images/monitor-types/rabbitmq-page-dark.png)
+
+- **At the top**: the node's alarms, the response time, the uptime and the last check.
+- **Node**: everything the last check found: the node that answered and its alarms.
+- **Chart**: response time.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

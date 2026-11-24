@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -110,11 +111,17 @@ func (c *dockerChecker) Check(ctx context.Context) Result {
 		return r
 	}
 	var info struct {
-		State struct {
-			Status   string
-			Running  bool
-			ExitCode int
-			Health   *struct{ Status string }
+		Name         string
+		RestartCount int
+		Config       struct{ Image string }
+		State        struct {
+			Status     string
+			Running    bool
+			OOMKilled  bool
+			ExitCode   int
+			StartedAt  time.Time
+			FinishedAt time.Time
+			Health     *dockerHealth
 		}
 	}
 	if err := json.Unmarshal(body, &info); err != nil {
@@ -122,6 +129,9 @@ func (c *dockerChecker) Check(ctx context.Context) Result {
 		return r
 	}
 	st := info.State
+	r.Details = dockerDetails(info.Name, info.Config.Image, info.RestartCount, st.Status, st.Running, st.OOMKilled, st.ExitCode,
+		st.StartedAt, st.FinishedAt)
+	r.Details = append(r.Details, healthDetails(st.Health)...)
 	switch {
 	case st.Status == "exited" || st.Status == "dead":
 		r.Message = fmt.Sprintf("%s (exit code %d)", sentence(st.Status), st.ExitCode)
@@ -137,4 +147,48 @@ func (c *dockerChecker) Check(ctx context.Context) Result {
 		r.Message = "Running, " + st.Health.Status
 	}
 	return r
+}
+
+// dockerDetails are what Docker says about a container. Times are RFC
+// 3339, for the page to show in the reader's time zone.
+func dockerDetails(name, image string, restarts int, status string, running, oom bool, exit int, started, finished time.Time) []Fact {
+	f := []Fact{{"State", sentence(status)}}
+	if name != "" {
+		f = append(f, Fact{"Container", strings.TrimPrefix(name, "/")})
+	}
+	if image != "" {
+		f = append(f, Fact{"Image", image})
+	}
+	if running && started.Year() > 1 {
+		f = append(f, Fact{"Started", started.UTC().Format(time.RFC3339)})
+	}
+	if !running && finished.Year() > 1 {
+		f = append(f, Fact{"Stopped", finished.UTC().Format(time.RFC3339)}, Fact{"Exit code", strconv.Itoa(exit)})
+	}
+	if oom {
+		f = append(f, Fact{"Out of memory", "Killed for running out of memory"})
+	}
+	return append(f, Fact{"Restarts", strconv.Itoa(restarts)})
+}
+
+// dockerHealth is a container's health check, as Docker reports it.
+type dockerHealth struct {
+	Status        string
+	FailingStreak int
+	Log           []struct{ Output string }
+}
+
+// healthDetails are what a container's health check says; nil without one.
+func healthDetails(h *dockerHealth) []Fact {
+	if h == nil || h.Status == "" || h.Status == "none" {
+		return nil
+	}
+	f := []Fact{{"Health", sentence(h.Status)}}
+	if h.FailingStreak > 0 {
+		f = append(f, Fact{"Failed health checks in a row", strconv.Itoa(h.FailingStreak)})
+	}
+	if n := len(h.Log); n > 0 && strings.TrimSpace(h.Log[n-1].Output) != "" {
+		f = append(f, Fact{"Last health check said", clipText(strings.TrimSpace(h.Log[n-1].Output), 300)})
+	}
+	return f
 }

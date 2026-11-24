@@ -17,10 +17,13 @@ type Appearance struct {
 	Accessible bool
 	Vision     string // one of Visions: the status colours for a colour vision
 	TextSize   int    // one of TextSizes, in percent
+	// Sparklines shows a line of each monitor's response times in the
+	// list of monitors (the Console layout).
+	Sparklines bool
 }
 
 // DefaultAppearance is a new user's.
-var DefaultAppearance = Appearance{Layout: "console", Scheme: "ash", Mode: "system", Vision: "typical", TextSize: 100}
+var DefaultAppearance = Appearance{Layout: "console", Scheme: "ash", Mode: "system", Vision: "typical", TextSize: 100, Sparklines: true}
 
 // Layouts are the web app's layouts, each with its colour schemes, the
 // layout's default first.
@@ -64,8 +67,8 @@ func (s *Store) SetAppearance(ctx context.Context, userID int64, a Appearance) e
 	if err := a.Check(); err != nil {
 		return err
 	}
-	res, err := s.db.ExecContext(ctx, s.q(`UPDATE users SET layout = ?, scheme = ?, mode = ?, accessible = ?, vision = ?, text_size = ? WHERE id = ?`),
-		a.Layout, a.Scheme, a.Mode, a.Accessible, a.Vision, a.TextSize, userID)
+	res, err := s.db.ExecContext(ctx, s.q(`UPDATE users SET layout = ?, scheme = ?, mode = ?, accessible = ?, vision = ?, text_size = ?, sparklines = ?
+		WHERE id = ?`), a.Layout, a.Scheme, a.Mode, a.Accessible, a.Vision, a.TextSize, a.Sparklines, userID)
 	if err != nil {
 		return err
 	}

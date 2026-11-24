@@ -67,6 +67,16 @@ CPU and memory use, with a chart of each for 24 hours, 7 or 30 days, and
 
 The message is `CPU 12.3%, memory 43.1% of 15.6 GiB, load 0.52`.
 
+## Its page
+
+![A System resources monitor's page](../../images/monitor-types/system-resources-page-dark.png)
+
+- **At the top**: the CPU and memory use now, the load over the last minute, and the last check.
+- **Host**: everything the last check found: the CPU use, the memory used of the total, the load over the last minute, and the limits.
+- **Chart**: CPU and memory charts.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

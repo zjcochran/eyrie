@@ -5,6 +5,7 @@ package check
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
@@ -76,8 +77,15 @@ func TestService(t *testing.T) {
 		"systemctl is-active -- nginx": {"active\n", nil},
 		"systemctl is-active -- cron":  {"inactive\n", errExit},
 		"systemctl is-active -- gone":  {"", errExit},
+		"systemctl show --no-pager --property=Description,ActiveState,SubState,ActiveEnterTimestamp,MainPID,NRestarts,MemoryCurrent -- nginx": {
+			"Description=A web server\nActiveState=active\nSubState=running\nActiveEnterTimestamp=Mon 2027-01-11 08:30:00 UTC\n" +
+				"MainPID=812\nNRestarts=2\nMemoryCurrent=12582912\n", nil},
+		"systemctl show --no-pager --property=Description,ActiveState,SubState,ActiveEnterTimestamp,MainPID,NRestarts,MemoryCurrent -- cron": {
+			"MainPID=0\nMemoryCurrent=[not set]\n", nil},
 	})
-	if r := run(t, env, "system-service", `{"service":"nginx"}`); !r.OK || r.Message != "Active" {
+	if r := run(t, env, "system-service", `{"service":"nginx"}`); !r.OK || r.Message != "Active" ||
+		fmt.Sprint(r.Details) != "[{State Active} {Sub-state running} {Description A web server} {Running since 2027-01-11T08:30:00Z} "+
+			"{Main process 812} {Restarts 2} {Memory 12.0 MiB}]" {
 		t.Errorf("active: %+v", r)
 	}
 	if r := run(t, env, "system-service", `{"service":"cron"}`); r.OK || r.Message != "Inactive" {

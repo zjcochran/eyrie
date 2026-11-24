@@ -41,6 +41,11 @@ type beatView struct {
 	Important bool      `json:"important"`
 	// Usage is a host's use, from system-resources checks; absent: none.
 	Usage *usageView `json:"usage,omitempty"`
+	// Value is the number the check measured; absent: none.
+	Value *float64 `json:"value,omitempty"`
+	// Details are what the check found, in the live event only; absent:
+	// none.
+	Details []check.Fact `json:"details,omitempty"`
 }
 
 // usageView is how busy a host is, in percent, with two decimals.
@@ -66,7 +71,7 @@ func ms(d time.Duration) *float64 {
 
 func viewBeat(b store.Beat) beatView {
 	return beatView{MonitorID: b.MonitorID, At: b.At, Status: b.Status, LatencyMS: ms(b.Latency), Message: b.Message,
-		Important: b.Important, Usage: viewUsage(b.Usage)}
+		Important: b.Important, Usage: viewUsage(b.Usage), Value: b.Value}
 }
 
 type statusView struct {
@@ -77,7 +82,9 @@ type statusView struct {
 	LatencyMS   *float64   `json:"latency_ms"`
 	CertExpires *time.Time `json:"cert_expires"`
 	Usage       *usageView `json:"usage,omitempty"` // of the last check
-	Checking    bool       `json:"checking"`
+	// Details are what the last check found, by name; [] for none.
+	Details  []check.Fact `json:"details"`
+	Checking bool         `json:"checking"`
 	// Maintenance is the title of the maintenance window it is in; "" when
 	// it is not in one.
 	Maintenance string `json:"maintenance"`
@@ -206,8 +213,8 @@ func (s *Server) viewMonitor(r *http.Request, m store.Monitor, es engine.Status,
 		status = string(state.Unknown)
 	}
 	v.Status = statusView{Status: status, Since: timeOrNil(es.Since), Message: es.Message, LastCheck: timeOrNil(es.LastCheck),
-		LatencyMS: ms(es.Latency), CertExpires: timeOrNil(es.CertExpires), Usage: viewUsage(es.Usage), Checking: es.Running,
-		Maintenance: es.Maintenance}
+		LatencyMS: ms(es.Latency), CertExpires: timeOrNil(es.CertExpires), Usage: viewUsage(es.Usage), Details: orEmpty(es.Details),
+		Checking: es.Running, Maintenance: es.Maintenance}
 	if es.LastCheck.IsZero() {
 		v.Status.LatencyMS = nil
 	}
@@ -601,7 +608,11 @@ func (s *Server) heartbeats(w http.ResponseWriter, r *http.Request) {
 	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 {
 		limit = min(n, limit)
 	}
-	beats, err := s.Store.Heartbeats(r.Context(), m.ID, since, limit)
+	get := s.Store.Heartbeats
+	if r.URL.Query().Get("changes") == "true" {
+		get = s.Store.MonitorChanges
+	}
+	beats, err := get(r.Context(), m.ID, since, limit)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -640,10 +651,11 @@ func (s *Server) hours(w http.ResponseWriter, r *http.Request) {
 		Down         int64      `json:"down"`
 		AvgLatencyMS *float64   `json:"avg_latency_ms"`
 		AvgUsage     *usageView `json:"avg_usage,omitempty"`
+		AvgValue     *float64   `json:"avg_value,omitempty"`
 	}
 	out := []hourView{}
 	for _, b := range buckets {
-		out = append(out, hourView{b.Start, b.Up, b.Down, ms(b.AvgLatency()), viewUsage(b.AvgUsage())})
+		out = append(out, hourView{b.Start, b.Up, b.Down, ms(b.AvgLatency()), viewUsage(b.AvgUsage()), b.AvgValue()})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -756,6 +768,8 @@ func (s *Server) monitorTypes(w http.ResponseWriter, _ *http.Request) {
 	for _, n := range check.Names() {
 		out = append(out, typeView{n, check.Types[n].Label, check.Types[n].Scheduled, check.AgentOnly(n)})
 	}
+	// In the order people read them: by label, whatever the case.
+	slices.SortFunc(out, func(a, b typeView) int { return strings.Compare(strings.ToLower(a.Label), strings.ToLower(b.Label)) })
 	writeJSON(w, http.StatusOK, out)
 }
 
@@ -826,4 +840,12 @@ func (s *Server) saveRetention(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, "retention saved", "heartbeat_days", v.HeartbeatDays, "by", sessionFrom(r).User.Username)
 	writeJSON(w, http.StatusOK, v)
+}
+
+// orEmpty is details, or [] for none.
+func orEmpty(ds []check.Fact) []check.Fact {
+	if ds == nil {
+		return []check.Fact{}
+	}
+	return ds
 }

@@ -53,6 +53,12 @@
       </label>
     {/each}
   </div>
+  {#if look.layout === 'console'}
+    <label class="check lines"
+      ><input type="checkbox" checked={look.sparklines} onchange={(e) => save({ ...look, sparklines: e.currentTarget.checked })} />
+      Show a line of each monitor's response times in the list</label
+    >
+  {/if}
 </section>
 
 <section class="card">
@@ -79,6 +85,12 @@
 </section>
 
 <style>
+  .lines {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
   .layouts {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));

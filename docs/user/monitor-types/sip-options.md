@@ -43,6 +43,16 @@ Eyrie waits for the final answer: provisional `1xx` answers are skipped.
 
 The message is the status, such as `200 OK`.
 
+## Its page
+
+![A SIP OPTIONS monitor's page](../../images/monitor-types/sip-options-page-dark.png)
+
+- **At the top**: the transport, the response time, the uptime and the last check.
+- **Answer**: everything the last check found: the server's status, the transport, and the address that answered.
+- **Chart**: response time; the certificate's days left, for `tls`.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | Message | What to do |

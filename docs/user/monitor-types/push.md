@@ -68,6 +68,16 @@ URL** in the monitor's settings replaces it.
 Run the job (or the `curl` line) once by hand: the monitor goes up, with
 your message.
 
+## Its page
+
+![A Push monitor's page](../../images/monitor-types/push-page-dark.png)
+
+- **At the top**: when the next push is due (or how late it is), the uptime and the last push, with its message.
+- **Push URL**: to copy.
+- **Chart**: the response time each push reports in `ping`, when it does.
+
+With every page's outages of the last 30 days, its uptime by day and its status changes ([A monitor's page](../monitors.md#a-monitors-page)).
+
 ## When it is down
 
 | What you see | What to do |

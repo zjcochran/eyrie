@@ -90,10 +90,18 @@ func (c *resourcesChecker) Check(ctx context.Context) Result {
 	}
 	u.Memory = 100 * float64(used) / float64(total)
 	msg := fmt.Sprintf("CPU %.1f%%, memory %.1f%% of %s", u.CPU, u.Memory, gib(total))
+	f := []Fact{{"CPU", fmt.Sprintf("%.1f%%", u.CPU)}, {"Memory", fmt.Sprintf("%s of %s", gib(used), gib(total))}}
 	if load, err := c.load(); err == nil {
 		msg += ", load " + load
+		f = append(f, Fact{"Load, 1 minute", load})
 	}
-	res := Result{OK: true, Message: msg, Latency: -1, Usage: &u}
+	if c.r.CPUMax > 0 {
+		f = append(f, Fact{"Highest CPU use", strconv.FormatFloat(c.r.CPUMax, 'f', -1, 64) + "%"})
+	}
+	if c.r.MemoryMax > 0 {
+		f = append(f, Fact{"Highest memory use", strconv.FormatFloat(c.r.MemoryMax, 'f', -1, 64) + "%"})
+	}
+	res := Result{OK: true, Message: msg, Latency: -1, Usage: &u, Details: f}
 	var over []string
 	if c.r.CPUMax > 0 && u.CPU > c.r.CPUMax {
 		over = append(over, fmt.Sprintf("CPU is above %s%%", strconv.FormatFloat(c.r.CPUMax, 'f', -1, 64)))
