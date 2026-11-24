@@ -12,7 +12,7 @@ in, and keeps its data in SQLite or, for large installations, PostgreSQL.
   RADIUS, SNMP, SIP, SFTP, gRPC, Docker containers, game servers, Tailscale
   nodes, system services, a host's CPU and memory use, PM2 processes,
   probes around the world
-  (Globalping), databases (PostgreSQL, MySQL and MariaDB, SQL Server,
+  (Globalping), WAN failovers (WAN Drawbridge), databases (PostgreSQL, MySQL and MariaDB, SQL Server,
   Oracle, MongoDB, Redis) and message brokers (MQTT, RabbitMQ, Kafka);
   pushes from jobs and manual monitors. A live dashboard with the list of
   monitors beside the one you choose, arranged by dragging into nested

@@ -216,6 +216,11 @@ export const fields: Record<string, Field[]> = {
     { ...statusCodes, when: { key: 'kind', values: ['http'] } },
     { key: 'token', label: 'Globalping API token', kind: 'secret', help: 'Optional: for more measurements an hour' },
   ],
+  drawbridge: [
+    { key: 'url', label: 'Drawbridge URL', kind: 'url', placeholder: 'http://drawbridge.example.com:8080' },
+    { key: 'token', label: 'API token', kind: 'secret', placeholder: 'dbt_…', help: 'From Drawbridge: Settings → API tokens' },
+    ignoreTLS,
+  ],
   sftp: [
     { key: 'host', label: 'Host', kind: 'text', placeholder: 'files.example.com' },
     port('22'),

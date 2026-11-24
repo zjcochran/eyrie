@@ -11,7 +11,8 @@ are updated in the same change as the behaviour they describe.
 | [Installation](user/installation.md) | The image, Docker Compose with SQLite or PostgreSQL, the data folder, a reverse proxy |
 | [Reverse proxy examples](user/reverse-proxy.md) | nginx, Caddy, Traefik, Apache httpd and HAProxy in front of Eyrie, what a proxy must allow, finding the proxy's address |
 | [Upgrades and compatibility](user/upgrading.md) | Upgrading, image tags, downgrades, what stays compatible between versions (configuration, API, backups, …) and what can change |
-| [Monitors](user/monitors.md) | The dashboard, a monitor's page, adding monitors, every type and setting, tags, push URLs, uptime and history |
+| [Monitors](user/monitors.md) | The dashboard, a monitor's page, adding monitors, the settings every type has, tags, uptime and history |
+| [Monitor types](user/monitor-types/README.md) | A setup guide for each of the 39 types: what to prepare, the settings, what a working check says, what to do when it is down |
 | [Discovery](user/discovery.md) | Finding a Docker engine's containers, an agent's services, workloads and guests, a network device's interfaces or a NAS's storage over SNMP, and adding monitors of them |
 | [NAS monitoring](user/nas.md) | Space, volume and disk health, temperatures and system health over SNMP on Synology, QNAP, Asustor, TrueNAS and net-snmp; SnapRAID and SMART on OpenMediaVault or Debian |
 | [Agents](user/agents.md) | Running Eyrie's agent on other hosts, and on Docker, Docker Swarm, Kubernetes and Proxmox VE, so monitors can be checked from there and follow their containers, services, workloads and guests; settings, security, problems |

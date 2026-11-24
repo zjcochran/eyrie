@@ -91,7 +91,7 @@ describe('workload settings', () => {
 describe('fields', () => {
   it('has fields for every type that has settings', () => {
     for (const t of ['websocket-upgrade', 'smtp', 'ntp', 'radius', 'snmp', 'snmp-storage', 'docker', 'sip-options', 'tailscale-ping',
-      'system-service', 'system-resources', 'pm2', 'docker-swarm', 'kubernetes', 'proxmox', 'globalping', 'sftp', 'steam', 'gamedig', 'grpc-keyword', 'real-browser', 'postgres', 'mysql',
+      'system-service', 'system-resources', 'pm2', 'docker-swarm', 'kubernetes', 'proxmox', 'globalping', 'drawbridge', 'sftp', 'steam', 'gamedig', 'grpc-keyword', 'real-browser', 'postgres', 'mysql',
       'sqlserver', 'oracledb', 'mongodb', 'redis', 'mqtt', 'rabbitmq', 'kafka-producer']) {
       assert.equal((fields[t] ?? []).length > 0, true, t);
     }

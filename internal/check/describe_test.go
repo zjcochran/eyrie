@@ -74,6 +74,7 @@ func TestSecretsNeverDescribed(t *testing.T) {
 		"radius":         `{"host": "r.example.com", "secret": "SECRET1", "username": "alice", "password": "SECRET2"}`,
 		"snmp":           `{"host": "r.example.com", "oid": "1.3.6", "community": "SECRET1"}`,
 		"globalping":     `{"target": "example.com", "token": "SECRET1"}`,
+		"drawbridge":     `{"url": "http://drawbridge.example.com:8080", "token": "SECRET1"}`,
 		"sftp":           `{"host": "f.example.com", "username": "alice", "password": "SECRET1", "private_key": "SECRET2", "passphrase": "SECRET3"}`,
 		"real-browser":   `{"url": "https://example.com", "browser_url": "ws://c.example.com/?token=SECRET1"}`,
 		"postgres":       `{"connection_string": "postgres://alice:` + "SECRET1" + `@db.example.com/shop"}`,

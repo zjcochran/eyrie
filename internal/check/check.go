@@ -173,6 +173,7 @@ func init() {
 	register(Type{"system-resources", "System resources", true, func() settings { return &Resources{} }})
 	register(Type{"pm2", "PM2 process", true, func() settings { return &PM2{} }})
 	register(Type{"globalping", "Globalping", true, func() settings { return &Globalping{} }})
+	register(Type{"drawbridge", "WAN Drawbridge", true, func() settings { return &Drawbridge{} }})
 	register(Type{"sftp", "SFTP", true, func() settings { return &SFTP{} }})
 	register(Type{"steam", "Steam game server", true, func() settings { return &steam{} }})
 	register(Type{"gamedig", "Game server", true, func() settings { return &Game{} }})

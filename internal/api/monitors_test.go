@@ -206,7 +206,7 @@ func TestMonitorAccess(t *testing.T) {
 		Agents      bool
 		AgentOnly   bool `json:"agent_only"`
 	}
-	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 38 || types[0].Name != "dns" || !types[0].Agents || types[0].AgentOnly {
+	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 39 || types[0].Name != "dns" || !types[0].Agents || types[0].AgentOnly {
 		t.Errorf("types %+v", types)
 	}
 }

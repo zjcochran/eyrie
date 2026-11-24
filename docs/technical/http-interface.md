@@ -357,7 +357,7 @@ Eyrie), with `agent_name` when that agent exists. `push_url` is only on push mon
 `EYRIE_BASE_URL` or the request's address. Uptime shares are from 0 to 1,
 `null` without checks in the period. `beats` is only there with `?beats=`.
 `status.usage` is the host's CPU and memory use, in percent, at the last
-check of a [system resources](../user/monitors.md#system-resources)
+check of a [system resources](../user/monitor-types/system-resources.md)
 monitor; it is left out for other types.
 
 #### Monitor settings
