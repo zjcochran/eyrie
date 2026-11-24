@@ -1,7 +1,7 @@
 # NAS monitoring
 
 Eyrie watches a whole NAS over SNMP with one [SNMP
-storage](monitors.md#snmp-storage-nas) monitor: how full each volume is,
+storage](monitor-types/snmp-storage.md) monitor: how full each volume is,
 the health of its volumes or pools, its disks' health and temperature,
 the system's own health, and anything else a command on the NAS can tell
 (SnapRAID, SMART). Its page shows the volumes, the disks and their

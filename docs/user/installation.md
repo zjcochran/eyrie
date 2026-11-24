@@ -56,7 +56,7 @@ If your Eyrie already runs from a file without `name`, keep the file as it
 is (`docker volume ls` shows the volume it uses): adding `name` would start
 Eyrie on a new, empty volume.
 
-The Docker socket lets [Docker container](monitors.md#docker-container)
+The Docker socket lets [Docker container](monitor-types/docker.md)
 monitors check this host's containers; leave it out if you do not need
 them. Whoever can use the socket controls the host. For containers on
 other hosts, use an [agent](agents.md) there.

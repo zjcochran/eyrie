@@ -76,8 +76,10 @@ cleared.
 A workload is `{"key", "name", "kind", "group", "up", "status"}`: `kind`
 is `container`, `service`, `deployment`, `statefulset`, `daemonset`,
 `lxc` or `vm`; `group` the Compose project, stack, namespace or Proxmox
-node; `up` and `status` what the agent decided (see
-[the workload types](../user/monitors.md#docker-swarm-service-kubernetes-workload-proxmox-ve-guest)). Names, groups and
+node; `up` and `status` what the agent decided (see [Docker Swarm
+service](../user/monitor-types/docker-swarm.md), [Kubernetes
+workload](../user/monitor-types/kubernetes.md) and [Proxmox VE
+guest](../user/monitor-types/proxmox.md)). Names, groups and
 statuses are cut to 300 bytes, `error` to 1,000.
 
 ## Enrollment

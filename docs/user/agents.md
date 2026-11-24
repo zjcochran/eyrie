@@ -69,7 +69,7 @@ monitor on an agent says `on agent edge`.
 - A **System resources** monitor on an agent reads the CPU and memory use
   of the agent's host. In an LXC container, that is the container's own,
   not the Proxmox VE node's (see
-  [System resources](monitors.md#system-resources)).
+  [System resources](monitor-types/system-resources.md)).
 
 The settings of a monitor on an agent, its passwords and tokens included,
 are sent to the agent with each check. Use `https://` for
@@ -117,6 +117,52 @@ An agent in an LXC container that runs Docker (in Proxmox VE, with the
 container's **nesting** feature on) works as on any Docker host, and
 reports that container's Docker containers. To follow the LXC containers
 themselves, use [Proxmox VE](#proxmox-ve).
+
+### On a host, without Docker
+
+[System service](monitor-types/system-service.md), [PM2
+process](monitor-types/pm2.md) and [Tailscale
+ping](monitor-types/tailscale-ping.md) monitors run a program of the host
+they are checked on, which a container cannot see. For those, run the
+agent directly on the host. The image's `/eyrie` is a static Linux binary;
+copy it out, on a host with Docker of the same architecture:
+
+```sh
+docker create --name eyrie-copy ghcr.io/zjcochran/eyrie:latest
+docker cp eyrie-copy:/eyrie ./eyrie
+docker rm eyrie-copy
+```
+
+Put it on the host as `/usr/local/bin/eyrie`, and run it with systemd, in
+`/etc/systemd/system/eyrie-agent.service`:
+
+```ini
+[Unit]
+Description=Eyrie agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Environment=EYRIE_AGENT_URL=https://eyrie.example.com
+Environment=EYRIE_AGENT_TOKEN=eya_...
+Environment=EYRIE_AGENT_DIR=/var/lib/eyrie-agent
+StateDirectory=eyrie-agent
+ExecStart=/usr/local/bin/eyrie agent
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl enable --now eyrie-agent
+```
+
+It runs as root. For PM2 monitors, add `User=` with the user that runs
+PM2, so that it sees that user's processes. Without Docker on the host,
+the agent's status in Eyrie says it cannot reach Docker; its checks run
+all the same.
 
 ## Docker Swarm
 

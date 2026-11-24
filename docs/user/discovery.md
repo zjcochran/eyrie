@@ -19,12 +19,12 @@ when you ask, for one type at a time, and adds nothing by itself.
 
 | Find | Eyrie server (local) | Agents | What is listed | The monitor |
 | --- | --- | --- | --- | --- |
-| Docker containers | Eyrie's own Docker engine, at `unix:///var/run/docker.sock`: mount the socket into Eyrie's container, as for [Docker container](monitors.md#docker-container) monitors | Docker and Docker Swarm agents | Every container, running or not, with its Compose project | [Docker container](monitors.md#docker-container), by name |
-| Docker Swarm services | No | Docker Swarm agents | The services, with their stack | [Docker Swarm service](monitors.md#docker-swarm-service-kubernetes-workload-proxmox-ve-guest) |
-| Kubernetes workloads | No | Kubernetes agents | Deployments, StatefulSets and DaemonSets, with their namespace | [Kubernetes workload](monitors.md#docker-swarm-service-kubernetes-workload-proxmox-ve-guest) |
-| Proxmox VE guests | No | Proxmox VE agents | LXC containers and VMs, with their node | [Proxmox VE guest](monitors.md#docker-swarm-service-kubernetes-workload-proxmox-ve-guest), by VM ID |
-| Network devices (SNMP) | Asked from Eyrie's network | Any agent: asked from the agent's network | The device, and each of its interfaces | [SNMP](monitors.md#snmp) |
-| NAS storage (SNMP) | Asked from Eyrie's network | Any agent: asked from the agent's network | The NAS, with how it is now | [SNMP storage](monitors.md#snmp-storage-nas) |
+| Docker containers | Eyrie's own Docker engine, at `unix:///var/run/docker.sock`: mount the socket into Eyrie's container, as for [Docker container](monitor-types/docker.md) monitors | Docker and Docker Swarm agents | Every container, running or not, with its Compose project | [Docker container](monitor-types/docker.md), by name |
+| Docker Swarm services | No | Docker Swarm agents | The services, with their stack | [Docker Swarm service](monitor-types/docker-swarm.md) |
+| Kubernetes workloads | No | Kubernetes agents | Deployments, StatefulSets and DaemonSets, with their namespace | [Kubernetes workload](monitor-types/kubernetes.md) |
+| Proxmox VE guests | No | Proxmox VE agents | LXC containers and VMs, with their node | [Proxmox VE guest](monitor-types/proxmox.md), by VM ID |
+| Network devices (SNMP) | Asked from Eyrie's network | Any agent: asked from the agent's network | The device, and each of its interfaces | [SNMP](monitor-types/snmp.md) |
+| NAS storage (SNMP) | Asked from Eyrie's network | Any agent: asked from the agent's network | The NAS, with how it is now | [SNMP storage](monitor-types/snmp-storage.md) |
 
 An agent's list is its last report, sent every 30 seconds. An agent that is
 not reporting, or could not list its platform, says so instead:
@@ -42,7 +42,7 @@ of the same SNMP host and OID, or of the same NAS. The list says how many it lef
 
 ## Network devices (SNMP)
 
-Enter the device as for an [SNMP monitor](monitors.md#snmp): **host**,
+Enter the device as for an [SNMP monitor](monitor-types/snmp.md): **host**,
 port (161), **SNMP version**, and the **community** (versions 1 and 2c) or
 the version 3 user, authentication, privacy and context name. Eyrie, or
 the agent, then asks the device, within 60 seconds:
@@ -79,7 +79,7 @@ where it ran and how many were found).
 Enter the NAS as for a network device. Eyrie, or the agent, asks it,
 within 60 seconds, for its name and description (on Synology, its model
 and DSM version) and for everything an [SNMP
-storage](monitors.md#snmp-storage-nas) monitor reads. It offers one
+storage](monitor-types/snmp-storage.md) monitor reads. It offers one
 monitor of the whole NAS, named after it, with what a monitor with the
 default settings would say now: what is wrong, or a summary. An agent from
 before NAS discovery answers `The agent edge cannot discover: update it to
