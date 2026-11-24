@@ -756,6 +756,8 @@ func (s *Server) monitorTypes(w http.ResponseWriter, _ *http.Request) {
 	for _, n := range check.Names() {
 		out = append(out, typeView{n, check.Types[n].Label, check.Types[n].Scheduled, check.AgentOnly(n)})
 	}
+	// In the order people read them: by label, whatever the case.
+	slices.SortFunc(out, func(a, b typeView) int { return strings.Compare(strings.ToLower(a.Label), strings.ToLower(b.Label)) })
 	writeJSON(w, http.StatusOK, out)
 }
 

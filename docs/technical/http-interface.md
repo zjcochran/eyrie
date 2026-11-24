@@ -280,7 +280,7 @@ The keys themselves are never returned. `claude_code` is `null` unless
 
 | Method and path | Access | Body | Answer |
 | --- | --- | --- | --- |
-| `GET /api/v1/monitor-types` | read | | `200` `[{"name":"dns","label":"DNS","agents":true,"agent_only":false},…]`, by name: `agents` when it can be checked on an agent, `agent_only` when only there |
+| `GET /api/v1/monitor-types` | read | | `200` `[{"name":"dns","label":"DNS","agents":true,"agent_only":false},…]`, by label, whatever the case: `agents` when it can be checked on an agent, `agent_only` when only there |
 | `GET /api/v1/monitors?beats=<n>` | read | | `200` list of [monitors](#monitor), by `position`, then name. With `beats` (1 to 100), each has its last `n` heartbeats, oldest first. |
 | `GET /api/v1/monitors/{id}` | read | | `200` monitor |
 | `GET /api/v1/monitors/{id}/heartbeats?since=<time>&limit=<n>` | read | | `200` [heartbeats](#heartbeat), newest first, from `since` (RFC 3339; default 24 hours ago), at most `limit` (default and most 10000). `400` for a bad `since`. |

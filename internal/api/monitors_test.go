@@ -209,6 +209,11 @@ func TestMonitorAccess(t *testing.T) {
 	if bob.call("GET", "/api/v1/monitor-types", nil, &types); len(types) != 39 || types[0].Name != "dns" || !types[0].Agents || types[0].AgentOnly {
 		t.Errorf("types %+v", types)
 	}
+	for i := 1; i < len(types); i++ {
+		if strings.ToLower(types[i-1].Label) > strings.ToLower(types[i].Label) {
+			t.Errorf("types not by label: %s before %s", types[i-1].Label, types[i].Label)
+		}
+	}
 }
 
 func TestHistory(t *testing.T) {
