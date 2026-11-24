@@ -534,6 +534,31 @@ the world, through its API (Eyrie needs to reach `api.globalping.io`).
 - The message names the probe: `3 of 3 replies from example.com, pinging
   from <city>, <country> (AS<number> <network>)`.
 
+### WAN Drawbridge
+
+Follows [WAN Drawbridge](https://github.com/zjcochran/wan-drawbridge),
+which watches which ISP an internet connection is on and stops chosen
+containers while it is on a metered backup. The monitor is **down while
+Drawbridge has failed over**, so Eyrie alerts when the connection moves
+to the backup ISP and again when it is back.
+
+- **Drawbridge URL**: where Drawbridge's web interface is, such as
+  `http://drawbridge.example.com:8080`. Eyrie reads `/api/status` there
+  (a URL ending in `/api/status` is shortened to the rest).
+- **API token** (a secret setting): make one in Drawbridge under
+  **Settings → API tokens** (it starts with `dbt_`). It can only read
+  Drawbridge's status.
+- **Ignore TLS certificate errors**, for an `https://` URL.
+
+Down while Drawbridge's state is `failover` (on a backup ISP) or
+`failback_pending` (back on the primary, waiting before it fails back),
+as Drawbridge's own health check counts it; up in every other state,
+including a pending failover and a failover test. Also down when
+Drawbridge does not answer, refuses the token (401) or answers anything
+but its status. The message is Drawbridge's state, its ISP and since
+when, such as `Failover, on <backup ISP> since 2026-10-14 15:17 UTC
+(primary: <primary ISP>)`. The response time is the request's.
+
 ### SFTP
 
 Signs in to an SFTP server (**host**, port 22) as **user name** with a
